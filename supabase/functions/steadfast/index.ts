@@ -80,6 +80,21 @@ Deno.serve(async (req) => {
   const me = await caller(req);
   if (!me) return reply({ error: "লগইন করুন" }, 401);
 
+  // একটা পার্সেলের এখনকার স্ট্যাটাস Steadfast থেকে আনা (Parcel ID বা Invoice দিয়ে)
+  if (b.action === "track") {
+    const cid = b.consignment_id ? String(b.consignment_id) : "";
+    const tries = cid ? [`/status_by_cid/${encodeURIComponent(cid)}`] : [];
+    if (b.invoice) for (const v of [String(b.invoice), String(b.invoice).replace(/^#/, "")]) tries.push(`/status_by_invoice/${encodeURIComponent(v)}`);
+    for (const t of tries) {
+      const { body } = await sf(t);
+      if (body?.status === 200 && body?.delivery_status) {
+        if (b.order_id) await syncOne({ id: b.order_id, order_no: String(b.invoice ?? ""), source: "", status: b.status ?? "" }).catch(() => 0);
+        return reply({ ok: true, delivery_status: body.delivery_status });
+      }
+    }
+    return reply({ ok: false, error: "Steadfast-এ এই পার্সেল পাওয়া যায়নি" });
+  }
+
   if (b.action === "book") {
     const { data: o } = await admin.from("orders").select("id,order_no,customer_name,phone,address,total,status,order_items(product_name,size,quantity)").eq("id", b.order_id).single();
     if (!o) return reply({ error: "অর্ডার পাওয়া যায়নি" }, 404);

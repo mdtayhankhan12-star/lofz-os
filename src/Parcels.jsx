@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { sb, tk, SUPABASE_URL } from "./lib.js";
+import { sb, tk, SUPABASE_URL, fnCall } from "./lib.js";
 import { bnTime, trackUrl } from "./Orders.jsx";
 
 const FIN = ["delivered", "partial_delivered", "cancelled"];
@@ -40,10 +40,11 @@ export default function Parcels({ tab, phone, isOwner, go }) {
 }
 
 function ParcelList({ pendingOnly, isOwner, go }) {
+  const [view, setView] = useState(null);
   const [rows, setRows] = useState(null); const [q, setQ] = useState(""); const [st, setSt] = useState("");
   useEffect(() => {
     setRows(null);
-    let x = sb.from("parcels").select("id,consignment_id,tracking_code,delivery_status,cod_amount,booking_date,updated_at,raw,orders(order_no,customer_name,phone,total,source)")
+    let x = sb.from("parcels").select("id,consignment_id,tracking_code,delivery_status,cod_amount,booking_date,updated_at,raw,orders(id,order_no,customer_name,phone,address,total,delivery_charge,source,status,order_date,order_items(product_name,size,quantity,image_url))")
       .order("updated_at", { ascending: false }).limit(500);
     if (pendingOnly) x = x.not("delivery_status", "in", `(${FIN.join(",")})`);
     x.then(({ data }) => setRows(data ?? []));
@@ -63,7 +64,7 @@ function ParcelList({ pendingOnly, isOwner, go }) {
       {!rows ? <div className="card">লোড হচ্ছে...</div> : !list.length ? <div className="card muted">কোনো পার্সেল নেই।</div> : (
         <div className="olist">
           {list.map((r) => { const o = r.orders; return (
-            <div key={r.id} className="card orow">
+            <div key={r.id} className="card orow clicky" onClick={(e) => { if (!e.target.closest("a,button")) setView({ ...(o ?? { order_no: r.raw?.invoice }), items: o?.order_items, parcel: r }); }}>
               <div className="pbox">📦</div>
               <div className="grow">
                 <div className="row"><b>{o?.order_no ?? r.raw?.invoice ?? "—"}</b>{r.consignment_id && <span className="badge">Parcel #{r.consignment_id}</span>}
@@ -81,6 +82,7 @@ function ParcelList({ pendingOnly, isOwner, go }) {
         </div>
       )}
       {isOwner && <WebhookSetup />}
+      {view && <ParcelView o={view} onClose={() => setView(null)} />}
     </div>
   );
 }
@@ -102,17 +104,73 @@ function WebhookSetup() {
   );
 }
 
+const STEPS = ["Entered", "Approved", "With a rider", "Delivered"];
+const stepOf = (st) => ({ in_review: 1, pending: 2, hold: 2, unknown: 2 }[st] ?? (st?.startsWith("delivered") || st?.startsWith("partial") ? 4 : st?.includes("approval") ? 3 : 1));
+
+// Steadfast-এর মতো পুরো স্ক্রিনে একটা পার্সেলের সব তথ্য
+export function ParcelView({ o, onClose }) {
+  const [p, setP] = useState(o.parcel ?? null); const [ups, setUps] = useState(null); const [msg, setMsg] = useState("");
+  const inv = String(o.order_no ?? "").replace(/^#/, "");
+  const loadUps = async () => {
+    const ors = [p?.consignment_id && `consignment_id.eq.${p.consignment_id}`, inv && `invoice.eq.${inv}`].filter(Boolean).join(",");
+    if (!ors) return setUps([]);
+    const { data } = await sb.from("sf_notifications").select("id,status,message,created_at,raw").or(ors).order("created_at", { ascending: false });
+    setUps(data ?? []);
+  };
+  useEffect(() => { loadUps(); document.body.style.overflow = "hidden"; return () => { document.body.style.overflow = ""; }; }, []);
+  const refresh = async () => {
+    setMsg("Steadfast থেকে আনা হচ্ছে...");
+    try { const j = await fnCall("steadfast", { action: "track", consignment_id: p?.consignment_id, invoice: o.order_no, order_id: o.id, status: o.status });
+      if (j.ok) { setP((x) => ({ ...(x ?? {}), delivery_status: j.delivery_status })); setMsg("আপডেট হয়েছে ✓"); } else setMsg(j.error); loadUps(); }
+    catch (x) { setMsg(x.message); }
+  };
+  const st = p?.delivery_status, ret = st === "cancelled", step = stepOf(st);
+  const charge = ups?.find((u) => u.raw?.delivery_charge != null)?.raw?.delivery_charge;
+  const copy = (v, e) => { navigator.clipboard?.writeText(v); e.target.textContent = "কপি ✓"; };
+  return (
+    <div className="pview" onClick={onClose}>
+      <div className="pvin" onClick={(e) => e.stopPropagation()}>
+        <div className="pvtop"><h1>{p?.consignment_id ? `Parcel #${p.consignment_id}` : o.order_no}</h1>
+          <div className="row">{p?.tracking_code && <a className="chip" href={trackUrl(p.tracking_code)} target="_blank" rel="noopener">🌐 Steadfast-এ পুরো ট্র্যাকিং</a>}<button className="btn" onClick={onClose}>✕ বন্ধ</button></div></div>
+        <div className="card">
+          <div className="pvhead">
+            <div><span className={"badge " + stCls(st)}>● {st ? ST_BN[st] ?? st : "Steadfast-এ পাঠানো হয়নি"}</span>
+              <h2 style={{ marginTop: 8 }}>{o.order_no} {p?.tracking_code && <button className="chip" onClick={(e) => copy(trackUrl(p.tracking_code), e)}>📋 Copy tracking link</button>}</h2></div>
+            <div className="row"><div className="mini"><small>COD</small><b>{tk(p?.cod_amount ?? o.total)}</b></div>
+              <div className="mini"><small>{charge != null ? "Steadfast চার্জ" : "ডেলিভারি চার্জ (কাস্টমার)"}</small><b>{tk(charge ?? o.delivery_charge)}</b></div></div>
+          </div>
+          {p && <div className={"stepper" + (ret ? " ret" : "")}>
+            {STEPS.map((l, i) => <div key={l} className={"stp" + (i < step ? " done" : "")}><i>{i < step ? "✓" : ""}</i><span>{ret && i === 3 ? "Return / Cancel" : l}</span></div>)}
+          </div>}
+          <div className="row" style={{ marginTop: 10 }}><button className="chip" onClick={refresh}>🔄 Steadfast থেকে এখনই আপডেট</button>{msg && <span className="muted small">{msg}</span>}</div>
+        </div>
+        <div className="pvgrid">
+          <div className="card"><h2>Recipient</h2><b style={{ fontSize: 17 }}>{o.customer_name ?? "—"}</b><p className="muted" style={{ margin: "4px 0 10px" }}>{o.address}</p>
+            {o.phone && <div className="trow"><span>Phone <b style={{ marginLeft: 10, letterSpacing: ".04em" }}>{o.phone}</b></span><span className="row"><a className="chip" href={`tel:${o.phone}`}>📞 Call</a><button className="chip" onClick={(e) => copy(o.phone, e)}>কপি</button></span></div>}</div>
+          <div className="card"><h2>Contents</h2>
+            {(o.items ?? []).map((i, k) => <div key={k} className="row" style={{ margin: "6px 0" }}>{i.image_url && <img className="pthumb" src={i.image_url} alt="" />}<span><b>{i.product_name}</b><br /><small className="muted">Size {i.size} × {i.quantity}</small></span></div>)}</div>
+          <div className="card"><h2>Delivery (রাইডার)</h2><p className="muted small">রাইডারের নাম-নম্বর Steadfast তাদের API দিয়ে দেয় না। রাইডারের নোট নিচের Tracking updates-এ আসবে (Webhook চালু থাকলে)। পুরো তথ্যের জন্য উপরের “Steadfast-এ পুরো ট্র্যাকিং” চাপুন।</p></div>
+          <div className="card"><h2>Tracking updates</h2>
+            {!ups ? "লোড হচ্ছে..." : !ups.length ? <p className="muted small">এখনো কোনো আপডেট আসেনি। Steadfast Webhook চালু করার পর থেকে প্রতিটা আপডেট এখানে জমা হবে।</p>
+              : <div className="tl">{ups.map((u, i) => <div key={u.id} className={"tli" + (i === 0 ? " now" : "")}><i /><div><b>{u.message || ST_BN[u.status] || u.status}</b><small className="muted">{bnTime(u.created_at)}</small></div></div>)}</div>}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Risk({ initial }) {
   const [ph, setPh] = useState(initial ?? ""); const [s, setS] = useState(null); const [busy, setBusy] = useState(false);
   const [reps, setReps] = useState([]); const [orders, setOrders] = useState([]); const [note, setNote] = useState(""); const [msg, setMsg] = useState("");
+  const [view, setView] = useState(null);
   const run = async (p = ph) => {
     const d = p.replace(/\D/g, ""); if (d.length < 10) return setMsg("পুরো ফোন নম্বর দিন");
     setBusy(true); setMsg("");
     const st = await statsFor([p]); setS(st[p] ?? null);
     const k = d.slice(-10);
-    const { data: r } = await sb.from("fraud_reports").select("id,phone,note,created_at").order("created_at", { ascending: false }).limit(200);
+    const { data: r } = await sb.from("fraud_reports").select("id,phone,note,created_at").order("created_at", { ascending: false }).limit(300);
     setReps((r ?? []).filter((x) => x.phone.replace(/\D/g, "").slice(-10) === k));
-    const { data: o } = await sb.from("orders").select("order_no,order_date,status,total,source,customer_name").ilike("phone", `%${k}%`).order("order_date", { ascending: false }).limit(20);
+    const { data: o } = await sb.rpc("customer_orders", { p_phone: p });
     setOrders(o ?? []); setBusy(false);
   };
   useEffect(() => { if (initial) run(initial); }, []);
@@ -123,6 +181,7 @@ function Risk({ initial }) {
   };
   const risk = !s ? null : s.fraud > 0 ? ["bad", "⚠️ ঝুঁকি বেশি — আগে Fraud রিপোর্ট আছে"] : s.delivered + s.returned === 0 ? ["warn", "নতুন কাস্টমার — আগের কোনো পার্সেলের হিসাব নেই"]
     : s.returned / (s.delivered + s.returned) > 0.3 ? ["bad", "⚠️ ঝুঁকি বেশি — অনেক Return"] : s.returned > 0 ? ["warn", "মাঝারি ঝুঁকি — কিছু Return আছে"] : ["good", "✅ ভালো কাস্টমার — সব পার্সেল নিয়েছেন"];
+  const SB = { pending: "Confirm বাকি", confirmed: "Confirmed", delivered: "Delivered", received: "টাকা পেয়েছি", returned: "Return", cancelled: "Cancel" };
   return (
     <div className="stack">
       <form className="card filters" onSubmit={(e) => { e.preventDefault(); run(); }}>
@@ -134,6 +193,7 @@ function Risk({ initial }) {
         <div className={"card riskhead " + risk[0]}>
           <Ring s={s} />
           <div className="grow"><h2>{s.last_name ?? "অজানা কাস্টমার"} · {ph}</h2><b>{risk[1]}</b></div>
+          <a className="chip" href={`tel:${ph}`}>📞 কল</a>
         </div>
         <div className="grid">
           <div className="stat"><small>মোট অর্ডার</small><b>{s.total}</b></div>
@@ -143,15 +203,25 @@ function Risk({ initial }) {
           <div className="stat"><small>চলমান অর্ডার</small><b>{s.active}</b></div>
           <div className="stat"><small>Fraud রিপোর্ট</small><b style={{ color: s.fraud ? "#d0284f" : undefined }}>{s.fraud}</b></div>
         </div>
+        <div className="card"><h2>এই কাস্টমারের সব অর্ডার ({orders.length})</h2>
+          <p className="muted small">যেকোনো অর্ডারে চাপলে পার্সেল কোথায় আছে তার পুরো তথ্য খুলবে।</p>
+          {!orders.length ? <p className="muted">কোনো অর্ডার নেই।</p> : <div className="olist">{orders.map((o) => (
+            <div key={o.id} className="orow card clicky" onClick={() => setView(o)}>
+              <div className="thumbs">{(o.items ?? []).slice(0, 2).map((i, k) => i.image_url ? <img key={k} src={i.image_url} alt="" /> : <div key={k} className="ph" />)}</div>
+              <div className="grow"><div className="row"><b>{o.order_no}</b><span className={"badge " + (o.source === "facebook" ? "fb" : "web")}>{o.source === "facebook" ? "Facebook" : "Website"}</span></div>
+                <small>{(o.items ?? []).map((i) => `${i.product_name} (${i.size}) ×${i.quantity}`).join(", ")}</small><br /><small className="muted">{bnTime(o.order_date)}</small></div>
+              <div className="oright"><b>{tk(o.total)}</b><span className="badge">{SB[o.status] ?? o.status}</span>
+                {o.parcel ? <span className={"badge " + stCls(o.parcel.delivery_status)}>🚚 {ST_BN[o.parcel.delivery_status] ?? o.parcel.delivery_status}</span> : <small className="muted">Steadfast-এ পাঠানো হয়নি</small>}</div>
+            </div>))}</div>}
+        </div>
         <div className="card">
           <h2>Fraud রিপোর্ট</h2>
           {!reps.length ? <p className="muted">এই নম্বরে কোনো Fraud রিপোর্ট নেই।</p> : reps.map((r) => <div key={r.id} className="trow"><span>⚠️ {r.note}</span><small className="muted">{bnTime(r.created_at)}</small></div>)}
           <div className="row" style={{ marginTop: 10 }}><input className="grow" placeholder="সমস্যা লিখুন (যেমন: পার্সেল নেয়নি, ফোন বন্ধ)" value={note} onChange={(e) => setNote(e.target.value)} /><button className="btn dark" type="button" onClick={report}>⚠️ Fraud রিপোর্ট করুন</button></div>
         </div>
-        {!!orders.length && <div className="card"><h2>এই নম্বরের সাম্প্রতিক অর্ডার</h2>
-          {orders.map((o) => <div key={o.order_no} className="trow"><span><b>{o.order_no}</b> · {o.customer_name} · <small className="muted">{bnTime(o.order_date)}</small></span><span className="row"><span className="badge">{o.status}</span><b>{tk(o.total)}</b></span></div>)}</div>}
-        <p className="note"><i>i</i><span>হিসাবটা আপনার অ্যাপের সব অর্ডার (পুরনোগুলোসহ) আর আপনার/স্টাফের দেওয়া Fraud রিপোর্ট থেকে। অন্য দোকানের Steadfast রিপোর্ট Steadfast-এর API দিয়ে পাওয়া যায় না।</span></p>
+        <p className="note"><i>i</i><span>এই হিসাব আপনার দোকানের সব অর্ডার (পুরনোগুলোসহ) আর আপনাদের দেওয়া Fraud রিপোর্ট থেকে।</span></p>
       </>}
+      {view && <ParcelView o={view} onClose={() => setView(null)} />}
     </div>
   );
 }
