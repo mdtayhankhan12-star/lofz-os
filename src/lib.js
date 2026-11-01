@@ -28,7 +28,7 @@ export const tk = (n) => "৳" + Number(n || 0).toLocaleString("en-IN");
 
 const T = {
   bn: {
-    dashboard: "ড্যাশবোর্ড", orders: "অর্ডার", invoice: "ইনভয়েস", production: "প্রোডাকশন",
+    dashboard: "ড্যাশবোর্ড", orders: "অর্ডার", invoice: "ইনভয়েস", production: "প্রোডাকশন", expenses: "খরচ",
     courier: "কুরিয়ার", finance: "লাভ-ক্ষতি", team: "টিম", logout: "লগআউট",
     soon: "এই অংশ পরের ধাপে আসছে", today_orders: "আজকের অর্ডার", today_sales: "আজকের সেল",
     website: "Website", facebook: "Facebook", confirmed: "Confirmed", delivered: "Delivered",
@@ -36,7 +36,7 @@ const T = {
     expense_month: "এই মাসের খরচ", sf_balance: "Steadfast ব্যালান্স (তোলা যাবে)", overdue: "কারিগরের দেরি (৫+ দিন)",
   },
   en: {
-    dashboard: "Dashboard", orders: "Orders", invoice: "Invoice", production: "Production",
+    dashboard: "Dashboard", orders: "Orders", invoice: "Invoice", production: "Production", expenses: "Expenses",
     courier: "Courier", finance: "Profit & Loss", team: "Team", logout: "Logout",
     soon: "Coming in the next step", today_orders: "Today's orders", today_sales: "Today's sales",
     website: "Website", facebook: "Facebook", confirmed: "Confirmed", delivered: "Delivered",

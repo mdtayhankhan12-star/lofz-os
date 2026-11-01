@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import { sb, tk } from "./lib.js";
 
 const iso = (d) => d.toISOString().slice(0, 10);
-const CATS = { ads: "বিজ্ঞাপন (Facebook Ads)", production: "জুতা তৈরির খরচ", artisan: "কারিগরের খরচ", other: "অন্যান্য খরচ" };
+const CATS = { ads: "Facebook Ads (মাসিক)", production: "কারখানার খরচ (দৈনিক)" };
+const CAT_ALL = { ...CATS, artisan: "কারিগরের খরচ", other: "অন্যান্য খরচ" };
 const PLAT = { both: "দুটোই / সাধারণ", website: "Website", facebook: "Facebook" };
 
 function range(kind) {
@@ -18,29 +19,30 @@ export default function Finance() {
   const [kind, setKind] = useState("month");
   const [[from, to], setRange] = useState(range("month"));
   const [orders, setOrders] = useState(null); const [exps, setExps] = useState([]);
-  const [e, setE] = useState({ expense_date: iso(new Date()), category: "ads", platform: "facebook", amount_usd: "", usd_rate: "", amount_bdt: "", note: "" });
+  const [e, setE] = useState({ month: iso(new Date()).slice(0, 7), platform: "facebook", amount_usd: "", usd_rate: "", amount_bdt: "" });
   const [err, setErr] = useState("");
 
   const load = async () => {
     const { data: o } = await sb.from("orders").select("source,status,subtotal,discount,total,order_date")
       .gte("order_date", from + "T00:00:00+06:00").lte("order_date", to + "T23:59:59+06:00");
-    const { data: x } = await sb.from("expenses").select("*").gte("expense_date", from).lte("expense_date", to).order("expense_date", { ascending: false });
+    const { data: x } = await sb.from("expenses").select("*").gte("expense_date", from.slice(0, 8) + "01").lte("expense_date", to).order("expense_date", { ascending: false });
     setOrders(o ?? []); setExps(x ?? []);
   };
   useEffect(() => { load(); }, [from, to]);
   const pick = (k) => { setKind(k); const r = range(k); if (r) setRange(r); };
 
   const bdt = e.amount_usd && e.usd_rate ? Math.round(Number(e.amount_usd) * Number(e.usd_rate) * 100) / 100 : e.amount_bdt;
+  // Facebook Ads: মাসে একবার। তারিখ = মাসের ১ তারিখ।
   const add = async (ev) => {
     ev.preventDefault(); setErr("");
-    const row = { ...e, amount_bdt: Number(bdt), amount_usd: e.amount_usd ? Number(e.amount_usd) : null, usd_rate: e.usd_rate ? Number(e.usd_rate) : null };
-    if (!(row.amount_bdt >= 0)) return setErr("টাকার পরিমাণ দিন");
-    // একই দিনে একই ধরনের একই টাকা আগে থাকলে সতর্ক
-    const dup = exps.find((x) => x.expense_date === row.expense_date && x.category === row.category && Number(x.amount_bdt) === row.amount_bdt);
-    if (dup && !confirm("একই দিনে একই খরচ আগেই আছে। তবুও আবার যোগ করবেন?")) return;
+    const row = { category: "ads", platform: e.platform, expense_date: e.month + "-01", note: `Ads ${e.month}`,
+      amount_bdt: Number(bdt), amount_usd: e.amount_usd ? Number(e.amount_usd) : null, usd_rate: e.usd_rate ? Number(e.usd_rate) : null };
+    if (!(row.amount_bdt > 0)) return setErr("টাকার পরিমাণ দিন");
+    const { data: ex } = await sb.from("expenses").select("id").eq("category", "ads").eq("platform", row.platform).eq("expense_date", row.expense_date);
+    if (ex?.length && !confirm("এই মাসের এই প্ল্যাটফর্মের Ads খরচ আগেই বসানো আছে। আরেকটা যোগ করবেন?")) return;
     const { error } = await sb.from("expenses").insert(row);
     if (error) return setErr(error.message);
-    setE({ ...e, amount_usd: "", amount_bdt: "", note: "" }); load();
+    setE({ ...e, amount_usd: "", amount_bdt: "" }); load();
   };
   const del = async (id) => { if (confirm("এই খরচ মুছবেন?")) { await sb.from("expenses").delete().eq("id", id); load(); } };
 
@@ -55,16 +57,26 @@ export default function Finance() {
       orders: L.length, sales: L.filter(sold).reduce((a, o) => a + rev(o), 0), sold: L.filter(sold).length,
       received: c("received"), returned: c("returned"), cancelled: c("cancelled"),
       pending: L.filter((o) => ["pending", "confirmed"].includes(o.status)).reduce((a, o) => a + rev(o), 0),
-      ads: exps.filter((x) => x.category === "ads" && x.platform === src).reduce((a, x) => a + Number(x.amount_bdt), 0),
+      ads: exps.filter((x) => x.category === "ads" && x.platform === src).reduce((a, x) => a + share(x), 0),
     };
   };
   const all = stat(null), web = stat("website"), fb = stat("facebook");
-  const byCat = Object.fromEntries(Object.keys(CATS).map((k) => [k, exps.filter((x) => x.category === k).reduce((a, x) => a + Number(x.amount_bdt), 0)]));
+  // মাসিক Ads খরচ দিনে ভাগ করে শুধু বাছাই করা সময়ের অংশটুকু ধরা হয়
+  const share = (x) => {
+    if (x.category !== "ads") return x.expense_date >= from && x.expense_date <= to ? Number(x.amount_bdt) : 0;
+    const [y, m] = x.expense_date.split("-").map(Number), dim = new Date(y, m, 0).getDate();
+    const a0 = x.expense_date, a1 = `${x.expense_date.slice(0, 8)}${String(dim).padStart(2, "0")}`;
+    const s0 = from > a0 ? from : a0, s1 = to < a1 ? to : a1;
+    if (s0 > s1) return 0;
+    const days = (Date.parse(s1) - Date.parse(s0)) / 864e5 + 1;
+    return Math.round((Number(x.amount_bdt) * days) / dim);
+  };
+  const byCat = Object.fromEntries(Object.keys(CAT_ALL).map((k) => [k, exps.filter((x) => x.category === k).reduce((a, x) => a + share(x), 0)]));
   const totalExp = Object.values(byCat).reduce((a, b) => a + b, 0);
   const net = all.sales - totalExp;
 
   const csv = () => {
-    const lines = [["তারিখ", "ধরন", "প্ল্যাটফর্ম", "টাকা", "ডলার", "রেট", "নোট"], ...exps.map((x) => [x.expense_date, CATS[x.category], PLAT[x.platform], x.amount_bdt, x.amount_usd ?? "", x.usd_rate ?? "", x.note ?? ""]),
+    const lines = [["তারিখ", "ধরন", "প্ল্যাটফর্ম", "টাকা", "ডলার", "রেট", "নোট"], ...exps.map((x) => [x.expense_date, CAT_ALL[x.category], PLAT[x.platform], x.amount_bdt, x.amount_usd ?? "", x.usd_rate ?? "", x.note ?? ""]),
       [], ["রিপোর্ট", `${from} থেকে ${to}`], ["মোট অর্ডার", all.orders], ["বিক্রি (Delivered+Received)", all.sales], ["মোট খরচ", totalExp], ["Net Profit", net]];
     const blob = new Blob(["﻿" + lines.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n")], { type: "text/csv" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `LOFZ-report-${from}-to-${to}.csv`; a.click();
@@ -90,6 +102,7 @@ export default function Finance() {
         <S l="মোট অর্ডার" v={all.orders} /><S l="টাকা হাতে (Received)" v={all.received} />
         <S l="Return" v={all.returned} /><S l="Cancel" v={all.cancelled} />
         {Object.entries(CATS).map(([k, l]) => <S key={k} l={l} v={tk(byCat[k])} />)}
+        {byCat.artisan + byCat.other > 0 && <S l="অন্যান্য (পুরনো এন্ট্রি)" v={tk(byCat.artisan + byCat.other)} />}
       </div>
 
       <div className="card">
@@ -107,27 +120,24 @@ export default function Finance() {
       </div>
 
       <form className="card noprint" onSubmit={add}>
-        <h2>খরচ যোগ করুন</h2>
+        <h2>Facebook Ads খরচ (মাসে একবার)</h2>
+        <p className="muted small">মাসের মোট Ads খরচ এখানে বসান। দৈনিক কারখানার খরচ বসাবেন বামের "খরচ" মেনুতে।</p>
         <div className="form3">
-          <label>তারিখ<input type="date" required value={e.expense_date} onChange={(ev) => setE({ ...e, expense_date: ev.target.value })} /></label>
-          <label>ধরন<select value={e.category} onChange={(ev) => setE({ ...e, category: ev.target.value })}>{Object.entries(CATS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
-          <label>কোন প্ল্যাটফর্মের<select value={e.platform} onChange={(ev) => setE({ ...e, platform: ev.target.value })}>{Object.entries(PLAT).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
-          {e.category === "ads" && <>
-            <label>ডলার ($)<input type="number" step="0.01" min={0} value={e.amount_usd} onChange={(ev) => setE({ ...e, amount_usd: ev.target.value })} /></label>
-            <label>ডলার রেট (৳)<input type="number" step="0.01" min={0} value={e.usd_rate} onChange={(ev) => setE({ ...e, usd_rate: ev.target.value })} /></label>
-          </>}
-          <label>টাকা (৳){e.amount_usd && e.usd_rate ? <input readOnly value={bdt} /> : <input type="number" step="0.01" min={0} required value={e.amount_bdt} onChange={(ev) => setE({ ...e, amount_bdt: ev.target.value })} />}</label>
-          <label>নোট<input value={e.note} onChange={(ev) => setE({ ...e, note: ev.target.value })} /></label>
+          <label>মাস<input type="month" required value={e.month} onChange={(ev) => setE({ ...e, month: ev.target.value })} /></label>
+          <label>কোন প্ল্যাটফর্মের অ্যাড<select value={e.platform} onChange={(ev) => setE({ ...e, platform: ev.target.value })}>{Object.entries(PLAT).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
+          <label>ডলার ($)<input type="number" step="0.01" min={0} value={e.amount_usd} onChange={(ev) => setE({ ...e, amount_usd: ev.target.value })} /></label>
+          <label>ডলার রেট (৳)<input type="number" step="0.01" min={0} value={e.usd_rate} onChange={(ev) => setE({ ...e, usd_rate: ev.target.value })} /></label>
+          <label>মোট টাকা (৳){e.amount_usd && e.usd_rate ? <input readOnly value={bdt} /> : <input type="number" step="0.01" min={0} required value={e.amount_bdt} onChange={(ev) => setE({ ...e, amount_bdt: ev.target.value })} />}</label>
         </div>
         {err && <p className="err">{err}</p>}
-        <button className="btn">খরচ সেভ করুন</button>
+        <button className="btn">Ads খরচ সেভ করুন</button>
       </form>
 
       <div className="card">
-        <h2>খরচের তালিকা ({exps.length})</h2>
-        {exps.map((x) => (
+        <h2>Ads খরচের তালিকা</h2>
+        {exps.filter((x) => x.category === "ads").map((x) => (
           <div key={x.id} className="trow">
-            <div><b>{tk(x.amount_bdt)}</b> · {CATS[x.category]}{x.amount_usd ? ` · $${x.amount_usd} × ${x.usd_rate}` : ""}<br />
+            <div><b>{tk(x.amount_bdt)}</b> · {CAT_ALL[x.category]}{x.amount_usd ? ` · $${x.amount_usd} × ${x.usd_rate}` : ""}<br />
               <small className="muted">{x.expense_date} · {PLAT[x.platform]}{x.note ? ` · ${x.note}` : ""}</small></div>
             <button className="chip noprint" onClick={() => del(x.id)}>মুছুন</button>
           </div>

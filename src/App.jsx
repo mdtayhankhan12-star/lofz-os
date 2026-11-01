@@ -4,7 +4,7 @@ import NewOrder from "./NewOrder.jsx";
 import Orders from "./Orders.jsx";
 import { PrintView } from "./Invoice.jsx";
 import ShoeSheet from "./ShoeSheet.jsx";
-import Production from "./Production.jsx";
+import Expenses from "./Expenses.jsx";
 import Finance from "./Finance.jsx";
 
 const ls = {
@@ -112,8 +112,8 @@ function Login({ prefs }) {
 }
 
 const NAV = [
-  ["dashboard", "📊"], ["orders", "🧾"], ["invoice", "➕"], ["production", "🧵"],
-  ["courier", "🚚"], ["finance", "💰", "owner"], ["team", "👥", "owner"],
+  ["dashboard", "📊"], ["orders", "🧾"], ["invoice", "➕"], ["expenses", "💸"],
+  ["finance", "💰", "owner"], ["team", "👥", "owner"],
 ];
 
 function Shell({ profile, prefs }) {
@@ -144,9 +144,9 @@ function Shell({ profile, prefs }) {
         {cur === "team" && isOwner && <Team me={profile} />}
         {cur === "invoice" && <NewOrder onCreated={(id) => setPrintIds([id])} />}
         {cur === "orders" && <Orders isOwner={isOwner} onPrint={setPrintIds} onShoes={setShoeIds} />}
-        {cur === "production" && <Production isOwner={isOwner} />}
+        {cur === "expenses" && <Expenses isOwner={isOwner} />}
         {cur === "finance" && isOwner && <Finance />}
-        {!["dashboard", "team", "invoice", "orders", "production", "finance"].includes(cur) && <div className="card"><h2>{t(cur)}</h2><p className="muted">{t("soon")}</p></div>}
+        {!["dashboard", "team", "invoice", "orders", "expenses", "finance"].includes(cur) && <div className="card"><h2>{t(cur)}</h2><p className="muted">{t("soon")}</p></div>}
       </main>
       <nav className="bottom">
         {items.slice(0, 5).map(([k, ic]) => (
@@ -196,7 +196,7 @@ function Dashboard({ isOwner, t }) {
         <S k="website" v={d.web} /><S k="facebook" v={d.fb} />
         <S k="pending" v={d.pending} /><S k="confirmed" v={d.confirmed} />
         <S k="delivered" v={d.delivered} /><S k="returned" v={d.returned} />
-        <S k="cancelled" v={d.cancelled} /><S k="overdue" v={d.overdue} />
+        <S k="cancelled" v={d.cancelled} />
         {isOwner && <S k="expense_month" v={tk(d.exp)} />}
         {isOwner && <S k="profit_month" v={tk(d.profit)} />}
         {isOwner && <S k="sf_balance" v={d.sf == null ? "..." : tk(d.sf)} />}
