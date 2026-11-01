@@ -10,7 +10,7 @@ async function shrink(file) {
   c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
   return await new Promise((r) => c.toBlob(r, "image/webp", 0.8));
 }
-async function upload(file) {
+export async function upload(file) {
   const blob = await shrink(file);
   const path = `${new Date().toISOString().slice(0, 7)}/${crypto.randomUUID()}.webp`;
   const { error } = await sb.storage.from("products").upload(path, blob, { contentType: "image/webp" });

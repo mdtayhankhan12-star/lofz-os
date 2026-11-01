@@ -102,3 +102,15 @@ select.st.confirmed{border-color:#2b6cb0}select.st.delivered,select.st.received{
 .ssize{font-size:15pt;font-weight:800;line-height:1.15}
 .sno{font-size:12pt;font-weight:700}
 .sphone{font-size:10pt;font-weight:700}
+.card.alert{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 8%,var(--card));display:flex;flex-direction:column;gap:4px}
+.prow{border-top:1px solid var(--line);border-radius:0;box-shadow:none}
+.prow.late{background:color-mix(in srgb,var(--bad) 8%,transparent)}
+.pthumb{width:56px;height:56px;border-radius:8px;object-fit:cover;background:var(--line)}
+.pnums{display:flex;gap:10px;font-size:13px}.pnums .warn{color:var(--bad)}.pnums .good{color:var(--good)}
+.stat.loss{background:var(--bad);border-color:var(--bad);color:#fff}.stat.loss small{color:#ffe}
+.cmp{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:8px 12px;margin:8px 0 14px}
+.cmp>*{padding:4px 0;border-bottom:1px solid var(--line)}
+.bars{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
+.bars>div{display:grid;grid-template-columns:80px 1fr 90px;align-items:center;gap:8px;font-size:13px}
+.bars i{display:block;height:14px;border-radius:7px;min-width:2px}
+@media print{.side,.bottom,.top,.noprint{display:none!important}.main{padding:0}}

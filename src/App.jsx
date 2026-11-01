@@ -4,6 +4,8 @@ import NewOrder from "./NewOrder.jsx";
 import Orders from "./Orders.jsx";
 import { PrintView } from "./Invoice.jsx";
 import ShoeSheet from "./ShoeSheet.jsx";
+import Production from "./Production.jsx";
+import Finance from "./Finance.jsx";
 
 const ls = {
   get: (k, d) => { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
@@ -142,7 +144,9 @@ function Shell({ profile, prefs }) {
         {cur === "team" && isOwner && <Team me={profile} />}
         {cur === "invoice" && <NewOrder onCreated={(id) => setPrintIds([id])} />}
         {cur === "orders" && <Orders isOwner={isOwner} onPrint={setPrintIds} onShoes={setShoeIds} />}
-        {!["dashboard", "team", "invoice", "orders"].includes(cur) && <div className="card"><h2>{t(cur)}</h2><p className="muted">{t("soon")}</p></div>}
+        {cur === "production" && <Production isOwner={isOwner} />}
+        {cur === "finance" && isOwner && <Finance />}
+        {!["dashboard", "team", "invoice", "orders", "production", "finance"].includes(cur) && <div className="card"><h2>{t(cur)}</h2><p className="muted">{t("soon")}</p></div>}
       </main>
       <nav className="bottom">
         {items.slice(0, 5).map(([k, ic]) => (
@@ -162,10 +166,13 @@ function Dashboard({ isOwner, t }) {
       const m0 = new Date(start.getFullYear(), start.getMonth(), 1);
       const { data: today } = await sb.from("orders").select("source,status,total").gte("order_date", start.toISOString());
       const { data: od } = await sb.from("production_status").select("remaining_qty").eq("overdue", true);
-      let exp = null;
+      let exp = null, profit = null;
       if (isOwner) {
-        const { data: e } = await sb.from("expenses").select("amount_bdt").gte("expense_date", m0.toISOString().slice(0, 10));
+        const m0s = `${m0.getFullYear()}-${String(m0.getMonth() + 1).padStart(2, "0")}-01`;
+        const { data: e } = await sb.from("expenses").select("amount_bdt").gte("expense_date", m0s);
         exp = (e ?? []).reduce((a, r) => a + Number(r.amount_bdt), 0);
+        const { data: mo } = await sb.from("orders").select("subtotal,discount").in("status", ["delivered", "received"]).gte("order_date", m0s + "T00:00:00+06:00");
+        profit = (mo ?? []).reduce((a, r) => a + Number(r.subtotal) - Number(r.discount), 0) - exp;
       }
       const o = today ?? [];
       const c = (f) => o.filter(f).length;
@@ -174,7 +181,7 @@ function Dashboard({ isOwner, t }) {
         web: c((x) => x.source === "website"), fb: c((x) => x.source === "facebook"),
         confirmed: c((x) => x.status === "confirmed"), delivered: c((x) => ["delivered", "received"].includes(x.status)),
         returned: c((x) => x.status === "returned"), cancelled: c((x) => x.status === "cancelled"),
-        pending: c((x) => x.status === "pending"), overdue: (od ?? []).reduce((a, r) => a + r.remaining_qty, 0), exp,
+        pending: c((x) => x.status === "pending"), overdue: (od ?? []).reduce((a, r) => a + r.remaining_qty, 0), exp, profit,
       });
     })();
   }, [isOwner]);
@@ -189,9 +196,9 @@ function Dashboard({ isOwner, t }) {
         <S k="delivered" v={d.delivered} /><S k="returned" v={d.returned} />
         <S k="cancelled" v={d.cancelled} /><S k="overdue" v={d.overdue} />
         {isOwner && <S k="expense_month" v={tk(d.exp)} />}
-        {isOwner && <S k="profit_month" v="—" />}
+        {isOwner && <S k="profit_month" v={tk(d.profit)} />}
       </div>
-      <p className="muted small">এখনো কোনো অর্ডার নেই — ধাপ ৫ (Facebook অর্ডার) ও ধাপ ৯ (Shopify) শেষে সংখ্যা আসবে। লাভের হিসাব ধাপ ১০-এ।</p>
+      <p className="muted small">লাভ = এই মাসের Delivered/Received অর্ডারের বিক্রি − এই মাসের খরচ। Website অর্ডার Shopify যুক্ত হলে নিজে থেকে আসবে।</p>
     </>
   );
 }
