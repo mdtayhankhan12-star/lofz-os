@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { sb, emailOf, adminCall, tr, tk } from "./lib.js";
+import { sb, emailOf, adminCall, fnCall, tr, tk } from "./lib.js";
 import NewOrder from "./NewOrder.jsx";
 import Orders from "./Orders.jsx";
 import { PrintView } from "./Invoice.jsx";
@@ -174,6 +174,8 @@ function Dashboard({ isOwner, t }) {
         const { data: mo } = await sb.from("orders").select("subtotal,discount").in("status", ["delivered", "received"]).gte("order_date", m0s + "T00:00:00+06:00");
         profit = (mo ?? []).reduce((a, r) => a + Number(r.subtotal) - Number(r.discount), 0) - exp;
       }
+      let sf = null;
+      if (isOwner) { try { sf = (await fnCall("steadfast", { action: "balance" })).balance ?? null; } catch {} }
       const o = today ?? [];
       const c = (f) => o.filter(f).length;
       setD({
@@ -181,7 +183,7 @@ function Dashboard({ isOwner, t }) {
         web: c((x) => x.source === "website"), fb: c((x) => x.source === "facebook"),
         confirmed: c((x) => x.status === "confirmed"), delivered: c((x) => ["delivered", "received"].includes(x.status)),
         returned: c((x) => x.status === "returned"), cancelled: c((x) => x.status === "cancelled"),
-        pending: c((x) => x.status === "pending"), overdue: (od ?? []).reduce((a, r) => a + r.remaining_qty, 0), exp, profit,
+        pending: c((x) => x.status === "pending"), overdue: (od ?? []).reduce((a, r) => a + r.remaining_qty, 0), exp, profit, sf,
       });
     })();
   }, [isOwner]);
@@ -197,6 +199,7 @@ function Dashboard({ isOwner, t }) {
         <S k="cancelled" v={d.cancelled} /><S k="overdue" v={d.overdue} />
         {isOwner && <S k="expense_month" v={tk(d.exp)} />}
         {isOwner && <S k="profit_month" v={tk(d.profit)} />}
+        {isOwner && <S k="sf_balance" v={d.sf == null ? "..." : tk(d.sf)} />}
       </div>
       <p className="muted small">লাভ = এই মাসের Delivered/Received অর্ডারের বিক্রি − এই মাসের খরচ। Website অর্ডার Shopify যুক্ত হলে নিজে থেকে আসবে।</p>
     </>

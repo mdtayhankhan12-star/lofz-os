@@ -33,7 +33,7 @@ const T = {
     soon: "এই অংশ পরের ধাপে আসছে", today_orders: "আজকের অর্ডার", today_sales: "আজকের সেল",
     website: "Website", facebook: "Facebook", confirmed: "Confirmed", delivered: "Delivered",
     returned: "Return", cancelled: "Cancel", pending: "Pending", profit_month: "এই মাসের লাভ",
-    expense_month: "এই মাসের খরচ", overdue: "কারিগরের দেরি (৫+ দিন)",
+    expense_month: "এই মাসের খরচ", sf_balance: "Steadfast ব্যালান্স (তোলা যাবে)", overdue: "কারিগরের দেরি (৫+ দিন)",
   },
   en: {
     dashboard: "Dashboard", orders: "Orders", invoice: "Invoice", production: "Production",
@@ -41,7 +41,7 @@ const T = {
     soon: "Coming in the next step", today_orders: "Today's orders", today_sales: "Today's sales",
     website: "Website", facebook: "Facebook", confirmed: "Confirmed", delivered: "Delivered",
     returned: "Returned", cancelled: "Cancelled", pending: "Pending", profit_month: "Profit this month",
-    expense_month: "Expenses this month", overdue: "Artisan overdue (5+ days)",
+    expense_month: "Expenses this month", sf_balance: "Steadfast balance", overdue: "Artisan overdue (5+ days)",
   },
 };
 export const tr = (lang, k) => T[lang]?.[k] ?? T.bn[k] ?? k;
