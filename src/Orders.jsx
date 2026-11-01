@@ -6,7 +6,14 @@ export const STATUSES = [
   ["received", "Received (টাকা পেয়েছি)"], ["returned", "Return"], ["cancelled", "Cancel"],
 ];
 const today = () => new Date().toISOString().slice(0, 10);
-export const bnTime = (d) => new Date(d).toLocaleString("bn-BD", { timeZone: "Asia/Dhaka", day: "numeric", month: "long", hour: "numeric", minute: "2-digit", hour12: true });
+const BN = (n) => String(n).replace(/\d/g, (d) => "০১২৩৪৫৬৭৮৯"[d]);
+const MON = ["জানুয়ারি", "ফেব্রুয়ারি", "মার্চ", "এপ্রিল", "মে", "জুন", "জুলাই", "আগস্ট", "সেপ্টেম্বর", "অক্টোবর", "নভেম্বর", "ডিসেম্বর"];
+export const bnTime = (d) => {
+  const t = new Date(new Date(d).getTime() + 6 * 3600e3); // ঢাকা সময়
+  const h = t.getUTCHours(), m = t.getUTCMinutes();
+  const part = h < 4 ? "রাত" : h < 12 ? "সকাল" : h < 15 ? "দুপুর" : h < 18 ? "বিকাল" : h < 20 ? "সন্ধ্যা" : "রাত";
+  return `${BN(t.getUTCDate())} ${MON.at(t.getUTCMonth())}, ${part} ${BN(h % 12 || 12)}:${BN(String(m).padStart(2, "0"))}`;
+};
 
 export default function Orders({ isOwner, onPrint, onShoes }) {
   const [f, setF] = useState({ source: "", status: "", from: today(), to: today(), q: "" });
