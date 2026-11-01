@@ -63,9 +63,15 @@ Deno.serve(async (req) => {
     if (!ok) return reply({ error: "অনুমতি নেই" }, 403);
     const since = new Date(Date.now() - 45 * 864e5).toISOString();
     const { data: list } = await admin.from("orders").select("id,order_no,source,status")
-      .in("status", ["pending", "confirmed"]).gte("order_date", since).limit(150);
+      .in("status", ["pending", "confirmed"]).gte("order_date", since)
+      .order("sf_checked_at", { ascending: true, nullsFirst: true }).limit(100);
     let n = 0, err = null;
-    try { for (const o of list ?? []) n += await syncOne(o); } catch (e) { err = String(e); }
+    try {
+      for (const o of list ?? []) {
+        n += await syncOne(o);
+        await admin.from("orders").update({ sf_checked_at: new Date().toISOString() }).eq("id", o.id);
+      }
+    } catch (e) { err = String(e); }
     await admin.from("sync_log").insert({ source: "steadfast", items: n, error: err });
     return reply({ ok: true, checked: list?.length ?? 0, updated: n });
   }
