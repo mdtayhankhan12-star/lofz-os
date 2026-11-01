@@ -14,7 +14,7 @@ const d2 = (s) => { const d = new Date(s); return `${String(d.getDate()).padStar
 
 export function InvoiceSheet({ o }) {
   const items = o.order_items ?? [];
-  const fill = Math.max(4, (3 - items.length) * 15);
+  const fill = Math.max(3, (3 - items.length) * 13);
   return (
     <div className="inv">
       <div className="ihd">
@@ -31,9 +31,11 @@ export function InvoiceSheet({ o }) {
           <div><b>Address:</b> {o.address}</div>
           <div><b>Number:</b> {o.phone}</div>
         </div>
-        <div className="d"><div className="k">DATE :</div><div className="v">{d2(o.order_date)}</div>
-          <div className="k" style={{ marginTop: "1.5mm" }}>INVOICE :</div><div className="v">{o.order_no}</div>
-          <div className="k" style={{ marginTop: "1.5mm" }}>PARCEL ID :</div><div className="v">{o.parcels?.find((p) => p.consignment_id)?.consignment_id ?? "—"}</div></div>
+        <div className="d">
+          <div><span className="k">DATE :</span> <span className="v">{d2(o.order_date)}</span></div>
+          <div><span className="k">INVOICE :</span> <span className="v">{o.order_no}</span></div>
+          <div><span className="k">PARCEL ID :</span> <span className="v">{o.parcels?.find((p) => p.consignment_id)?.consignment_id ?? "—"}</span></div>
+        </div>
       </div>
       <table className="itab">
         <thead><tr><th style={{ width: "50%" }}>Product Photo</th><th>Size</th><th>Quantity</th><th style={{ width: "20%" }}>Amount</th></tr></thead>
