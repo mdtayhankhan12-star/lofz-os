@@ -7,9 +7,10 @@ export const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 export const emailOf = (u) => `${u.trim().toLowerCase()}@lofz.app`;
 
-export async function adminCall(body) {
+export const adminCall = (body) => fnCall("admin-users", body);
+export async function fnCall(fn, body) {
   const { data: s } = await sb.auth.getSession();
-  const r = await fetch(`${SUPABASE_URL}/functions/v1/admin-users`, {
+  const r = await fetch(`${SUPABASE_URL}/functions/v1/${fn}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

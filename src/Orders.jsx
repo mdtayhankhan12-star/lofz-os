@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { sb, tk } from "./lib.js";
+import { sb, tk, fnCall } from "./lib.js";
 
 export const STATUSES = [
   ["pending", "Pending"], ["confirmed", "Confirmed"], ["delivered", "Delivered"],
@@ -15,7 +15,7 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
 
   const load = async () => {
     let q = sb.from("orders")
-      .select("id,order_no,source,order_date,customer_name,phone,total,status,possible_duplicate,order_items(product_name,image_url,size,quantity)")
+      .select("id,order_no,source,order_date,customer_name,phone,total,status,possible_duplicate,order_items(product_name,image_url,size,quantity),parcels(tracking_code,delivery_status)")
       .order("order_date", { ascending: false }).limit(300);
     if (f.source) q = q.eq("source", f.source);
     if (f.status) q = q.eq("status", f.status);
@@ -41,6 +41,16 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
     if (error) return setMsg(error.message);
     setRows((rs) => rs.filter((r) => r.id !== id));
   };
+  const book = async (r) => {
+    if (!confirm(`${r.order_no} — ${r.customer_name}-এর পার্সেল Steadfast-এ বুক করবেন? COD ${tk(r.total)}`)) return;
+    try { const j = await fnCall("steadfast", { action: "book", order_id: r.id }); setMsg("বুক হয়েছে · Tracking: " + j.tracking_code); load(); }
+    catch (x) { setMsg("Steadfast: " + x.message); }
+  };
+  const syncNow = async () => {
+    setMsg("Steadfast থেকে আপডেট আনা হচ্ছে...");
+    try { const j = await fnCall("steadfast", { action: "sync" }); setMsg(`${j.checked}টা অর্ডার দেখা হলো, ${j.updated}টার তথ্য পাওয়া গেছে`); load(); }
+    catch (x) { setMsg("Steadfast: " + x.message); }
+  };
   const toggle = (id) => setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   const fbSel = (rows ?? []).filter((r) => sel.includes(r.id) && r.source === "facebook").map((r) => r.id);
 
@@ -65,6 +75,7 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
         <button className="btn alt" disabled={!sel.length} onClick={() => onShoes(sel)}>👟 কারিগর শিট — ১২টা/পাতা ({sel.length})</button>
         <button className="chip" onClick={() => setSel((rows ?? []).map((r) => r.id))}>এই তালিকার সব বাছুন</button>
         <button className="chip" onClick={() => setSel([])}>বাছাই মুছুন</button>
+        {isOwner && <button className="chip" onClick={syncNow}>🔄 Steadfast আপডেট</button>}
         {msg && <span className="ok small">{msg}</span>}
       </div>
       {!rows ? <div className="card">লোড হচ্ছে...</div> : !rows.length ? <div className="card muted">এই তারিখে কোনো অর্ডার নেই।</div> : (
@@ -86,7 +97,9 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
                 <select value={r.status} onChange={(e) => setStatus(r.id, e.target.value)} className={"st " + r.status}>
                   {STATUSES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
+                {r.parcels?.[0] ? <small className="muted">🚚 {r.parcels[0].tracking_code ?? ""} {r.parcels[0].delivery_status ?? ""}</small> : null}
                 <div className="row">
+                  {!r.parcels?.[0]?.tracking_code && ["pending", "confirmed"].includes(r.status) && r.source === "facebook" && <button className="chip" onClick={() => book(r)}>🚚 Steadfast-এ পাঠান</button>}
                   {r.source === "facebook" && <button className="chip" onClick={() => onPrint([r.id])}>ইনভয়েস</button>}
                   {isOwner && <button className="chip" onClick={() => del(r.id)}>মুছুন</button>}
                 </div>
