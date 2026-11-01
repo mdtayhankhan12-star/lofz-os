@@ -4,7 +4,7 @@ import { sb, tk } from "./lib.js";
 // আপনার অনুমোদিত ডিজাইন: এক A4-এ ২টা ইনভয়েস, M ID লাল, নিচে Thank you
 export async function loadOrders(ids) {
   const { data } = await sb.from("orders")
-    .select("id,order_no,source,status,order_date,customer_name,phone,address,delivery_charge,discount,total,order_items(product_name,image_url,size,quantity,price)")
+    .select("id,order_no,source,status,order_date,customer_name,phone,address,delivery_charge,discount,total,order_items(product_name,image_url,size,quantity,price),parcels(consignment_id,tracking_code)")
     .in("id", ids);
   const byId = Object.fromEntries((data ?? []).map((o) => [o.id, o]));
   return ids.map((i) => byId[i]).filter(Boolean);
@@ -18,7 +18,7 @@ export function InvoiceSheet({ o }) {
   return (
     <div className="inv">
       <div className="ihd">
-        <div className="imid">M ID : 307473</div>
+        <div className="imid">M ID : {o.source === "facebook" ? "307043" : "307473"}</div>
         <img src="/logo.png" alt="LOFZ" />
         <p>Kamrangir Char Dhaka Chad Mosjid 1211 Bangladesh</p>
         <p>🟢 +880 1898 444 786</p>
@@ -32,7 +32,8 @@ export function InvoiceSheet({ o }) {
           <div><b>Number:</b> {o.phone}</div>
         </div>
         <div className="d"><div className="k">DATE :</div><div className="v">{d2(o.order_date)}</div>
-          <div className="k" style={{ marginTop: "1.5mm" }}>INVOICE :</div><div className="v">{o.order_no}</div></div>
+          <div className="k" style={{ marginTop: "1.5mm" }}>INVOICE :</div><div className="v">{o.order_no}</div>
+          <div className="k" style={{ marginTop: "1.5mm" }}>PARCEL ID :</div><div className="v">{o.parcels?.find((p) => p.consignment_id)?.consignment_id ?? "—"}</div></div>
       </div>
       <table className="itab">
         <thead><tr><th style={{ width: "50%" }}>Product Photo</th><th>Size</th><th>Quantity</th><th style={{ width: "20%" }}>Amount</th></tr></thead>

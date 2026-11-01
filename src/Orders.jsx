@@ -5,6 +5,15 @@ export const STATUSES = [
   ["pending", "Pending"], ["confirmed", "Confirmed"], ["delivered", "Delivered"],
   ["received", "Received (টাকা পেয়েছি)"], ["returned", "Return"], ["cancelled", "Cancel"],
 ];
+export const trackUrl = (t) => `https://steadfast.com.bd/t/${t}`;
+function ParcelInfo({ p }) {
+  if (!p) return null;
+  return (
+    <small className="pinfo">🚚 {p.consignment_id ? <b>Parcel #{p.consignment_id}</b> : "Steadfast"} · {p.delivery_status ?? ""}
+      {p.tracking_code && <> · <a href={trackUrl(p.tracking_code)} target="_blank" rel="noopener">ট্র্যাক</a> · <a href="#" onClick={(e) => { e.preventDefault(); navigator.clipboard?.writeText(trackUrl(p.tracking_code)); e.target.textContent = "কপি ✓"; }}>লিংক কপি</a></>}
+    </small>
+  );
+}
 const today = () => new Date().toISOString().slice(0, 10);
 const BN = (n) => String(n).replace(/\d/g, (d) => "০১২৩৪৫৬৭৮৯"[d]);
 const MON = ["জানুয়ারি", "ফেব্রুয়ারি", "মার্চ", "এপ্রিল", "মে", "জুন", "জুলাই", "আগস্ট", "সেপ্টেম্বর", "অক্টোবর", "নভেম্বর", "ডিসেম্বর"];
@@ -26,7 +35,7 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
 
   const load = async () => {
     let q = sb.from("orders")
-      .select("id,order_no,source,order_date,customer_name,phone,total,status,possible_duplicate,order_items(product_name,image_url,size,quantity),parcels(tracking_code,delivery_status)")
+      .select("id,order_no,source,order_date,customer_name,phone,total,status,possible_duplicate,order_items(product_name,image_url,size,quantity),parcels(consignment_id,tracking_code,delivery_status)")
       .order("order_date", { ascending: false }).limit(300);
     if (f.source) q = q.eq("source", f.source);
     if (f.status) q = q.eq("status", f.status);
@@ -41,7 +50,7 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
   };
   const loadInbox = async () => {
     const { data } = await sb.from("orders")
-      .select("id,order_no,source,order_date,customer_name,phone,address,total,status,possible_duplicate,order_items(product_name,image_url,size,color,quantity),parcels(tracking_code,delivery_status)")
+      .select("id,order_no,source,order_date,customer_name,phone,address,total,status,possible_duplicate,order_items(product_name,image_url,size,color,quantity),parcels(consignment_id,tracking_code,delivery_status)")
       .match(mode === "confirmed" ? { status: "confirmed" } : { source: "website", status: "pending" })
       .order("order_date", { ascending: false }).limit(300);
     setRows(data ?? []); if (mode === "inbox") setInboxN((data ?? []).length); setSel([]);
@@ -138,7 +147,7 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
                     <a className="chip" href={`tel:${r.phone}`}>📞 কল</a>
                     <a className="chip" href={`https://wa.me/${wa}`} target="_blank" rel="noopener">WhatsApp</a>
                   </div>
-                  {r.parcels?.[0] ? <small className="muted">🚚 Steadfast: {r.parcels[0].tracking_code ?? ""} {r.parcels[0].delivery_status ?? ""}</small>
+                  {r.parcels?.[0] ? <ParcelInfo p={r.parcels[0]} />
                     : r.status === "confirmed" && <button className="chip" onClick={() => book(r)}>🚚 Steadfast-এ পাঠান</button>}
                   <div className="row">
                     {r.status === "pending" ? <button className="btn ok2" onClick={() => decide(r, "confirmed")}>✅ Confirm</button> : <span className="badge good">Confirmed{r.source === "facebook" ? " · FB" : ""}</span>}
@@ -191,7 +200,7 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
                 <select value={r.status} onChange={(e) => setStatus(r.id, e.target.value)} className={"st " + r.status}>
                   {STATUSES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
-                {r.parcels?.[0] ? <small className="muted">🚚 {r.parcels[0].tracking_code ?? ""} {r.parcels[0].delivery_status ?? ""}</small> : null}
+                <ParcelInfo p={r.parcels?.[0]} />
                 <div className="row">
                   {!r.parcels?.[0] && r.status === "confirmed" && <button className="chip" onClick={() => book(r)}>🚚 Steadfast-এ পাঠান</button>}
                   <button className="chip" onClick={() => onPrint([r.id])}>ইনভয়েস</button>
