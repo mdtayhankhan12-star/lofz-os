@@ -3,6 +3,7 @@ import { sb, emailOf, adminCall, tr, tk } from "./lib.js";
 import NewOrder from "./NewOrder.jsx";
 import Orders from "./Orders.jsx";
 import { PrintView } from "./Invoice.jsx";
+import ShoeSheet from "./ShoeSheet.jsx";
 
 const ls = {
   get: (k, d) => { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
@@ -121,7 +122,9 @@ function Shell({ profile, prefs }) {
   const cur = items.find(([k]) => k === page) ? page : "dashboard";
   const t = (k) => tr(prefs.lang, k);
   const [printIds, setPrintIds] = useState(null);
+  const [shoeIds, setShoeIds] = useState(null);
   if (printIds) return <PrintView ids={printIds} onClose={() => setPrintIds(null)} />;
+  if (shoeIds) return <ShoeSheet ids={shoeIds} onClose={() => setShoeIds(null)} />;
   return (
     <div className="shell">
       <aside className="side">
@@ -138,7 +141,7 @@ function Shell({ profile, prefs }) {
         {cur === "dashboard" && <Dashboard isOwner={isOwner} t={t} />}
         {cur === "team" && isOwner && <Team me={profile} />}
         {cur === "invoice" && <NewOrder onCreated={(id) => setPrintIds([id])} />}
-        {cur === "orders" && <Orders isOwner={isOwner} onPrint={setPrintIds} />}
+        {cur === "orders" && <Orders isOwner={isOwner} onPrint={setPrintIds} onShoes={setShoeIds} />}
         {!["dashboard", "team", "invoice", "orders"].includes(cur) && <div className="card"><h2>{t(cur)}</h2><p className="muted">{t("soon")}</p></div>}
       </main>
       <nav className="bottom">

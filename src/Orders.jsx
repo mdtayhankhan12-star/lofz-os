@@ -7,7 +7,7 @@ export const STATUSES = [
 ];
 const today = () => new Date().toISOString().slice(0, 10);
 
-export default function Orders({ isOwner, onPrint }) {
+export default function Orders({ isOwner, onPrint, onShoes }) {
   const [f, setF] = useState({ source: "", status: "", from: today(), to: today(), q: "" });
   const [rows, setRows] = useState(null);
   const [sel, setSel] = useState([]);
@@ -62,7 +62,9 @@ export default function Orders({ isOwner, onPrint }) {
       </div>
       <div className="row">
         <button className="btn" disabled={!fbSel.length} onClick={() => onPrint(fbSel)}>🖨️ নির্বাচিত ইনভয়েস প্রিন্ট ({fbSel.length})</button>
-        <button className="chip" onClick={() => setSel((rows ?? []).filter((r) => r.source === "facebook").map((r) => r.id))}>সব Facebook বাছুন</button>
+        <button className="btn alt" disabled={!sel.length} onClick={() => onShoes(sel)}>👟 কারিগর শিট — ১২টা/পাতা ({sel.length})</button>
+        <button className="chip" onClick={() => setSel((rows ?? []).map((r) => r.id))}>এই তালিকার সব বাছুন</button>
+        <button className="chip" onClick={() => setSel([])}>বাছাই মুছুন</button>
         {msg && <span className="ok small">{msg}</span>}
       </div>
       {!rows ? <div className="card">লোড হচ্ছে...</div> : !rows.length ? <div className="card muted">এই তারিখে কোনো অর্ডার নেই।</div> : (
