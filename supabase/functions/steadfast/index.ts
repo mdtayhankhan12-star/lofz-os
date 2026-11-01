@@ -83,8 +83,17 @@ Deno.serve(async (req) => {
   if (b.action === "book") {
     const { data: o } = await admin.from("orders").select("id,order_no,customer_name,phone,address,total,status,order_items(product_name,size,quantity)").eq("id", b.order_id).single();
     if (!o) return reply({ error: "অর্ডার পাওয়া যায়নি" }, 404);
-    const { data: ex } = await admin.from("parcels").select("tracking_code").eq("order_id", o.id).maybeSingle();
-    if (ex?.tracking_code) return reply({ error: "এই অর্ডার আগেই বুক করা হয়েছে: " + ex.tracking_code }, 400);
+    const { data: ex } = await admin.from("parcels").select("tracking_code,delivery_status").eq("order_id", o.id).maybeSingle();
+    if (ex) return reply({ error: "এই অর্ডার আগেই Steadfast-এ আছে (" + (ex.tracking_code ?? ex.delivery_status ?? "") + ")" }, 400);
+    if (o.status !== "confirmed") return reply({ error: "আগে অর্ডারটা Confirm করুন" }, 400);
+    // Neo/অন্য পথে আগেই বুক হয়েছে কি না Steadfast-এ যাচাই
+    for (const inv of [o.order_no, String(o.order_no).replace(/^#/, "")]) {
+      const { body: chk } = await sf(`/status_by_invoice/${encodeURIComponent(inv)}`);
+      if (chk?.status === 200 && chk?.delivery_status) {
+        await admin.from("parcels").insert({ order_id: o.id, delivery_status: chk.delivery_status, raw: chk });
+        return reply({ error: "এই অর্ডার আগেই Steadfast-এ বুক করা আছে (" + chk.delivery_status + ")" }, 400);
+      }
+    }
     let phone = String(o.phone).replace(/\D/g, ""); if (phone.startsWith("88")) phone = phone.slice(2);
     const { body } = await sf("/create_order", { method: "POST", body: JSON.stringify({
       invoice: String(o.order_no).replace(/[^A-Za-z0-9_-]/g, ""), recipient_name: o.customer_name.slice(0, 100),

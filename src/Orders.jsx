@@ -81,7 +81,7 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
   };
   const book = async (r) => {
     if (!confirm(`${r.order_no} — ${r.customer_name}-এর পার্সেল Steadfast-এ বুক করবেন? COD ${tk(r.total)}`)) return;
-    try { const j = await fnCall("steadfast", { action: "book", order_id: r.id }); setMsg("বুক হয়েছে · Tracking: " + j.tracking_code); load(); }
+    try { const j = await fnCall("steadfast", { action: "book", order_id: r.id }); setMsg("বুক হয়েছে · Tracking: " + j.tracking_code); mode === "all" ? load() : loadInbox(); }
     catch (x) { setMsg("Steadfast: " + x.message); }
   };
   const syncNow = async () => {
@@ -138,6 +138,8 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
                     <a className="chip" href={`tel:${r.phone}`}>📞 কল</a>
                     <a className="chip" href={`https://wa.me/${wa}`} target="_blank" rel="noopener">WhatsApp</a>
                   </div>
+                  {r.parcels?.[0] ? <small className="muted">🚚 Steadfast: {r.parcels[0].tracking_code ?? ""} {r.parcels[0].delivery_status ?? ""}</small>
+                    : r.status === "confirmed" && <button className="chip" onClick={() => book(r)}>🚚 Steadfast-এ পাঠান</button>}
                   <div className="row">
                     {r.status === "pending" ? <button className="btn ok2" onClick={() => decide(r, "confirmed")}>✅ Confirm</button> : <span className="badge good">Confirmed{r.source === "facebook" ? " · FB" : ""}</span>}
                     <button className="chip" onClick={() => decide(r, "cancelled")}>❌ Cancel</button>
@@ -191,7 +193,7 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
                 </select>
                 {r.parcels?.[0] ? <small className="muted">🚚 {r.parcels[0].tracking_code ?? ""} {r.parcels[0].delivery_status ?? ""}</small> : null}
                 <div className="row">
-                  {!r.parcels?.[0]?.tracking_code && ["pending", "confirmed"].includes(r.status) && r.source === "facebook" && <button className="chip" onClick={() => book(r)}>🚚 Steadfast-এ পাঠান</button>}
+                  {!r.parcels?.[0] && r.status === "confirmed" && <button className="chip" onClick={() => book(r)}>🚚 Steadfast-এ পাঠান</button>}
                   <button className="chip" onClick={() => onPrint([r.id])}>ইনভয়েস</button>
                   {isOwner && <button className="chip" onClick={() => del(r.id)}>মুছুন</button>}
                 </div>
