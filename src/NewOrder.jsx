@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { sb, tk } from "./lib.js";
+import { sb, tk, fnCall } from "./lib.js";
+import { Ring, statsFor } from "./Parcels.jsx";
 
 // ছবি ছোট করে (WebP, ৮০০px) আপলোড — ফ্রি স্টোরেজ বাঁচাতে
 async function shrink(file) {
@@ -20,8 +21,9 @@ export async function upload(file) {
 
 const blankItem = () => ({ product_name: "", size: "", quantity: 1, price: "", image_url: "", up: false });
 
-export default function NewOrder({ onCreated }) {
-  const [c, setC] = useState({ name: "", phone: "", address: "", delivery_charge: 70, discount: 0, note: "" });
+export default function NewOrder({ onCreated, book }) {
+  const [doBook, setDoBook] = useState(!!book);
+  const [c, setC] = useState({ name: "", phone: "", address: "", delivery_charge: 80, discount: 0, note: "" });
   const [items, setItems] = useState([blankItem()]);
   const [err, setErr] = useState(""); const [busy, setBusy] = useState(false);
   const [hist, setHist] = useState(null);
@@ -34,8 +36,7 @@ export default function NewOrder({ onCreated }) {
     const ph = c.phone.replace(/\D/g, "");
     if (ph.length < 10) return setHist(null);
     const { data: cu } = await sb.from("customers").select("name,address").eq("phone", ph).maybeSingle();
-    const { data: r } = await sb.from("customer_returns").select("returns,orders").eq("phone", ph).maybeSingle();
-    setHist(r ? r : cu ? { returns: 0, orders: 0 } : null);
+    setHist((await statsFor([ph]))[ph] ?? null);
     if (cu) setC((x) => ({ ...x, name: x.name || cu.name, address: x.address || cu.address || "" }));
   };
 
@@ -53,8 +54,12 @@ export default function NewOrder({ onCreated }) {
     const { data, error } = await sb.rpc("create_fb_order", {
       p: { ...c, items: items.map(({ up, ...i }) => ({ ...i, quantity: Number(i.quantity), price: Number(i.price) })) },
     });
+    if (error) { setBusy(false); return setErr(error.message); }
+    if (doBook) {
+      try { await fnCall("steadfast", { action: "book", order_id: data.order_id }); }
+      catch (x) { alert("অর্ডার সেভ হয়েছে, কিন্তু Steadfast বুক হয়নি: " + x.message + "\nঅর্ডার পেজ থেকে আবার 🚚 চাপুন।"); }
+    }
     setBusy(false);
-    if (error) return setErr(error.message);
     onCreated(data.order_id);
   };
 
@@ -67,9 +72,7 @@ export default function NewOrder({ onCreated }) {
           <label>কাস্টমারের নাম<input required value={c.name} onChange={(e) => setC({ ...c, name: e.target.value })} /></label>
           <label>পুরো ঠিকানা<input required value={c.address} onChange={(e) => setC({ ...c, address: e.target.value })} /></label>
         </div>
-        {hist && <p className={hist.returns > 0 ? "err" : "muted small"}>
-          পুরনো কাস্টমার · আগের অর্ডার {hist.orders}টা{hist.returns > 0 ? ` · ⚠️ আগে ${hist.returns} বার Return করেছেন` : ""}
-        </p>}
+        {hist && <div style={{ marginTop: 8 }}><Ring s={hist} /></div>}
       </div>
 
       {items.map((it, k) => (
@@ -95,8 +98,8 @@ export default function NewOrder({ onCreated }) {
         <div className="form3">
           <label>ডেলিভারি চার্জ
             <div className="row">
-              <button type="button" className={"chip" + (Number(c.delivery_charge) === 70 ? " sel" : "")} onClick={() => setC({ ...c, delivery_charge: 70 })}>ঢাকা ৭০</button>
-              <button type="button" className={"chip" + (Number(c.delivery_charge) === 130 ? " sel" : "")} onClick={() => setC({ ...c, delivery_charge: 130 })}>ঢাকার বাইরে ১৩০</button>
+              <button type="button" className={"chip" + (Number(c.delivery_charge) === 80 ? " sel" : "")} onClick={() => setC({ ...c, delivery_charge: 80 })}>ঢাকার ভিতরে ৮০</button>
+              <button type="button" className={"chip" + (Number(c.delivery_charge) === 150 ? " sel" : "")} onClick={() => setC({ ...c, delivery_charge: 150 })}>ঢাকার বাইরে ১৫০</button>
               <input type="number" min={0} style={{ width: 90 }} value={c.delivery_charge} onChange={(e) => setC({ ...c, delivery_charge: e.target.value })} />
             </div>
           </label>
@@ -105,7 +108,8 @@ export default function NewOrder({ onCreated }) {
         </div>
         <div className="totals"><span>জুতা: {tk(sub)}</span><span>মোট: <b>{tk(total)}</b></span></div>
         {err && <p className="err">{err}</p>}
-        <button className="btn big" disabled={busy}>{busy ? "তৈরি হচ্ছে..." : "🧾 Generate Invoice"}</button>
+        <label className="bookchk"><input type="checkbox" checked={doBook} onChange={(e) => setDoBook(e.target.checked)} /> সেভ করার সাথে সাথে Steadfast-এ পার্সেল বুক করুন 🚚</label>
+        <button className="btn big" disabled={busy}>{busy ? "তৈরি হচ্ছে..." : doBook ? "📦 অর্ডার সেভ + Steadfast বুক" : "🧾 Generate Invoice"}</button>
       </div>
     </form>
   );

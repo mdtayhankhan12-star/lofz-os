@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { sb, tk, fnCall } from "./lib.js";
+import { Ring, statsFor } from "./Parcels.jsx";
 
 export const STATUSES = [
   ["pending", "Pending"], ["confirmed", "Confirmed"], ["delivered", "Delivered"],
@@ -24,12 +25,14 @@ export const bnTime = (d) => {
   return `${BN(t.getUTCDate())} ${MON.at(t.getUTCMonth())}, ${part} ${BN(h % 12 || 12)}:${BN(String(m).padStart(2, "0"))}`;
 };
 
-export default function Orders({ isOwner, onPrint, onShoes }) {
-  const [f, setF] = useState({ source: "", status: "", from: today(), to: today(), q: "" });
+export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
+  const P = preset ?? {};
+  const [f, setF] = useState({ source: P.source ?? "", status: P.status ?? "", from: P.q ? "" : P.from ?? today(), to: P.q ? "" : P.to ?? today(), q: P.q ?? "" });
   const [rows, setRows] = useState(null);
   const [sel, setSel] = useState([]);
   const [msg, setMsg] = useState("");
-  const [mode, setMode] = useState("inbox");
+  const [mode, setMode] = useState(P.mode ?? "inbox");
+  const [revenue, setRevenue] = useState(!!P.revenue);
   const [inboxN, setInboxN] = useState(0);
   const [ret, setRet] = useState({});
 
@@ -46,7 +49,8 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
       q = q.or(`phone.ilike.%${s.replace(/\D/g, "") || s}%,customer_name.ilike.%${s}%,order_no.ilike.%${s}%`);
     }
     const { data, error } = await q;
-    setRows(error ? [] : data); setSel([]);
+    const list = error ? [] : revenue ? data.filter((r) => r.status !== "cancelled") : data;
+    setRows(list); setSel([]); setRet(await statsFor(list.map((r) => r.phone)));
   };
   const loadInbox = async () => {
     const { data } = await sb.from("orders")
@@ -54,13 +58,9 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
       .match(mode === "confirmed" ? { status: "confirmed" } : { source: "website", status: "pending" })
       .order("order_date", { ascending: false }).limit(300);
     setRows(data ?? []); if (mode === "inbox") setInboxN((data ?? []).length); setSel([]);
-    const phones = [...new Set((data ?? []).map((r) => r.phone))];
-    if (phones.length) {
-      const { data: cr } = await sb.from("customer_returns").select("phone,returns,orders").in("phone", phones);
-      setRet(Object.fromEntries((cr ?? []).map((x) => [x.phone, x])));
-    }
+    setRet(await statsFor((data ?? []).map((r) => r.phone)));
   };
-  useEffect(() => { mode === "all" ? load() : loadInbox(); }, [mode, f.source, f.status, f.from, f.to]);
+  useEffect(() => { mode === "all" ? load() : loadInbox(); }, [mode, f.source, f.status, f.from, f.to, revenue]);
   useEffect(() => { sb.from("orders").select("id", { count: "exact", head: true }).eq("source", "website").eq("status", "pending").then(({ count }) => setInboxN(count ?? 0)); }, []);
   const decide = async (r, status) => {
     if (status === "cancelled" && r.status === "confirmed" && !confirm(`${r.order_no} — ${r.customer_name}: Confirmed অর্ডার Cancel করবেন?`)) return;
@@ -136,14 +136,13 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
                 <div className="thumbs">{(r.order_items ?? []).slice(0, 3).map((i, k) => i.image_url ? <img key={k} src={i.image_url} alt="" /> : <div key={k} className="ph" />)}</div>
                 <div className="grow">
                   <div className="row"><b>{r.order_no}</b>
-                    {h && h.orders > 1 && <span className="badge">আগের অর্ডার {h.orders - 1}</span>}
-                    {h && h.returns > 0 && <span className="badge bad">⚠️ Return {h.returns} বার</span>}
                     {r.possible_duplicate && <span className="badge bad">সম্ভাব্য ডুপ্লিকেট</span>}
                   </div>
                   <div><b>{r.customer_name}</b> · {r.phone}</div>
                   <small className="muted">{r.address}</small><br />
                   <small>{(r.order_items ?? []).map((i) => `${i.product_name} · সাইজ ${i.size ?? "-"}${i.color ? " · " + i.color : ""} ×${i.quantity}`).join(" | ")}</small><br />
                   <small className="muted">{bnTime(r.order_date)}</small>
+                  <div className="ringw" onClick={() => goRisk?.(r.phone)}><Ring s={h} small /></div>
                 </div>
                 <div className="oright">
                   <b>{tk(r.total)}</b>
@@ -185,6 +184,7 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
         <button className="btn ok2" disabled={!selDelivered.length} onClick={markReceived}>✅ টাকা পেয়েছি ({selDelivered.length} · {tk(selDelivered.reduce((a, r) => a + Number(r.total), 0))})</button>
         {msg && <span className="ok small">{msg}</span>}
       </div>
+      {rows && <p className="note"><i>i</i><span>{revenue ? "আজকের সেলের অর্ডার (Cancel বাদে)" : "দেখানো অর্ডার"}: <b>{rows.length}টা</b> · মোট <b>{tk(rows.reduce((a, r) => a + Number(r.total), 0))}</b>{revenue && <> · <a href="#" onClick={(e) => { e.preventDefault(); setRevenue(false); }}>Cancel সহ সব দেখুন</a></>}</span></p>}
       {!rows ? <div className="card">লোড হচ্ছে...</div> : !rows.length ? <div className="card muted">এই তারিখে কোনো অর্ডার নেই।</div> : (
         <div className="olist">
           {rows.map((r) => (
@@ -198,6 +198,7 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
                 </div>
                 <div>{r.customer_name} · {r.phone}</div>
                 <small className="muted">{(r.order_items ?? []).map((i) => `${i.product_name} (${i.size}) ×${i.quantity}`).join(", ")} · {bnTime(r.order_date)}</small>
+                <div className="ringw" onClick={() => goRisk?.(r.phone)}><Ring s={ret[r.phone]} small /></div>
               </div>
               <div className="oright">
                 <b>{tk(r.total)}</b>

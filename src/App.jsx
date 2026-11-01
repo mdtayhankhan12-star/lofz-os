@@ -6,6 +6,8 @@ import { PrintView } from "./Invoice.jsx";
 import ShoeSheet from "./ShoeSheet.jsx";
 import Expenses from "./Expenses.jsx";
 import Finance from "./Finance.jsx";
+import Parcels, { ST_BN } from "./Parcels.jsx";
+import { bnTime } from "./Orders.jsx";
 
 const ls = {
   get: (k, d) => { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
@@ -114,59 +116,106 @@ function Login({ prefs }) {
 const NAV = [
   ["dashboard", "📊"], ["orders", "🧾"], ["invoice", "➕"], ["expenses", "💸"],
   ["finance", "💰", "owner"], ["team", "👥", "owner"],
+  ["addparcel", "📦", null, "parcel"], ["parcels_pending", "⏳", null, "parcel"], ["consignments", "🗂️", null, "parcel"], ["risk", "🛡️", null, "parcel"],
 ];
+// প্রতিটা পেজ কী কাজ করে — উপরে ছোট করে লেখা থাকে, যাতে স্টাফ সহজে বোঝে
+const HELP = {
+  dashboard: "আজকের পুরো ব্যবসার এক নজরে হিসাব। যেকোনো কার্ডে ক্লিক করলে সেই অর্ডারগুলোর তালিকা খুলবে।",
+  orders: "Website অর্ডার কল করে Confirm/Cancel করুন, Confirmed অর্ডারের কারিগর শিট ও ইনভয়েস প্রিন্ট করুন, Steadfast-এ পাঠান।",
+  invoice: "Facebook/Messenger-এর অর্ডার এখানে লিখুন। সেভ করলে ইনভয়েস তৈরি হবে।",
+  addparcel: "নতুন অর্ডার লিখে সাথে সাথে Steadfast-এ পার্সেল বুক করুন।",
+  expenses: "কারখানার দৈনিক খরচ লিখুন। রাত ১২টায় দিনের মোট লাভ-ক্ষতিতে যোগ হয়।",
+  finance: "লাভ-ক্ষতি, Facebook Ads খরচ আর Website বনাম Facebook তুলনা।",
+  team: "স্টাফের অ্যাকাউন্ট খোলা, বন্ধ করা আর পাসওয়ার্ড বদলানো।",
+  parcels_pending: "Steadfast-এ যে পার্সেলগুলো এখনো ডেলিভারি হয়নি (পথে / Hold / Review)।",
+  consignments: "Steadfast-এ পাঠানো সব পার্সেল, স্ট্যাটাস আর ট্র্যাকিং লিংকসহ।",
+  risk: "কাস্টমারের ফোন নম্বর দিয়ে দেখুন আগে কয়টা পার্সেল নিয়েছেন, কয়টা Return করেছেন, Fraud রিপোর্ট আছে কি না।",
+};
 
 function Shell({ profile, prefs }) {
   const [page, setPage] = useState(ls.get("lofz_page", "dashboard"));
   const isOwner = profile.role === "owner";
   const items = NAV.filter(([, , o]) => !o || isOwner);
-  const go = (k) => { setPage(k); ls.set("lofz_page", k); };
+  const [preset, setPreset] = useState(null);
+  const [phone, setPhone] = useState("");
+  const [more, setMore] = useState(false);
+  const go = (k, arg) => { setPage(k); ls.set("lofz_page", k); setMore(false); if (k === "orders") setPreset(arg ?? null); if (k === "risk") setPhone(arg ?? ""); window.scrollTo(0, 0); };
   const cur = items.find(([k]) => k === page) ? page : "dashboard";
   const t = (k) => tr(prefs.lang, k);
   const [printIds, setPrintIds] = useState(null);
   const [shoeIds, setShoeIds] = useState(null);
+  const [q, setQ] = useState("");
   useEffect(() => { document.documentElement.dataset.page = printIds || shoeIds ? "print" : cur; }, [cur, printIds, shoeIds]);
   if (printIds) return <PrintView ids={printIds} onClose={() => setPrintIds(null)} />;
   if (shoeIds) return <ShoeSheet ids={shoeIds} onClose={() => setShoeIds(null)} />;
+  const NavBtn = ([k, ic]) => <button key={k} className={"nav" + (cur === k ? " on" : "")} onClick={() => go(k)}><span>{ic}</span>{t(k)}</button>;
+  const search = (e) => { e.preventDefault(); const v = q.trim(); if (!v) return; if (v.replace(/\D/g, "").length >= 10 && /^[\d\s+-]+$/.test(v)) go("risk", v); else go("orders", { mode: "all", q: v }); setQ(""); };
   return (
     <div className="shell">
       <aside className="side">
         <div className="brand"><img src="/logo.png" alt="LOFZ" className="logo-side" /><small>Business OS</small></div>
-        {items.map(([k, ic]) => (
-          <button key={k} className={"nav" + (cur === k ? " on" : "")} onClick={() => go(k)}><span>{ic}</span>{t(k)}</button>
-        ))}
+        {items.filter((x) => !x[3]).map(NavBtn)}
+        <div className="navsec">PARCEL DATA</div>
+        {items.filter((x) => x[3]).map(NavBtn)}
       </aside>
       <main className="main">
         <header className="top">
           <div className="ptitle"><span className="pic">{items.find(([k]) => k === cur)?.[1]}</span><div><h1>{t(cur)}</h1><small>{profile.full_name || profile.username}<span className="own">{isOwner ? "Owner" : "Employee"}</span></small></div></div>
-          <div className="row"><Toggles prefs={prefs} /><button className="chip" onClick={() => sb.auth.signOut()}>{t("logout")}</button></div>
+          <form className="gsearch" onSubmit={search}><span>🔍</span><input placeholder="ফোন নম্বর / অর্ডার নম্বর / নাম খুঁজুন" value={q} onChange={(e) => setQ(e.target.value)} /></form>
+          <div className="row"><Bell go={go} /><Toggles prefs={prefs} /><button className="chip" onClick={() => sb.auth.signOut()}>{t("logout")}</button></div>
         </header>
-        {cur === "dashboard" && <Dashboard isOwner={isOwner} t={t} />}
+        {HELP[cur] && <div className="help">💡 {HELP[cur]}</div>}
+        {cur === "dashboard" && <Dashboard isOwner={isOwner} t={t} go={go} />}
         {cur === "team" && isOwner && <Team me={profile} />}
         {cur === "invoice" && <NewOrder onCreated={(id) => setPrintIds([id])} />}
-        {cur === "orders" && <Orders isOwner={isOwner} onPrint={setPrintIds} onShoes={setShoeIds} />}
+        {cur === "addparcel" && <NewOrder book onCreated={(id) => setPrintIds([id])} />}
+        {cur === "orders" && <Orders key={JSON.stringify(preset)} preset={preset} isOwner={isOwner} onPrint={setPrintIds} onShoes={setShoeIds} goRisk={(p) => go("risk", p)} />}
         {cur === "expenses" && <Expenses isOwner={isOwner} />}
         {cur === "finance" && isOwner && <Finance />}
-        {!["dashboard", "team", "invoice", "orders", "expenses", "finance"].includes(cur) && <div className="card"><h2>{t(cur)}</h2><p className="muted">{t("soon")}</p></div>}
+        {["parcels_pending", "consignments", "risk"].includes(cur) && <Parcels tab={cur} phone={phone} isOwner={isOwner} go={go} />}
       </main>
       <nav className="bottom">
-        {items.slice(0, 5).map(([k, ic]) => (
+        {items.slice(0, 4).map(([k, ic]) => (
           <button key={k} className={cur === k ? "on" : ""} onClick={() => go(k)}><span>{ic}</span><small>{t(k)}</small></button>
         ))}
-        {items.length > 5 && <button className={items.slice(5).some(([k]) => k === cur) ? "on" : ""} onClick={() => go(cur === "finance" ? "team" : "finance")}><span>⋯</span><small>{t(cur === "finance" ? "team" : "finance")}</small></button>}
+        <button className={items.slice(4).some(([k]) => k === cur) ? "on" : ""} onClick={() => setMore(!more)}><span>☰</span><small>আরো</small></button>
       </nav>
+      {more && <div className="moresheet" onClick={() => setMore(false)}><div className="card" onClick={(e) => e.stopPropagation()}>
+        {items.slice(4).map(([k, ic]) => <button key={k} className={"mitem" + (cur === k ? " on" : "")} onClick={() => go(k)}><span>{ic}</span>{t(k)}</button>)}
+      </div></div>}
     </div>
   );
 }
 
-function Dashboard({ isOwner, t }) {
+function Bell({ go }) {
+  const [list, setList] = useState([]); const [open, setOpen] = useState(false);
+  const load = () => sb.from("sf_notifications").select("id,consignment_id,invoice,type,status,message,cod_amount,read,created_at").order("created_at", { ascending: false }).limit(40).then(({ data }) => setList(data ?? []));
+  useEffect(() => { load(); const i = setInterval(load, 60000); return () => clearInterval(i); }, []);
+  const unread = list.filter((n) => !n.read).length;
+  const readAll = async () => { await sb.from("sf_notifications").update({ read: true }).eq("read", false); load(); };
+  return (
+    <div className="bellw">
+      <button className="chip bell" onClick={() => setOpen(!open)} title="Steadfast নোটিফিকেশন">🔔{unread > 0 && <i>{unread}</i>}</button>
+      {open && <div className="bellp card">
+        <div className="row" style={{ justifyContent: "space-between" }}><b>Steadfast নোটিফিকেশন</b>{unread > 0 && <button className="chip" onClick={readAll}>সব পড়া হয়েছে</button>}</div>
+        {!list.length ? <p className="muted small">এখনো কোনো নোটিফিকেশন নেই। “সব পার্সেল” পেজের নিচে দেওয়া নিয়মে Steadfast-এ Webhook চালু করলে রাইডারের আপডেট এখানে আসবে।</p>
+          : list.map((n) => <div key={n.id} className={"nrow" + (n.read ? "" : " un")} onClick={() => { setOpen(false); go("consignments"); }}>
+            <b>{n.invoice ?? ""}{n.consignment_id ? ` · #${n.consignment_id}` : ""}</b>
+            <span>{n.status ? (ST_BN[n.status] ?? n.status) : ""}{n.message ? ` — ${n.message}` : ""}</span>
+            <small className="muted">{bnTime(n.created_at)}</small></div>)}
+      </div>}
+    </div>
+  );
+}
+
+function Dashboard({ isOwner, t, go }) {
   const [d, setD] = useState(null);
+  const [late, setLate] = useState(null);
   useEffect(() => {
     (async () => {
       const start = new Date(); start.setHours(0, 0, 0, 0);
       const m0 = new Date(start.getFullYear(), start.getMonth(), 1);
       const { data: today } = await sb.from("orders").select("source,status,total").gte("order_date", start.toISOString());
-      const { data: od } = await sb.from("production_status").select("remaining_qty").eq("overdue", true);
       let exp = null, profit = null;
       if (isOwner) {
         const m0s = `${m0.getFullYear()}-${String(m0.getMonth() + 1).padStart(2, "0")}-01`;
@@ -184,28 +233,49 @@ function Dashboard({ isOwner, t }) {
         web: c((x) => x.source === "website"), fb: c((x) => x.source === "facebook"),
         confirmed: c((x) => x.status === "confirmed"), delivered: c((x) => ["delivered", "received"].includes(x.status)),
         returned: c((x) => x.status === "returned"), cancelled: c((x) => x.status === "cancelled"),
-        pending: c((x) => x.status === "pending"), overdue: (od ?? []).reduce((a, r) => a + r.remaining_qty, 0), exp, profit, sf,
+        pending: c((x) => x.status === "pending"), exp, profit, sf,
       });
+      // ৫ দিনের বেশি পুরনো, এখনো Cancel বা Steadfast-এ পাঠানো হয়নি
+      const lim = new Date(Date.now() - 5 * 864e5).toISOString();
+      const { data: ld } = await sb.from("orders").select("id,order_no,source,status,order_date,customer_name,phone,order_items(product_name,size,quantity,image_url),parcels(id)")
+        .in("status", ["pending", "confirmed"]).lt("order_date", lim).order("order_date").limit(200);
+      setLate((ld ?? []).filter((r) => !r.parcels?.length));
     })();
   }, [isOwner]);
   if (!d) return <div className="grid">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="stat skel" />)}</div>;
   const IC = { today_orders: ["🛍️", "#fde7ec"], today_sales: ["৳", "#fde7ec"], website: ["🌐", "#fde7ec", "#9B1B3F"], facebook: ["f", "#e3eeff", "#1877f2"],
     pending: ["⏰", "#fde7ec"], confirmed: ["✓", "#dff6e9", "#16a34a"], delivered: ["🚚", "#e3eeff"], returned: ["↻", "#efe9ff", "#6d4bd8"],
     cancelled: ["✕", "#fde7ec", "#d0284f"], expense_month: ["👜", "#fde7ec"], profit_month: ["📈", "#fde7ec", "#d0284f"], sf_balance: ["★", "#fff3d6", "#e8a93b"] };
-  const S = ({ k, v, accent, w2 }) => { const [i, bg, c] = IC[k] ?? ["•", "#eee"]; return <div className={"stat" + (accent ? " accent" : "") + (w2 ? " w2" : "")}><span className="si" style={{ background: bg, color: c }}>{i}</span><small>{t(k)}</small><b>{v}</b></div>; };
+  const day = new Date(Date.now() + 6 * 3600e3).toISOString().slice(0, 10);
+  const today = { mode: "all", from: day, to: day };
+  const S = ({ k, v, accent, w2, to }) => { const [i, bg, c] = IC[k] ?? ["•", "#eee"]; return <button type="button" className={"stat click" + (accent ? " accent" : "") + (w2 ? " w2" : "")} onClick={to}><span className="si" style={{ background: bg, color: c }}>{i}</span><small>{t(k)}</small><b>{v}</b><em>দেখুন →</em></button>; };
+  const O = (x) => () => go("orders", { ...today, ...x });
   return (
     <>
       <div className="grid">
-        <S k="today_orders" v={d.n} accent /><S k="today_sales" v={tk(d.sales)} accent />
-        <S k="website" v={d.web} /><S k="facebook" v={d.fb} />
-        <S k="pending" v={d.pending} /><S k="confirmed" v={d.confirmed} />
-        <S k="delivered" v={d.delivered} /><S k="returned" v={d.returned} />
-        <S k="cancelled" v={d.cancelled} />
-        {isOwner && <S k="expense_month" v={tk(d.exp)} />}
-        {isOwner && <S k="profit_month" v={tk(d.profit)} />}
-        {isOwner && <S k="sf_balance" w2 v={d.sf == null ? "..." : tk(d.sf)} />}
+        <S k="today_orders" v={d.n} accent to={O({})} /><S k="today_sales" v={tk(d.sales)} accent to={O({ revenue: true })} />
+        <S k="website" v={d.web} to={O({ source: "website" })} /><S k="facebook" v={d.fb} to={O({ source: "facebook" })} />
+        <S k="pending" v={d.pending} to={O({ status: "pending" })} /><S k="confirmed" v={d.confirmed} to={O({ status: "confirmed" })} />
+        <S k="delivered" v={d.delivered} to={O({ status: "delivered" })} /><S k="returned" v={d.returned} to={O({ status: "returned" })} />
+        <S k="cancelled" v={d.cancelled} to={O({ status: "cancelled" })} />
+        {isOwner && <S k="expense_month" v={tk(d.exp)} to={() => go("expenses")} />}
+        {isOwner && <S k="profit_month" v={tk(d.profit)} to={() => go("finance")} />}
+        {isOwner && <S k="sf_balance" w2 v={d.sf == null ? "..." : tk(d.sf)} to={() => go("parcels_pending")} />}
       </div>
-      <p className="note"><i>i</i><span>লাভ = এই মাসের Delivered/Received অর্ডারের বিক্রি − এই মাসের খরচ। Website অর্ডার Shopify যুক্ত হলে নিজে থেকে আসবে।</span></p>
+      <p className="note"><i>i</i><span>লাভ = এই মাসের Delivered/Received অর্ডারের বিক্রি − এই মাসের খরচ। আজকের সেল = আজকের অর্ডারের মোট (Cancel বাদে)।</span></p>
+      {late && <div className="card pconly late">
+        <div className="row" style={{ justifyContent: "space-between" }}><h2>⏰ ৫ দিনের বেশি পড়ে আছে ({late.length})</h2><span className="muted small">Cancel বা Steadfast-এ না পাঠানো পর্যন্ত এখানে থাকবে</span></div>
+        {!late.length ? <p className="muted">🎉 কোনো অর্ডার ৫ দিনের বেশি আটকে নেই।</p> : <div className="ltab">
+          <div className="lh"><span>অর্ডার</span><span>কাস্টমার</span><span>জুতা</span><span>কত দিন</span><span>স্ট্যাটাস</span></div>
+          {late.map((r) => <div key={r.id} className="lr" onClick={() => go("orders", { mode: r.status === "pending" ? "inbox" : "confirmed" })}>
+            <span><b>{r.order_no}</b><small className="muted">{r.source === "facebook" ? "Facebook" : "Website"}</small></span>
+            <span><b>{r.customer_name}</b><small className="muted">{r.phone}</small></span>
+            <span className="lshoe">{r.order_items?.[0]?.image_url && <img src={r.order_items[0].image_url} alt="" />}<small>{(r.order_items ?? []).map((i) => `${i.product_name} (${i.size}) ×${i.quantity}`).join(", ")}</small></span>
+            <span><b className="err">{Math.floor((Date.now() - new Date(r.order_date)) / 864e5)} দিন</b></span>
+            <span><span className={"badge " + (r.status === "pending" ? "" : "good")}>{r.status === "pending" ? "Confirm বাকি" : "Confirmed · পাঠানো বাকি"}</span></span>
+          </div>)}
+        </div>}
+      </div>}
     </>
   );
 }
