@@ -114,3 +114,4 @@ select.st.confirmed{border-color:#2b6cb0}select.st.delivered,select.st.received{
 .bars>div{display:grid;grid-template-columns:80px 1fr 90px;align-items:center;gap:8px;font-size:13px}
 .bars i{display:block;height:14px;border-radius:7px;min-width:2px}
 @media print{.side,.bottom,.top,.noprint{display:none!important}.main{padding:0}}
+.btn.ok2{background:var(--good)}

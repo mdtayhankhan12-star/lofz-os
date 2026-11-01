@@ -51,7 +51,16 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
     try { const j = await fnCall("steadfast", { action: "sync" }); setMsg(`${j.checked}টা অর্ডার দেখা হলো, ${j.updated}টার তথ্য পাওয়া গেছে`); load(); }
     catch (x) { setMsg("Steadfast: " + x.message); }
   };
+  const markReceived = async () => {
+    const ids = (rows ?? []).filter((r) => sel.includes(r.id) && r.status === "delivered").map((r) => r.id);
+    if (!ids.length) return setMsg("শুধু Delivered অর্ডার বাছুন");
+    const sum = (rows ?? []).filter((r) => ids.includes(r.id)).reduce((a, r) => a + Number(r.total), 0);
+    if (!confirm(`${ids.length}টা অর্ডার "Received (টাকা হাতে পেয়েছি)" করবেন? এগুলোর মোট COD ${tk(sum)}`)) return;
+    const { error } = await sb.from("orders").update({ status: "received" }).in("id", ids);
+    setMsg(error ? error.message : `${ids.length}টা অর্ডার Received হয়েছে`); load();
+  };
   const toggle = (id) => setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  const selDelivered = (rows ?? []).filter((r) => sel.includes(r.id) && r.status === "delivered");
   const fbSel = (rows ?? []).filter((r) => sel.includes(r.id) && r.source === "facebook").map((r) => r.id);
 
   return (
@@ -76,6 +85,7 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
         <button className="chip" onClick={() => setSel((rows ?? []).map((r) => r.id))}>এই তালিকার সব বাছুন</button>
         <button className="chip" onClick={() => setSel([])}>বাছাই মুছুন</button>
         {isOwner && <button className="chip" onClick={syncNow}>🔄 Steadfast আপডেট</button>}
+        <button className="btn ok2" disabled={!selDelivered.length} onClick={markReceived}>✅ টাকা পেয়েছি ({selDelivered.length} · {tk(selDelivered.reduce((a, r) => a + Number(r.total), 0))})</button>
         {msg && <span className="ok small">{msg}</span>}
       </div>
       {!rows ? <div className="card">লোড হচ্ছে...</div> : !rows.length ? <div className="card muted">এই তারিখে কোনো অর্ডার নেই।</div> : (
