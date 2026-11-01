@@ -195,6 +195,11 @@ function Risk({ initial }) {
           <div className="grow"><h2>{s.last_name ?? "অজানা কাস্টমার"} · {ph}</h2><b>{risk[1]}</b></div>
           <a className="chip" href={`tel:${ph}`}>📞 কল</a>
         </div>
+        <div className="card allc">
+          <div className="grow"><h2>🌐 সব কুরিয়ারের হিসাব (Steadfast, Pathao, RedX...)</h2>
+            <p className="muted small">অন্য দোকান মিলিয়ে এই নম্বর কোন কুরিয়ারে কয়টা পার্সেল নিয়েছে/ফেরত দিয়েছে দেখতে বাটনে চাপুন। নম্বর নিজে কপি হয়ে যাবে, সাইটের সার্চ বক্সে Paste করে সার্চ দিন।</p></div>
+          <button type="button" className="btn" onClick={(e) => { navigator.clipboard?.writeText(ph.replace(/\D/g, "").replace(/^88/, "")); e.currentTarget.textContent = "নম্বর কপি ✓ সাইট খুলছে..."; window.open("https://smsoft.net/fraud/", "_blank", "noopener"); }}>🔎 smsoft-এ চেক করুন</button>
+        </div>
         <div className="grid">
           <div className="stat"><small>মোট অর্ডার</small><b>{s.total}</b></div>
           <div className="stat"><small>পার্সেল নিয়েছেন</small><b style={{ color: "#178a5c" }}>{s.delivered}</b></div>
