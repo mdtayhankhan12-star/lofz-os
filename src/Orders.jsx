@@ -12,6 +12,9 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
   const [rows, setRows] = useState(null);
   const [sel, setSel] = useState([]);
   const [msg, setMsg] = useState("");
+  const [mode, setMode] = useState("inbox");
+  const [inboxN, setInboxN] = useState(0);
+  const [ret, setRet] = useState({});
 
   const load = async () => {
     let q = sb.from("orders")
@@ -28,7 +31,32 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
     const { data, error } = await q;
     setRows(error ? [] : data); setSel([]);
   };
-  useEffect(() => { load(); }, [f.source, f.status, f.from, f.to]);
+  const loadInbox = async () => {
+    const { data } = await sb.from("orders")
+      .select("id,order_no,source,order_date,customer_name,phone,address,total,status,possible_duplicate,order_items(product_name,image_url,size,color,quantity),parcels(tracking_code,delivery_status)")
+      .eq("source", "website").eq("status", "pending").order("order_date", { ascending: false }).limit(300);
+    setRows(data ?? []); setInboxN((data ?? []).length); setSel([]);
+    const phones = [...new Set((data ?? []).map((r) => r.phone))];
+    if (phones.length) {
+      const { data: cr } = await sb.from("customer_returns").select("phone,returns,orders").in("phone", phones);
+      setRet(Object.fromEntries((cr ?? []).map((x) => [x.phone, x])));
+    }
+  };
+  useEffect(() => { mode === "inbox" ? loadInbox() : load(); }, [mode, f.source, f.status, f.from, f.to]);
+  useEffect(() => { sb.from("orders").select("id", { count: "exact", head: true }).eq("source", "website").eq("status", "pending").then(({ count }) => setInboxN(count ?? 0)); }, []);
+  const decide = async (r, status) => {
+    const { error } = await sb.from("orders").update({ status }).eq("id", r.id);
+    if (error) return setMsg(error.message);
+    setRows((rs) => rs.filter((x) => x.id !== r.id)); setInboxN((n) => n - 1);
+    setMsg(`${r.order_no} ${status === "confirmed" ? "Confirmed ✅" : "Cancel ❌"}`);
+  };
+  const cancelOld = async () => {
+    const old = (rows ?? []).filter((r) => Date.now() - new Date(r.order_date) > 10 * 864e5);
+    if (!old.length) return setMsg("১০ দিনের পুরনো কোনো Pending নেই");
+    if (!confirm(`১০ দিনের বেশি পুরনো ${old.length}টা Pending Website অর্ডার Cancel করবেন? (Steadfast-এ যেগুলো পাওয়া গেছে সেগুলো আগেই Confirmed/Delivered হয়ে গেছে)`)) return;
+    const { error } = await sb.from("orders").update({ status: "cancelled" }).in("id", old.map((r) => r.id));
+    setMsg(error ? error.message : `${old.length}টা পুরনো অর্ডার Cancel হয়েছে`); loadInbox();
+  };
 
   const setStatus = async (id, status) => {
     const { error } = await sb.from("orders").update({ status }).eq("id", id);
@@ -61,10 +89,51 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
   };
   const toggle = (id) => setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   const selDelivered = (rows ?? []).filter((r) => sel.includes(r.id) && r.status === "delivered");
-  const fbSel = (rows ?? []).filter((r) => sel.includes(r.id) && r.source === "facebook").map((r) => r.id);
+  const fbSel = sel;
 
   return (
     <div className="stack">
+      <div className="row tabs">
+        <button className={"tab" + (mode === "inbox" ? " on" : "")} onClick={() => setMode("inbox")}>📥 Confirm বাকি (Website) <b>{inboxN}</b></button>
+        <button className={"tab" + (mode === "all" ? " on" : "")} onClick={() => setMode("all")}>📋 সব অর্ডার</button>
+      </div>
+      {mode === "inbox" ? <>
+        <div className="row">
+          <span className="muted small">কাস্টমারের সাথে কথা বলে Confirm বা Cancel করুন। শুধু Confirmed অর্ডার কারিগর শিট ও ইনভয়েসে যায়।</span>
+          {isOwner && <button className="chip" onClick={cancelOld}>🧹 ১০+ দিনের পুরনো Pending সব Cancel</button>}
+          {msg && <span className="ok small">{msg}</span>}
+        </div>
+        {!rows ? <div className="card">লোড হচ্ছে...</div> : !rows.length ? <div className="card muted">🎉 Confirm বাকি কোনো Website অর্ডার নেই।</div> : (
+          <div className="olist">
+            {rows.map((r) => { const h = ret[r.phone]; const wa = "88" + String(r.phone).replace(/\D/g, "").replace(/^88/, ""); return (
+              <div key={r.id} className="card orow">
+                <div className="thumbs">{(r.order_items ?? []).slice(0, 3).map((i, k) => i.image_url ? <img key={k} src={i.image_url} alt="" /> : <div key={k} className="ph" />)}</div>
+                <div className="grow">
+                  <div className="row"><b>{r.order_no}</b>
+                    {h && h.orders > 1 && <span className="badge">আগের অর্ডার {h.orders - 1}</span>}
+                    {h && h.returns > 0 && <span className="badge bad">⚠️ Return {h.returns} বার</span>}
+                    {r.possible_duplicate && <span className="badge bad">সম্ভাব্য ডুপ্লিকেট</span>}
+                  </div>
+                  <div><b>{r.customer_name}</b> · {r.phone}</div>
+                  <small className="muted">{r.address}</small><br />
+                  <small>{(r.order_items ?? []).map((i) => `${i.product_name} · সাইজ ${i.size ?? "-"}${i.color ? " · " + i.color : ""} ×${i.quantity}`).join(" | ")}</small><br />
+                  <small className="muted">{new Date(r.order_date).toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" })}</small>
+                </div>
+                <div className="oright">
+                  <b>{tk(r.total)}</b>
+                  <div className="row">
+                    <a className="chip" href={`tel:${r.phone}`}>📞 কল</a>
+                    <a className="chip" href={`https://wa.me/${wa}`} target="_blank" rel="noopener">WhatsApp</a>
+                  </div>
+                  <div className="row">
+                    <button className="btn ok2" onClick={() => decide(r, "confirmed")}>✅ Confirm</button>
+                    <button className="chip" onClick={() => decide(r, "cancelled")}>❌ Cancel</button>
+                  </div>
+                </div>
+              </div>); })}
+          </div>
+        )}
+      </> : <>
       <div className="card filters">
         <select value={f.source} onChange={(e) => setF({ ...f, source: e.target.value })}>
           <option value="">সব (Website + Facebook)</option><option value="website">Website</option><option value="facebook">Facebook</option>
@@ -80,7 +149,7 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
         </form>
       </div>
       <div className="row">
-        <button className="btn" disabled={!fbSel.length} onClick={() => onPrint(fbSel)}>🖨️ নির্বাচিত ইনভয়েস প্রিন্ট ({fbSel.length})</button>
+        <button className="btn" disabled={!fbSel.length} onClick={() => onPrint(fbSel)}>🖨️ ইনভয়েস প্রিন্ট ({fbSel.length})</button>
         <button className="btn alt" disabled={!sel.length} onClick={() => onShoes(sel)}>👟 কারিগর শিট — ১২টা/পাতা ({sel.length})</button>
         <button className="chip" onClick={() => setSel((rows ?? []).map((r) => r.id))}>এই তালিকার সব বাছুন</button>
         <button className="chip" onClick={() => setSel([])}>বাছাই মুছুন</button>
@@ -110,7 +179,7 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
                 {r.parcels?.[0] ? <small className="muted">🚚 {r.parcels[0].tracking_code ?? ""} {r.parcels[0].delivery_status ?? ""}</small> : null}
                 <div className="row">
                   {!r.parcels?.[0]?.tracking_code && ["pending", "confirmed"].includes(r.status) && r.source === "facebook" && <button className="chip" onClick={() => book(r)}>🚚 Steadfast-এ পাঠান</button>}
-                  {r.source === "facebook" && <button className="chip" onClick={() => onPrint([r.id])}>ইনভয়েস</button>}
+                  <button className="chip" onClick={() => onPrint([r.id])}>ইনভয়েস</button>
                   {isOwner && <button className="chip" onClick={() => del(r.id)}>মুছুন</button>}
                 </div>
               </div>
@@ -118,6 +187,7 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
           ))}
         </div>
       )}
+      </>}
     </div>
   );
 }

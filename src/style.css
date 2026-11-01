@@ -115,3 +115,6 @@ select.st.confirmed{border-color:#2b6cb0}select.st.delivered,select.st.received{
 .bars i{display:block;height:14px;border-radius:7px;min-width:2px}
 @media print{.side,.bottom,.top,.noprint{display:none!important}.main{padding:0}}
 .btn.ok2{background:var(--good)}
+.tabs{gap:6px}.tab{border:1.5px solid var(--line);background:var(--card);color:var(--fg);border-radius:12px;padding:10px 14px;font-weight:600}
+.tab.on{background:var(--acc);border-color:var(--acc);color:#fff}.tab b{margin-left:4px}
+a.chip{text-decoration:none;display:inline-block}

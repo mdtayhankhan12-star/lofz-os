@@ -9,7 +9,8 @@ export default function ShoeSheet({ ids, onClose }) {
   if (!list) return <div className="card">লোড হচ্ছে...</div>;
 
   const cells = { website: [], facebook: [] };
-  for (const o of list) for (const i of o.order_items ?? [])
+  const skipped = list.filter((o) => o.status !== "confirmed").length;
+  for (const o of list.filter((o) => o.status === "confirmed")) for (const i of o.order_items ?? [])
     for (let q = 0; q < (i.quantity || 1); q++)
       cells[o.source].push({ img: i.image_url, name: i.product_name, size: i.size, no: o.order_no, phone: o.phone });
 
@@ -23,7 +24,7 @@ export default function ShoeSheet({ ids, onClose }) {
       <div className="row noprint">
         <button className="btn" onClick={() => window.print()}>🖨️ Print / PDF</button>
         <button className="chip" onClick={onClose}>← ফিরে যান</button>
-        <span className="muted small">Website {cells.website.length} জোড়া · Facebook {cells.facebook.length} জোড়া · {pages.length} পাতা</span>
+        {skipped > 0 && <span className="err small">{skipped}টা অর্ডার Confirmed না হওয়ায় বাদ গেছে · </span>}<span className="muted small">Website {cells.website.length} জোড়া · Facebook {cells.facebook.length} জোড়া · {pages.length} পাতা</span>
       </div>
       {pages.map((pg, k) => (
         <div className="sheet shoes" key={k}>

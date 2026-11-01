@@ -4,7 +4,7 @@ import { sb, tk } from "./lib.js";
 // আপনার অনুমোদিত ডিজাইন: এক A4-এ ২টা ইনভয়েস, M ID লাল, নিচে Thank you
 export async function loadOrders(ids) {
   const { data } = await sb.from("orders")
-    .select("id,order_no,source,order_date,customer_name,phone,address,delivery_charge,discount,total,order_items(product_name,image_url,size,quantity,price)")
+    .select("id,order_no,source,status,order_date,customer_name,phone,address,delivery_charge,discount,total,order_items(product_name,image_url,size,quantity,price)")
     .in("id", ids);
   const byId = Object.fromEntries((data ?? []).map((o) => [o.id, o]));
   return ids.map((i) => byId[i]).filter(Boolean);
