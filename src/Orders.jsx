@@ -6,6 +6,7 @@ export const STATUSES = [
   ["received", "Received (টাকা পেয়েছি)"], ["returned", "Return"], ["cancelled", "Cancel"],
 ];
 const today = () => new Date().toISOString().slice(0, 10);
+export const bnTime = (d) => new Date(d).toLocaleString("bn-BD", { timeZone: "Asia/Dhaka", day: "numeric", month: "long", hour: "numeric", minute: "2-digit", hour12: true });
 
 export default function Orders({ isOwner, onPrint, onShoes }) {
   const [f, setF] = useState({ source: "", status: "", from: today(), to: today(), q: "" });
@@ -34,20 +35,22 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
   const loadInbox = async () => {
     const { data } = await sb.from("orders")
       .select("id,order_no,source,order_date,customer_name,phone,address,total,status,possible_duplicate,order_items(product_name,image_url,size,color,quantity),parcels(tracking_code,delivery_status)")
-      .eq("source", "website").eq("status", "pending").order("order_date", { ascending: false }).limit(300);
-    setRows(data ?? []); setInboxN((data ?? []).length); setSel([]);
+      .match(mode === "confirmed" ? { status: "confirmed" } : { source: "website", status: "pending" })
+      .order("order_date", { ascending: false }).limit(300);
+    setRows(data ?? []); if (mode === "inbox") setInboxN((data ?? []).length); setSel([]);
     const phones = [...new Set((data ?? []).map((r) => r.phone))];
     if (phones.length) {
       const { data: cr } = await sb.from("customer_returns").select("phone,returns,orders").in("phone", phones);
       setRet(Object.fromEntries((cr ?? []).map((x) => [x.phone, x])));
     }
   };
-  useEffect(() => { mode === "inbox" ? loadInbox() : load(); }, [mode, f.source, f.status, f.from, f.to]);
+  useEffect(() => { mode === "all" ? load() : loadInbox(); }, [mode, f.source, f.status, f.from, f.to]);
   useEffect(() => { sb.from("orders").select("id", { count: "exact", head: true }).eq("source", "website").eq("status", "pending").then(({ count }) => setInboxN(count ?? 0)); }, []);
   const decide = async (r, status) => {
+    if (status === "cancelled" && r.status === "confirmed" && !confirm(`${r.order_no} — ${r.customer_name}: Confirmed অর্ডার Cancel করবেন?`)) return;
     const { error } = await sb.from("orders").update({ status }).eq("id", r.id);
     if (error) return setMsg(error.message);
-    setRows((rs) => rs.filter((x) => x.id !== r.id)); setInboxN((n) => n - 1);
+    setRows((rs) => rs.filter((x) => x.id !== r.id)); if (mode === "inbox") setInboxN((n) => n - 1);
     setMsg(`${r.order_no} ${status === "confirmed" ? "Confirmed ✅" : "Cancel ❌"}`);
   };
   const cancelOld = async () => {
@@ -95,15 +98,18 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
     <div className="stack">
       <div className="row tabs">
         <button className={"tab" + (mode === "inbox" ? " on" : "")} onClick={() => setMode("inbox")}>📥 Confirm বাকি (Website) <b>{inboxN}</b></button>
+        <button className={"tab" + (mode === "confirmed" ? " on" : "")} onClick={() => setMode("confirmed")}>✅ Confirmed (বানানো/পাঠানো বাকি)</button>
         <button className={"tab" + (mode === "all" ? " on" : "")} onClick={() => setMode("all")}>📋 সব অর্ডার</button>
       </div>
-      {mode === "inbox" ? <>
+      {mode !== "all" ? <>
         <div className="row">
           <span className="muted small">কাস্টমারের সাথে কথা বলে Confirm বা Cancel করুন। শুধু Confirmed অর্ডার কারিগর শিট ও ইনভয়েসে যায়।</span>
-          {isOwner && <button className="chip" onClick={cancelOld}>🧹 ১০+ দিনের পুরনো Pending সব Cancel</button>}
+          {mode === "confirmed" && <button className="btn alt" disabled={!rows?.length} onClick={() => onShoes(rows.map((r) => r.id))}>👟 সব Confirmed-এর কারিগর শিট</button>}
+          {mode === "confirmed" && <button className="chip" disabled={!rows?.length} onClick={() => onPrint(rows.map((r) => r.id))}>🖨️ সব ইনভয়েস</button>}
+          {mode === "inbox" && isOwner && <button className="chip" onClick={cancelOld}>🧹 ১০+ দিনের পুরনো Pending সব Cancel</button>}
           {msg && <span className="ok small">{msg}</span>}
         </div>
-        {!rows ? <div className="card">লোড হচ্ছে...</div> : !rows.length ? <div className="card muted">🎉 Confirm বাকি কোনো Website অর্ডার নেই।</div> : (
+        {!rows ? <div className="card">লোড হচ্ছে...</div> : !rows.length ? <div className="card muted">{mode === "inbox" ? "🎉 Confirm বাকি কোনো Website অর্ডার নেই।" : "কোনো Confirmed অর্ডার নেই।"}</div> : (
           <div className="olist">
             {rows.map((r) => { const h = ret[r.phone]; const wa = "88" + String(r.phone).replace(/\D/g, "").replace(/^88/, ""); return (
               <div key={r.id} className="card orow">
@@ -117,7 +123,7 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
                   <div><b>{r.customer_name}</b> · {r.phone}</div>
                   <small className="muted">{r.address}</small><br />
                   <small>{(r.order_items ?? []).map((i) => `${i.product_name} · সাইজ ${i.size ?? "-"}${i.color ? " · " + i.color : ""} ×${i.quantity}`).join(" | ")}</small><br />
-                  <small className="muted">{new Date(r.order_date).toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" })}</small>
+                  <small className="muted">{bnTime(r.order_date)}</small>
                 </div>
                 <div className="oright">
                   <b>{tk(r.total)}</b>
@@ -126,7 +132,7 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
                     <a className="chip" href={`https://wa.me/${wa}`} target="_blank" rel="noopener">WhatsApp</a>
                   </div>
                   <div className="row">
-                    <button className="btn ok2" onClick={() => decide(r, "confirmed")}>✅ Confirm</button>
+                    {r.status === "pending" ? <button className="btn ok2" onClick={() => decide(r, "confirmed")}>✅ Confirm</button> : <span className="badge good">Confirmed{r.source === "facebook" ? " · FB" : ""}</span>}
                     <button className="chip" onClick={() => decide(r, "cancelled")}>❌ Cancel</button>
                   </div>
                 </div>
@@ -169,7 +175,7 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
                   {r.possible_duplicate && <span className="badge bad">সম্ভাব্য ডুপ্লিকেট</span>}
                 </div>
                 <div>{r.customer_name} · {r.phone}</div>
-                <small className="muted">{(r.order_items ?? []).map((i) => `${i.product_name} (${i.size}) ×${i.quantity}`).join(", ")} · {new Date(r.order_date).toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" })}</small>
+                <small className="muted">{(r.order_items ?? []).map((i) => `${i.product_name} (${i.size}) ×${i.quantity}`).join(", ")} · {bnTime(r.order_date)}</small>
               </div>
               <div className="oright">
                 <b>{tk(r.total)}</b>
