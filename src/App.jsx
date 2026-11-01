@@ -206,12 +206,12 @@ function Team({ me }) {
   };
   return (
     <div className="stack">
-      <form className="card" onSubmit={add}>
+      <form className="card" onSubmit={add} autoComplete="off">
         <h2>নতুন কর্মচারী</h2>
         <div className="form3">
           <label>নাম<input required value={f.full_name} onChange={(e) => setF({ ...f, full_name: e.target.value })} /></label>
-          <label>Username<input required autoCapitalize="none" value={f.username} onChange={(e) => setF({ ...f, username: e.target.value })} /></label>
-          <label>পাসওয়ার্ড<input required type="password" minLength={8} value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></label>
+          <label>Username (নতুন, ইংরেজিতে)<input required autoCapitalize="none" autoComplete="off" name="emp-username" value={f.username} onChange={(e) => setF({ ...f, username: e.target.value })} /></label>
+          <label>পাসওয়ার্ড (কর্মচারীর জন্য নতুন)<input required type="password" autoComplete="new-password" name="emp-password" minLength={8} value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></label>
         </div>
         {err && <p className="err">{err}</p>}{msg && <p className="ok">{msg}</p>}
         <button className="btn" disabled={busy}>যোগ করুন</button>
