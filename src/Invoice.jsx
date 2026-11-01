@@ -14,7 +14,9 @@ const d2 = (s) => { const d = new Date(s); return `${String(d.getDate()).padStar
 
 export function InvoiceSheet({ o }) {
   const items = o.order_items ?? [];
-  const fill = Math.max(3, (2 - items.length) * 22);
+  // ২টা পর্যন্ত জুতা: বড় ছবি; বেশি হলে ছবি ছোট হয়ে এক পাতায় ২টা ইনভয়েসই থাকে
+  const rh = items.length <= 2 ? 22 : Math.max(7.5, 47 / items.length);
+  const fill = Math.max(3, 47 - items.length * rh);
   return (
     <div className="inv">
       <div className="ihd">
@@ -41,8 +43,8 @@ export function InvoiceSheet({ o }) {
         <thead><tr><th style={{ width: "50%" }}>Product Photo</th><th>Size</th><th>Quantity</th><th style={{ width: "20%" }}>Amount</th></tr></thead>
         <tbody>
           {items.map((i, k) => (
-            <tr className="it" key={k}>
-              <td className="p"><div className="w">{i.image_url ? <img src={i.image_url} alt="" /> : <div className="ph" />}<span>{i.product_name}</span></div></td>
+            <tr className="it" key={k} style={{ height: rh + "mm" }}>
+              <td className="p"><div className="w">{i.image_url ? <img src={i.image_url} alt="" style={{ width: rh - 2 + "mm", height: rh - 2 + "mm" }} /> : <div className="ph" style={{ width: rh - 2 + "mm", height: rh - 2 + "mm" }} />}<span>{i.product_name}</span></div></td>
               <td>{i.size}</td><td>{i.quantity}</td><td>{tk(i.quantity * i.price)}</td>
             </tr>
           ))}
@@ -61,10 +63,10 @@ export function PrintView({ ids, onClose }) {
   const [list, setList] = useState(null);
   useEffect(() => { loadOrders(ids).then(setList); }, [ids]);
   if (!list) return <div className="card">লোড হচ্ছে...</div>;
-  // ছবি বড় তাই: ২টার বেশি জুতা থাকলে সেই ইনভয়েস আলাদা পাতায়, যাতে কিছু কেটে না যায়
+  // সবসময় এক পাতায় ২টা; শুধু ৬টার বেশি জুতা হলে আলাদা পাতা
   const pages = []; let cur = [];
   for (const o of list) {
-    if ((o.order_items ?? []).length > 2) { if (cur.length) pages.push(cur); pages.push([o]); cur = []; continue; }
+    if ((o.order_items ?? []).length > 6) { if (cur.length) pages.push(cur); pages.push([o]); cur = []; continue; }
     cur.push(o); if (cur.length === 2) { pages.push(cur); cur = []; }
   }
   if (cur.length) pages.push(cur);

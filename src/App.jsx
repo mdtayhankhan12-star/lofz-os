@@ -138,7 +138,7 @@ function Shell({ profile, prefs }) {
       </aside>
       <main className="main">
         <header className="top">
-          <div className="ptitle"><span className="pic">{items.find(([k]) => k === cur)?.[1]}</span><div><h1>{t(cur)}</h1><small>{profile.full_name || profile.username} · {isOwner ? "Owner" : "Employee"}</small></div></div>
+          <div className="ptitle"><span className="pic">{items.find(([k]) => k === cur)?.[1]}</span><div><h1>{t(cur)}</h1><small>{profile.full_name || profile.username}<span className="own">{isOwner ? "Owner" : "Employee"}</span></small></div></div>
           <div className="row"><Toggles prefs={prefs} /><button className="chip" onClick={() => sb.auth.signOut()}>{t("logout")}</button></div>
         </header>
         {cur === "dashboard" && <Dashboard isOwner={isOwner} t={t} />}
@@ -189,7 +189,10 @@ function Dashboard({ isOwner, t }) {
     })();
   }, [isOwner]);
   if (!d) return <div className="grid">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="stat skel" />)}</div>;
-  const S = ({ k, v, accent }) => <div className={"stat" + (accent ? " accent" : "")}><small>{t(k)}</small><b>{v}</b></div>;
+  const IC = { today_orders: ["🛍️", "#fde7ec"], today_sales: ["৳", "#fde7ec"], website: ["🌐", "#fde7ec", "#9B1B3F"], facebook: ["f", "#e3eeff", "#1877f2"],
+    pending: ["⏰", "#fde7ec"], confirmed: ["✓", "#dff6e9", "#16a34a"], delivered: ["🚚", "#e3eeff"], returned: ["↻", "#efe9ff", "#6d4bd8"],
+    cancelled: ["✕", "#fde7ec", "#d0284f"], expense_month: ["👜", "#fde7ec"], profit_month: ["📈", "#fde7ec", "#d0284f"], sf_balance: ["★", "#fff3d6", "#e8a93b"] };
+  const S = ({ k, v, accent, w2 }) => { const [i, bg, c] = IC[k] ?? ["•", "#eee"]; return <div className={"stat" + (accent ? " accent" : "") + (w2 ? " w2" : "")}><span className="si" style={{ background: bg, color: c }}>{i}</span><small>{t(k)}</small><b>{v}</b></div>; };
   return (
     <>
       <div className="grid">
@@ -200,9 +203,9 @@ function Dashboard({ isOwner, t }) {
         <S k="cancelled" v={d.cancelled} />
         {isOwner && <S k="expense_month" v={tk(d.exp)} />}
         {isOwner && <S k="profit_month" v={tk(d.profit)} />}
-        {isOwner && <S k="sf_balance" v={d.sf == null ? "..." : tk(d.sf)} />}
+        {isOwner && <S k="sf_balance" w2 v={d.sf == null ? "..." : tk(d.sf)} />}
       </div>
-      <p className="muted small">লাভ = এই মাসের Delivered/Received অর্ডারের বিক্রি − এই মাসের খরচ। Website অর্ডার Shopify যুক্ত হলে নিজে থেকে আসবে।</p>
+      <p className="note"><i>i</i><span>লাভ = এই মাসের Delivered/Received অর্ডারের বিক্রি − এই মাসের খরচ। Website অর্ডার Shopify যুক্ত হলে নিজে থেকে আসবে।</span></p>
     </>
   );
 }
