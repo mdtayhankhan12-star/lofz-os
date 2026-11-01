@@ -124,3 +124,83 @@ a.chip{text-decoration:none;display:inline-block}
 .ename,.eamt{display:flex;flex-direction:column}.eamt{align-items:flex-end}
 .ebar{height:12px;background:var(--line);border-radius:6px;overflow:hidden}.ebar i{display:block;height:100%;background:var(--acc);border-radius:6px}
 @media (max-width:560px){.erow{grid-template-columns:1fr auto}.ebar{grid-column:1/-1;order:3}}
+/* ===================== PREMIUM THEME ===================== */
+:root{--ink:#1c1410;--side:#17110d;--side2:#241a14;--gold:#d4a94c;--radius:18px;--bg:#f6f1ea;--line:#e8ddcd;--fg:#22180f;--muted:#76675a;
+  --shadow:0 1px 2px rgba(40,20,5,.06),0 10px 30px -14px rgba(60,30,10,.28)}
+:root[data-theme="dark"]{--bg:#120e0b;--card:#1d1612;--line:#33281f;--fg:#f5ece0;--muted:#b3a291;--side:#0c0907;--side2:#1a130f}
+/* প্রতিটা মেনুর আলাদা রং */
+:root{--acc:#8E2C3F;--tint:#8E2C3F}
+:root[data-page="orders"]{--acc:#0E6B6B;--tint:#0E6B6B}
+:root[data-page="invoice"]{--acc:#3F3A9E;--tint:#3F3A9E}
+:root[data-page="expenses"]{--acc:#B4541E;--tint:#B4541E}
+:root[data-page="finance"]{--acc:#2F6B3A;--tint:#2F6B3A}
+:root[data-page="team"]{--acc:#6B3C8F;--tint:#6B3C8F}
+html,body{font-family:"Manrope","Noto Sans Bengali",system-ui,sans-serif;font-size:15.5px;line-height:1.5;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;letter-spacing:.005em}
+body{background:
+  radial-gradient(1100px 520px at 100% -10%,color-mix(in srgb,var(--tint) 16%,transparent),transparent 70%),
+  radial-gradient(800px 460px at -10% 110%,color-mix(in srgb,var(--gold) 14%,transparent),transparent 70%),
+  var(--bg);background-attachment:fixed;transition:background .4s}
+:root[data-page="print"] body{background:#e9e5df}
+h1,h2,b,strong{font-weight:800}
+h2{font-size:18.5px;letter-spacing:-.01em}
+.card{border-radius:var(--radius);border-color:color-mix(in srgb,var(--line) 80%,transparent);background:color-mix(in srgb,var(--card) 92%,transparent);backdrop-filter:blur(6px)}
+.btn{background:linear-gradient(135deg,var(--acc),color-mix(in srgb,var(--acc) 72%,#000));box-shadow:0 6px 16px -8px var(--acc);border-radius:12px;letter-spacing:.01em}
+.btn:hover:not(:disabled){filter:brightness(1.08)}
+.btn.dark{background:linear-gradient(135deg,#2b211a,#120d0a);box-shadow:0 6px 16px -8px #000}
+.btn.alt{background:linear-gradient(135deg,#e2bd62,#b8862a);color:#21170c}
+.btn.ok2{background:linear-gradient(135deg,#2f8a6d,#1f5e49)}
+.chip{font-weight:600;background:var(--card)}
+.chip:hover{border-color:var(--acc);color:var(--acc)}
+input,select{border-radius:12px;background:color-mix(in srgb,var(--bg) 70%,var(--card))}
+input:focus,select:focus{border-color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 18%,transparent)}
+/* সাইডবার: গাঢ় প্রিমিয়াম */
+.side{background:linear-gradient(180deg,var(--side),var(--side2));border-right:0;padding:20px 12px;gap:6px;box-shadow:4px 0 30px -18px #000}
+.brand{display:flex;flex-direction:column;align-items:flex-start;gap:2px;margin:0 10px 18px;padding-bottom:16px;border-bottom:1px solid #ffffff14}
+.brand small{color:var(--gold);font-size:10.5px;letter-spacing:.28em;text-transform:uppercase;font-weight:700}
+.logo-side,:root[data-theme="dark"] .logo-side{filter:invert(1) brightness(1.1);margin:0;height:30px}
+.nav{color:#d9cbbb;font-weight:600;padding:11px 14px;border-radius:12px;transition:.2s}
+.nav:hover{background:#ffffff0d;color:#fff}
+.nav span{width:30px;height:30px;display:grid;place-items:center;border-radius:9px;background:#ffffff0f;font-size:15px}
+.nav.on{background:linear-gradient(135deg,var(--acc),color-mix(in srgb,var(--acc) 65%,#000));color:#fff;box-shadow:0 8px 20px -10px var(--acc)}
+.nav.on span{background:#ffffff26}
+/* পাতার শিরোনাম */
+.ptitle{display:flex;align-items:center;gap:12px}
+.ptitle .pic{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;font-size:21px;background:linear-gradient(135deg,var(--acc),color-mix(in srgb,var(--acc) 60%,#000));box-shadow:0 8px 20px -10px var(--acc)}
+.ptitle h1{margin:0;font-size:22px;line-height:1.15;letter-spacing:-.015em}
+.ptitle small{color:var(--muted);font-weight:600}
+/* স্ট্যাট কার্ড */
+.stat{border-radius:16px;padding:16px;background:var(--card);box-shadow:var(--shadow);border-color:color-mix(in srgb,var(--line) 70%,transparent);position:relative;overflow:hidden}
+.stat::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--acc);opacity:.75}
+.stat b{font-size:25px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stat.accent{background:linear-gradient(135deg,var(--acc),color-mix(in srgb,var(--acc) 60%,#000));border:0}
+.stat.accent::before{display:none}
+.tab.on{background:linear-gradient(135deg,var(--acc),color-mix(in srgb,var(--acc) 65%,#000));border-color:transparent}
+.tab{border-radius:14px}
+.orow.picked{outline:2px solid var(--acc);outline-offset:-2px}
+input.pick{width:22px;height:22px;accent-color:var(--acc);flex:none}
+@media (max-width:760px){.bottom{background:linear-gradient(180deg,var(--side2),var(--side));border-top:0}.bottom button{color:#bfae9c}.bottom button.on{color:#fff}.bottom button.on span{transform:scale(1.12)}.ptitle h1{font-size:19px}}
+/* খরচের তালিকা */
+.xhead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:8px}
+.xlist{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.xrow{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--card)}
+.xrow+.xrow{border-top:1px solid var(--line)}
+.xrow:nth-child(even){background:color-mix(in srgb,var(--acc) 4%,var(--card))}
+.xno{width:28px;height:28px;flex:none;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:800;color:var(--acc);background:color-mix(in srgb,var(--acc) 12%,transparent)}
+.xname{flex:1;min-width:0;display:flex;flex-direction:column}
+.xname b{font-size:16px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.xname small{color:var(--muted);font-size:12.5px;font-weight:600}
+.xamt{font-weight:800;font-size:17px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.xdel{width:30px;height:30px;flex:none;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:13px}
+.xdel:hover{background:var(--bad);border-color:var(--bad);color:#fff}
+.xtotal{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding:14px 16px;border-radius:14px;color:#fff;background:linear-gradient(135deg,var(--acc),color-mix(in srgb,var(--acc) 60%,#000));box-shadow:0 10px 24px -14px var(--acc)}
+.xtotal span{font-weight:700;opacity:.92}.xtotal b{font-size:22px;font-variant-numeric:tabular-nums}
+.ename b{font-weight:700}.eamt b{font-variant-numeric:tabular-nums}
+/* ইনভয়েস: বড় ছবি */
+.itab tr.it td{height:22mm}
+.itab td.p img,.itab td.p .ph{width:20mm;height:20mm}
+.itab td.p span{font-size:9.5pt;font-weight:700}
+/* কারিগর শিট: ১২টাই পাতায় আঁটবে */
+.sgrid{grid-template-rows:repeat(4,minmax(0,1fr));min-height:0}
+.scell{padding:1.5mm}
+.scell img,.sph{flex:1 1 0;height:0;min-height:0;width:100%}
+.ssize{font-size:13pt}.sno{font-size:11pt}.sname{font-size:7.5pt}

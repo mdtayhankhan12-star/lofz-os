@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
     if (!ok) return reply({ error: "অনুমতি নেই" }, 403);
     const since = new Date(Date.now() - 45 * 864e5).toISOString();
     const { data: list } = await admin.from("orders").select("id,order_no,source,status")
-      .in("status", ["pending", "confirmed"]).gte("order_date", since)
+      .in("status", ["pending", "confirmed"]).eq("archived", false).gte("order_date", since)
       .order("sf_checked_at", { ascending: true, nullsFirst: true }).limit(100);
     let n = 0, err = null;
     try {

@@ -125,19 +125,20 @@ function Shell({ profile, prefs }) {
   const t = (k) => tr(prefs.lang, k);
   const [printIds, setPrintIds] = useState(null);
   const [shoeIds, setShoeIds] = useState(null);
+  useEffect(() => { document.documentElement.dataset.page = printIds || shoeIds ? "print" : cur; }, [cur, printIds, shoeIds]);
   if (printIds) return <PrintView ids={printIds} onClose={() => setPrintIds(null)} />;
   if (shoeIds) return <ShoeSheet ids={shoeIds} onClose={() => setShoeIds(null)} />;
   return (
     <div className="shell">
       <aside className="side">
-        <img src="/logo.png" alt="LOFZ" className="logo-side" />
+        <div className="brand"><img src="/logo.png" alt="LOFZ" className="logo-side" /><small>Business OS</small></div>
         {items.map(([k, ic]) => (
           <button key={k} className={"nav" + (cur === k ? " on" : "")} onClick={() => go(k)}><span>{ic}</span>{t(k)}</button>
         ))}
       </aside>
       <main className="main">
         <header className="top">
-          <div><b>{profile.full_name || profile.username}</b> <span className="badge">{isOwner ? "Owner" : "Employee"}</span></div>
+          <div className="ptitle"><span className="pic">{items.find(([k]) => k === cur)?.[1]}</span><div><h1>{t(cur)}</h1><small>{profile.full_name || profile.username} · {isOwner ? "Owner" : "Employee"}</small></div></div>
           <div className="row"><Toggles prefs={prefs} /><button className="chip" onClick={() => sb.auth.signOut()}>{t("logout")}</button></div>
         </header>
         {cur === "dashboard" && <Dashboard isOwner={isOwner} t={t} />}

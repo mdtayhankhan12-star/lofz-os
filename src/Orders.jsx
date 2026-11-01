@@ -121,14 +121,18 @@ export default function Orders({ isOwner, onPrint, onShoes }) {
         <div className="row">
           <span className="muted small">কাস্টমারের সাথে কথা বলে Confirm বা Cancel করুন। শুধু Confirmed অর্ডার কারিগর শিট ও ইনভয়েসে যায়।</span>
           {mode === "confirmed" && <button className="btn alt" disabled={!rows?.length} onClick={() => onShoes(rows.map((r) => r.id))}>👟 সব Confirmed-এর কারিগর শিট</button>}
-          {mode === "confirmed" && <button className="chip" disabled={!rows?.length} onClick={() => onPrint(rows.map((r) => r.id))}>🖨️ সব ইনভয়েস</button>}
+          {mode === "confirmed" && <button className="btn" disabled={!rows?.length} onClick={() => onPrint(rows.map((r) => r.id))}>🖨️ সব ইনভয়েস ({rows?.length ?? 0})</button>}
+          {mode === "confirmed" && <button className="btn dark" disabled={!sel.length} onClick={() => onPrint(rows.filter((r) => sel.includes(r.id)).map((r) => r.id))}>☑️ বাছাই করা ইনভয়েস ({sel.length})</button>}
+          {mode === "confirmed" && <button className="chip" disabled={!sel.length} onClick={() => onShoes(rows.filter((r) => sel.includes(r.id)).map((r) => r.id))}>👟 বাছাই করা শিট ({sel.length})</button>}
+          {mode === "confirmed" && <button className="chip" onClick={() => setSel(sel.length === rows?.length ? [] : (rows ?? []).map((r) => r.id))}>{sel.length && sel.length === rows?.length ? "বাছাই মুছুন" : "সব মার্ক"}</button>}
           {mode === "inbox" && isOwner && <button className="chip" onClick={cancelOld}>🧹 ১০+ দিনের পুরনো Pending সব Cancel</button>}
           {msg && <span className="ok small">{msg}</span>}
         </div>
         {!rows ? <div className="card">লোড হচ্ছে...</div> : !rows.length ? <div className="card muted">{mode === "inbox" ? "🎉 Confirm বাকি কোনো Website অর্ডার নেই।" : "কোনো Confirmed অর্ডার নেই।"}</div> : (
           <div className="olist">
             {rows.map((r) => { const h = ret[r.phone]; const wa = "88" + String(r.phone).replace(/\D/g, "").replace(/^88/, ""); return (
-              <div key={r.id} className="card orow">
+              <div key={r.id} className={"card orow" + (sel.includes(r.id) ? " picked" : "")}>
+                {mode === "confirmed" && <input type="checkbox" className="pick" checked={sel.includes(r.id)} onChange={() => toggle(r.id)} />}
                 <div className="thumbs">{(r.order_items ?? []).slice(0, 3).map((i, k) => i.image_url ? <img key={k} src={i.image_url} alt="" /> : <div key={k} className="ph" />)}</div>
                 <div className="grow">
                   <div className="row"><b>{r.order_no}</b>

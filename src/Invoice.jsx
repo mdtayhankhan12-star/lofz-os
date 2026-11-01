@@ -14,7 +14,7 @@ const d2 = (s) => { const d = new Date(s); return `${String(d.getDate()).padStar
 
 export function InvoiceSheet({ o }) {
   const items = o.order_items ?? [];
-  const fill = Math.max(3, (3 - items.length) * 13);
+  const fill = Math.max(3, (2 - items.length) * 22);
   return (
     <div className="inv">
       <div className="ihd">
@@ -61,10 +61,10 @@ export function PrintView({ ids, onClose }) {
   const [list, setList] = useState(null);
   useEffect(() => { loadOrders(ids).then(setList); }, [ids]);
   if (!list) return <div className="card">লোড হচ্ছে...</div>;
-  // ৩টার বেশি জুতা থাকলে সেই ইনভয়েস আলাদা পাতায়, যাতে কিছু কেটে না যায়
+  // ছবি বড় তাই: ২টার বেশি জুতা থাকলে সেই ইনভয়েস আলাদা পাতায়, যাতে কিছু কেটে না যায়
   const pages = []; let cur = [];
   for (const o of list) {
-    if ((o.order_items ?? []).length > 3) { if (cur.length) pages.push(cur); pages.push([o]); cur = []; continue; }
+    if ((o.order_items ?? []).length > 2) { if (cur.length) pages.push(cur); pages.push([o]); cur = []; continue; }
     cur.push(o); if (cur.length === 2) { pages.push(cur); cur = []; }
   }
   if (cur.length) pages.push(cur);

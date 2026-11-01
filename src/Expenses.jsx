@@ -59,7 +59,10 @@ export default function Expenses({ isOwner }) {
   const del = async (id) => { if (confirm("এই খরচটা মুছবেন?")) { await sb.from("expenses").delete().eq("id", id); load(); } };
 
   const total = (items ?? []).reduce((a, r) => a + Number(r.amount_bdt), 0);
-  const t = (s) => new Date(s).toLocaleTimeString("bn-BD", { timeZone: "Asia/Dhaka", hour: "numeric", minute: "2-digit" });
+  const BN = (n) => String(n).replace(/\d/g, (d) => "০১২৩৪৫৬৭৮৯"[d]);
+  const t = (s) => { const d = new Date(new Date(s).getTime() + 6 * 3600e3), h = d.getUTCHours();
+    const part = h < 4 ? "রাত" : h < 12 ? "সকাল" : h < 15 ? "দুপুর" : h < 18 ? "বিকাল" : h < 20 ? "সন্ধ্যা" : "রাত";
+    return `${part} ${BN(h % 12 || 12)}:${BN(String(d.getUTCMinutes()).padStart(2, "0"))}`; };
   return (
     <div className="stack">
       <form className="card" onSubmit={add}>
@@ -75,17 +78,20 @@ export default function Expenses({ isOwner }) {
       </form>
 
       <div className="card">
-        <div className="row" style={{ justifyContent: "space-between" }}>
-          <h2>আজ ({new Date(day).toLocaleDateString("bn-BD", { day: "numeric", month: "long" })})</h2>
-          <div className="daytotal">মোট <b>{tk(total)}</b></div>
-        </div>
-        {!items ? "লোড হচ্ছে..." : !items.length ? <p className="muted">আজ এখনো কোনো খরচ লেখা হয়নি।</p> :
-          items.map((r) => (
-            <div key={r.id} className="trow">
-              <div>{r.note || "—"}<br /><small className="muted">{t(r.created_at)}</small></div>
-              <div className="row"><b>{tk(r.amount_bdt)}</b><button className="chip" onClick={() => del(r.id)}>✕</button></div>
-            </div>
-          ))}
+        <div className="xhead"><h2>আজ · {new Date(day).toLocaleDateString("bn-BD", { day: "numeric", month: "long" })}</h2><span className="muted small">{BN((items ?? []).length)}টা খরচ</span></div>
+        {!items ? "লোড হচ্ছে..." : !items.length ? <p className="muted">আজ এখনো কোনো খরচ লেখা হয়নি।</p> : <>
+          <div className="xlist">
+            {items.map((r, i) => (
+              <div key={r.id} className="xrow">
+                <span className="xno">{BN(i + 1)}</span>
+                <div className="xname"><b>{r.note || "—"}</b><small>{t(r.created_at)}</small></div>
+                <span className="xamt">{tk(r.amount_bdt)}</span>
+                <button className="xdel" title="মুছুন" onClick={() => del(r.id)}>✕</button>
+              </div>
+            ))}
+          </div>
+          <div className="xtotal"><span>আজকের মোট খরচ</span><b>{tk(total)}</b></div>
+        </>}
       </div>
 
       {isOwner && (
@@ -117,10 +123,10 @@ export default function Expenses({ isOwner }) {
       {isOwner && (
         <div className="card noprint">
           <h2>গত ৩০ দিনের কারখানার খরচ</h2>
-          {!days.length ? <p className="muted">এখনো কিছু নেই।</p> : days.map(([d, v]) => (
-            <div key={d} className="trow"><span>{new Date(d).toLocaleDateString("bn-BD", { day: "numeric", month: "long", weekday: "short" })}</span><b>{tk(v)}</b></div>
-          ))}
-          <div className="trow"><b>৩০ দিনে মোট</b><b>{tk(days.reduce((a, [, v]) => a + v, 0))}</b></div>
+          {!days.length ? <p className="muted">এখনো কিছু নেই।</p> : <div className="xlist">{days.map(([d, v]) => (
+            <div key={d} className="xrow"><div className="xname"><b>{new Date(d).toLocaleDateString("bn-BD", { day: "numeric", month: "long" })}</b><small>{new Date(d).toLocaleDateString("bn-BD", { weekday: "long" })}</small></div><span className="xamt">{tk(v)}</span></div>
+          ))}</div>}
+          <div className="xtotal"><span>৩০ দিনে মোট</span><b>{tk(days.reduce((a, [, v]) => a + v, 0))}</b></div>
         </div>
       )}
     </div>
