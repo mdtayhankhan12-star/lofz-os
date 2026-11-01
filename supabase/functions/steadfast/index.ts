@@ -36,7 +36,8 @@ async function syncOne(o: { id: number; order_no: string; source: string; status
       const { data: ex } = await admin.from("parcels").select("id").eq("order_id", o.id).maybeSingle();
       const row = { order_id: o.id, delivery_status: st, raw: body };
       if (ex) await admin.from("parcels").update(row).eq("id", ex.id); else await admin.from("parcels").insert(row);
-      const ns = FINAL[st];
+      // Steadfast-এ পার্সেল পাওয়া গেছে মানে অর্ডার Confirmed হয়েছিল (Neo COD থেকে বুক করা)
+      const ns = FINAL[st] ?? (o.status === "pending" ? "confirmed" : undefined);
       if (ns && o.status !== ns && o.status !== "received") await admin.from("orders").update({ status: ns }).eq("id", o.id);
       return 1;
     }
