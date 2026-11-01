@@ -49,6 +49,14 @@ Deno.serve(async (req) => {
   if (!KEY || !SECRET) return reply({ error: "Steadfast key এখনো বসানো হয়নি" }, 503);
   const b = await req.json().catch(() => ({}));
 
+  if (b.action === "balance") {
+    const ck = req.headers.get("x-cron-key") ?? "";
+    const ok = ck ? (await admin.rpc("check_cron_key", { k: ck })).data === true : (await caller(req))?.role === "owner";
+    if (!ok) return reply({ error: "অনুমতি নেই" }, 403);
+    const { body } = await sf("/get_balance");
+    return reply({ ok: body?.status === 200, balance: body?.current_balance, raw_status: body?.status, message: body?.message });
+  }
+
   if (b.action === "sync") {
     const ck = req.headers.get("x-cron-key") ?? "";
     const ok = ck ? (await admin.rpc("check_cron_key", { k: ck })).data === true : (await caller(req))?.role === "owner";
