@@ -1,0 +1,112 @@
+import React, { useState } from "react";
+import { sb, tk } from "./lib.js";
+
+// ছবি ছোট করে (WebP, ৮০০px) আপলোড — ফ্রি স্টোরেজ বাঁচাতে
+async function shrink(file) {
+  const img = await createImageBitmap(file);
+  const s = Math.min(1, 800 / Math.max(img.width, img.height));
+  const c = document.createElement("canvas");
+  c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  return await new Promise((r) => c.toBlob(r, "image/webp", 0.8));
+}
+async function upload(file) {
+  const blob = await shrink(file);
+  const path = `${new Date().toISOString().slice(0, 7)}/${crypto.randomUUID()}.webp`;
+  const { error } = await sb.storage.from("products").upload(path, blob, { contentType: "image/webp" });
+  if (error) throw error;
+  return sb.storage.from("products").getPublicUrl(path).data.publicUrl;
+}
+
+const blankItem = () => ({ product_name: "", size: "", quantity: 1, price: "", image_url: "", up: false });
+
+export default function NewOrder({ onCreated }) {
+  const [c, setC] = useState({ name: "", phone: "", address: "", delivery_charge: 70, discount: 0, note: "" });
+  const [items, setItems] = useState([blankItem()]);
+  const [err, setErr] = useState(""); const [busy, setBusy] = useState(false);
+  const [hist, setHist] = useState(null);
+
+  const setItem = (k, v) => setItems((xs) => xs.map((x, i) => (i === k ? { ...x, ...v } : x)));
+  const sub = items.reduce((a, i) => a + Number(i.quantity || 0) * Number(i.price || 0), 0);
+  const total = sub + Number(c.delivery_charge || 0) - Number(c.discount || 0);
+
+  const checkPhone = async () => {
+    const ph = c.phone.replace(/\D/g, "");
+    if (ph.length < 10) return setHist(null);
+    const { data: cu } = await sb.from("customers").select("name,address").eq("phone", ph).maybeSingle();
+    const { data: r } = await sb.from("customer_returns").select("returns,orders").eq("phone", ph).maybeSingle();
+    setHist(r ? r : cu ? { returns: 0, orders: 0 } : null);
+    if (cu) setC((x) => ({ ...x, name: x.name || cu.name, address: x.address || cu.address || "" }));
+  };
+
+  const pick = async (k, file) => {
+    if (!file) return;
+    setItem(k, { up: true }); setErr("");
+    try { setItem(k, { image_url: await upload(file), up: false }); }
+    catch (x) { setItem(k, { up: false }); setErr("ছবি আপলোড হয়নি: " + x.message); }
+  };
+
+  const submit = async (e) => {
+    e.preventDefault(); setErr("");
+    if (items.some((i) => i.up)) return setErr("ছবি আপলোড শেষ হওয়া পর্যন্ত অপেক্ষা করুন");
+    setBusy(true);
+    const { data, error } = await sb.rpc("create_fb_order", {
+      p: { ...c, items: items.map(({ up, ...i }) => ({ ...i, quantity: Number(i.quantity), price: Number(i.price) })) },
+    });
+    setBusy(false);
+    if (error) return setErr(error.message);
+    onCreated(data.order_id);
+  };
+
+  return (
+    <form className="stack" onSubmit={submit}>
+      <div className="card">
+        <h2>নতুন Facebook অর্ডার</h2>
+        <div className="form3">
+          <label>ফোন নম্বর<input required inputMode="tel" value={c.phone} onBlur={checkPhone} onChange={(e) => setC({ ...c, phone: e.target.value })} /></label>
+          <label>কাস্টমারের নাম<input required value={c.name} onChange={(e) => setC({ ...c, name: e.target.value })} /></label>
+          <label>পুরো ঠিকানা<input required value={c.address} onChange={(e) => setC({ ...c, address: e.target.value })} /></label>
+        </div>
+        {hist && <p className={hist.returns > 0 ? "err" : "muted small"}>
+          পুরনো কাস্টমার · আগের অর্ডার {hist.orders}টা{hist.returns > 0 ? ` · ⚠️ আগে ${hist.returns} বার Return করেছেন` : ""}
+        </p>}
+      </div>
+
+      {items.map((it, k) => (
+        <div className="card item" key={k}>
+          <label className="imgpick">
+            {it.image_url ? <img src={it.image_url} alt="" /> : <span>{it.up ? "আপলোড হচ্ছে..." : "📷 জুতার ছবি"}</span>}
+            <input type="file" accept="image/*" hidden onChange={(e) => pick(k, e.target.files?.[0])} />
+          </label>
+          <div className="itemf">
+            <label>প্রোডাক্টের নাম<input required value={it.product_name} onChange={(e) => setItem(k, { product_name: e.target.value })} /></label>
+            <div className="form3 tight">
+              <label>সাইজ<input required value={it.size} onChange={(e) => setItem(k, { size: e.target.value })} /></label>
+              <label>পরিমাণ<input required type="number" min={1} value={it.quantity} onChange={(e) => setItem(k, { quantity: e.target.value })} /></label>
+              <label>দাম (প্রতি জোড়া)<input required type="number" min={0} value={it.price} onChange={(e) => setItem(k, { price: e.target.value })} /></label>
+            </div>
+          </div>
+          {items.length > 1 && <button type="button" className="chip x" onClick={() => setItems((xs) => xs.filter((_, i) => i !== k))}>✕</button>}
+        </div>
+      ))}
+      <button type="button" className="chip" onClick={() => setItems((xs) => [...xs, blankItem()])}>+ আরেকটা জুতা</button>
+
+      <div className="card">
+        <div className="form3">
+          <label>ডেলিভারি চার্জ
+            <div className="row">
+              <button type="button" className={"chip" + (Number(c.delivery_charge) === 70 ? " sel" : "")} onClick={() => setC({ ...c, delivery_charge: 70 })}>ঢাকা ৭০</button>
+              <button type="button" className={"chip" + (Number(c.delivery_charge) === 130 ? " sel" : "")} onClick={() => setC({ ...c, delivery_charge: 130 })}>ঢাকার বাইরে ১৩০</button>
+              <input type="number" min={0} style={{ width: 90 }} value={c.delivery_charge} onChange={(e) => setC({ ...c, delivery_charge: e.target.value })} />
+            </div>
+          </label>
+          <label>ছাড় (থাকলে)<input type="number" min={0} value={c.discount} onChange={(e) => setC({ ...c, discount: e.target.value })} /></label>
+          <label>নোট (ঐচ্ছিক)<input value={c.note} onChange={(e) => setC({ ...c, note: e.target.value })} /></label>
+        </div>
+        <div className="totals"><span>জুতা: {tk(sub)}</span><span>মোট: <b>{tk(total)}</b></span></div>
+        {err && <p className="err">{err}</p>}
+        <button className="btn big" disabled={busy}>{busy ? "তৈরি হচ্ছে..." : "🧾 Generate Invoice"}</button>
+      </div>
+    </form>
+  );
+}
