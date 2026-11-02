@@ -104,6 +104,8 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
       if (pr.inv) list = list.filter((r) => (pr.inv === "yes") === invDone(r));
       if (pr.sheet) list = list.filter((r) => (pr.sheet === "yes") === sheetDone(r));
     }
+    // Confirmed: যেগুলোর ইনভয়েস/শিট বাকি সেগুলো উপরে (নতুনগুলো সবার উপরে), শেষ হওয়াগুলো নিচে
+    if (mode === "confirmed") list = [...list.filter((r) => !(invDone(r) && sheetDone(r))), ...list.filter((r) => invDone(r) && sheetDone(r))];
     setRows(list); if (mode === "inbox") setInboxN(list.length); setSel([]);
     setRet(await statsFor(list.map((r) => r.phone)));
   };
@@ -153,6 +155,15 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
     const { error } = await sb.from("orders").update({ status: "received" }).in("id", ids);
     setMsg(error ? error.message : `${ids.length}টা অর্ডার Received হয়েছে`); load();
   };
+  // যেগুলো আগেই প্রিন্ট/PNG করেছেন কিন্তু চিহ্ন নেই — বেছে এক চাপে "হয়ে গেছে"
+  const markDone = async (ids) => {
+    if (!confirm(`${ids.length}টা অর্ডারের ইনভয়েস আর কারিগর শিট "হয়ে গেছে" চিহ্ন দেবেন?`)) return;
+    const now = new Date().toISOString(), list = (rows ?? []).filter((r) => ids.includes(r.id));
+    const a = list.filter((r) => !invDone(r)).map((r) => r.id), b = list.filter((r) => !sheetDone(r)).map((r) => r.id);
+    if (a.length) await sb.from("orders").update({ invoice_printed_at: now }).in("id", a);
+    if (b.length) await sb.from("orders").update({ sheet_printed_at: now }).in("id", b);
+    setMsg(`${ids.length}টা অর্ডার "হয়ে গেছে" ✓`); loadInbox();
+  };
   const toggle = (id) => setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   const selDelivered = (rows ?? []).filter((r) => sel.includes(r.id) && r.status === "delivered");
   const fbSel = sel;
@@ -181,6 +192,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
           {mode === "confirmed" && <button className="btn alt" disabled={!rows?.length} onClick={() => onShoes(rows.map((r) => r.id))}>👟 সব Confirmed-এর কারিগর শিট</button>}
           {mode === "confirmed" && <button className="btn" disabled={!rows?.length} onClick={() => onPrint(rows.map((r) => r.id))}>🖨️ সব ইনভয়েস ({rows?.length ?? 0})</button>}
           {mode === "confirmed" && <button className="btn dark" disabled={!sel.length} onClick={() => onPrint(rows.filter((r) => sel.includes(r.id)).map((r) => r.id))}>☑️ বাছাই করা ইনভয়েস ({sel.length})</button>}
+          {mode === "confirmed" && <button className="btn ok2" disabled={!sel.length} onClick={() => markDone(sel)}>✅ বাছাইগুলো "হয়ে গেছে" ({sel.length})</button>}
           {mode === "confirmed" && <button className="chip" disabled={!sel.length} onClick={() => onShoes(rows.filter((r) => sel.includes(r.id)).map((r) => r.id))}>👟 বাছাই করা শিট ({sel.length})</button>}
           {mode === "confirmed" && <button className="chip" onClick={() => setSel(sel.length === rows?.length ? [] : (rows ?? []).map((r) => r.id))}>{sel.length && sel.length === rows?.length ? "বাছাই মুছুন" : "সব মার্ক"}</button>}
           {mode === "inbox" && isOwner && <button className="chip" onClick={cancelOld}>🧹 ১০+ দিনের পুরনো Pending সব Cancel</button>}
@@ -188,8 +200,14 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
         </div>
         {!rows ? <div className="card">লোড হচ্ছে...</div> : !rows.length ? <div className="card muted">{mode === "inbox" ? "🎉 Confirm বাকি কোনো Website অর্ডার নেই।" : "কোনো Confirmed অর্ডার নেই।"}</div> : (
           <div className="olist">
-            {rows.map((r) => { const h = ret[r.phone]; const wa = "88" + String(r.phone).replace(/\D/g, "").replace(/^88/, ""); return (
-              <div key={r.id} className={"card orow" + (sel.includes(r.id) ? " picked" : "")}>
+            {rows.map((r, idx) => { const h = ret[r.phone]; const wa = "88" + String(r.phone).replace(/\D/g, "").replace(/^88/, "");
+              const done = mode === "confirmed" && invDone(r) && sheetDone(r);
+              const firstDone = done && (idx === 0 || !(invDone(rows[idx - 1]) && sheetDone(rows[idx - 1])));
+              const nLeft = mode === "confirmed" ? rows.filter((x) => !(invDone(x) && sheetDone(x))).length : 0;
+              return (<React.Fragment key={r.id}>
+              {mode === "confirmed" && idx === 0 && !done && <div className="donebar todo">🆕 প্রিন্ট / শিট বাকি — {nLeft}টা</div>}
+              {firstDone && <div className="donebar">✅ নিচের {rows.length - nLeft}টার ইনভয়েস আর কারিগর শিট হয়ে গেছে</div>}
+              <div className={"card orow" + (sel.includes(r.id) ? " picked" : "") + (done ? " isdone" : "")}>
                 {mode === "confirmed" && <input type="checkbox" className="pick" checked={sel.includes(r.id)} onChange={() => toggle(r.id)} />}
                 <div className="thumbs clicky" onClick={() => setView(r.id)}>{(r.order_items ?? []).slice(0, 3).map((i, k) => i.image_url ? <img key={k} src={i.image_url} alt="" loading="lazy" /> : <div key={k} className="ph" />)}</div>
                 <div className="grow">
@@ -218,7 +236,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
                     <button className="chip" onClick={() => decide(r, "cancelled")}>❌ Cancel</button>
                   </div>
                 </div>
-              </div>); })}
+              </div></React.Fragment>); })}
           </div>
         )}
       </> : <>
