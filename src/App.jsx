@@ -273,14 +273,14 @@ function Dashboard({ isOwner, t, go }) {
       // আজ কয়টা পার্সেল কাস্টমার নিয়েছে / ফেরত এসেছে (অর্ডার যেদিনেরই হোক)
       const { data: mv } = await sb.rpc("dash_range", { p_from: mv0, p_to: rg.to });
       // কাজ বাকি — তারিখ যাই হোক, রাত ১২টার পরও থাকবে
-      const { data: open } = await sb.from("orders").select("status,invoice_printed_at,sheet_printed_at").in("status", ["pending", "confirmed"]).limit(2000);
+      const { data: open } = await sb.from("orders").select("status,invoice_printed_at,invoice_png_at,sheet_printed_at,sheet_png_at").in("status", ["pending", "confirmed"]).limit(2000);
       const op = open ?? [], conf = op.filter((x) => x.status === "confirmed");
       const o = today ?? [];
       const c = (f) => o.filter(f).length;
       setD({
         n: o.length, sales: o.filter((x) => x.status !== "cancelled").reduce((a, x) => a + Number(x.total), 0),
         web: c((x) => x.source === "website"), fb: c((x) => x.source === "facebook"),
-        confirmed: c((x) => ["confirmed", "delivered", "received", "returned"].includes(x.status)), invLeft: conf.filter((x) => !x.invoice_printed_at).length, sheetLeft: conf.filter((x) => !x.sheet_printed_at).length, delivered: mv?.delivered ?? 0,
+        confirmed: c((x) => ["confirmed", "delivered", "received", "returned"].includes(x.status)), invLeft: conf.filter((x) => !(x.invoice_printed_at || x.invoice_png_at)).length, sheetLeft: conf.filter((x) => !(x.sheet_printed_at || x.sheet_png_at)).length, delivered: mv?.delivered ?? 0,
         returned: mv?.returned ?? 0, cancelled: c((x) => x.status === "cancelled"),
         pending: op.filter((x) => x.status === "pending").length, exp, profit, sf,
       });

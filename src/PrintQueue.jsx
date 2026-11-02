@@ -1,23 +1,23 @@
 import React, { useEffect, useState } from "react";
 import { sb, tk } from "./lib.js";
-import { PrintBadges } from "./Orders.jsx";
+import { PrintBadges, invDone, sheetDone, PRINT_COLS } from "./Orders.jsx";
 
 // ইনভয়েস আর কারিগর শিট — যেগুলো এখনো প্রিন্ট হয়নি, এক জায়গায়
 export async function printCounts() {
-  const { data } = await sb.from("orders").select("invoice_printed_at,sheet_printed_at").eq("status", "confirmed").limit(3000);
+  const { data } = await sb.from("orders").select(PRINT_COLS).eq("status", "confirmed").limit(3000);
   const r = data ?? [];
-  return { inv: r.filter((x) => !x.invoice_printed_at).length, sheet: r.filter((x) => !x.sheet_printed_at).length };
+  return { inv: r.filter((x) => !invDone(x)).length, sheet: r.filter((x) => !sheetDone(x)).length };
 }
 
 export default function PrintQueue({ onPrint, onShoes, go }) {
   const [rows, setRows] = useState(null); const [src, setSrc] = useState("");
   useEffect(() => {
-    sb.from("orders").select("id,order_no,source,order_date,customer_name,phone,total,invoice_printed_at,sheet_printed_at,order_items(product_name,image_url,size,quantity)")
+    sb.from("orders").select("id,order_no,source,order_date,customer_name,phone,total,invoice_printed_at,invoice_png_at,sheet_printed_at,sheet_png_at,order_items(product_name,image_url,size,quantity)")
       .eq("status", "confirmed").order("order_date", { ascending: true }).limit(1000)
-      .then(({ data }) => setRows((data ?? []).filter((r) => !r.invoice_printed_at || !r.sheet_printed_at)));
+      .then(({ data }) => setRows((data ?? []).filter((r) => !invDone(r) || !sheetDone(r))));
   }, []);
   const list = (rows ?? []).filter((r) => !src || r.source === src);
-  const inv = list.filter((r) => !r.invoice_printed_at), sh = list.filter((r) => !r.sheet_printed_at);
+  const inv = list.filter((r) => !invDone(r)), sh = list.filter((r) => !sheetDone(r));
   const pairs = sh.reduce((a, r) => a + (r.order_items ?? []).reduce((b, i) => b + (i.quantity || 1), 0), 0);
   return (
     <div className="stack">
@@ -33,7 +33,7 @@ export default function PrintQueue({ onPrint, onShoes, go }) {
       </div>
       <div className="card filters">
         {[["", "সব"], ["website", "Website"], ["facebook", "Facebook"]].map(([k, l]) => <button key={k} className={"chip" + (src === k ? " sel" : "")} onClick={() => setSrc(k)}>{l}</button>)}
-        <span className="muted small">শুধু Confirmed অর্ডার। প্রিন্ট পাতায় 🖨️ Print চাপলে নিজে থেকে "✓" হয়ে এই তালিকা থেকে সরে যাবে।</span>
+        <span className="muted small">শুধু Confirmed অর্ডার। প্রিন্ট শেষে "হ্যাঁ, প্রিন্ট হয়েছে" চাপলে বা PNG নামালে "✓" হয়ে তালিকা থেকে সরে যাবে। ভুল চিহ্ন পড়লে সবুজ চিহ্নে চাপুন — মুছে আবার বাকি হবে।</span>
         <button className="chip" onClick={() => go("orders", { mode: "confirmed" })}>✅ সব Confirmed দেখুন</button>
       </div>
       {!rows ? <div className="card">লোড হচ্ছে...</div> : !list.length ? <div className="card muted">🎉 কোনো প্রিন্ট বাকি নেই।</div> : (
@@ -49,8 +49,8 @@ export default function PrintQueue({ onPrint, onShoes, go }) {
               </div>
               <div className="oright"><b>{tk(r.total)}</b>
                 <div className="row">
-                  {!r.invoice_printed_at && <button className="chip" onClick={() => onPrint([r.id])}>🖨️ ইনভয়েস</button>}
-                  {!r.sheet_printed_at && <button className="chip" onClick={() => onShoes([r.id])}>👟 শিট</button>}
+                  {!invDone(r) && <button className="chip" onClick={() => onPrint([r.id])}>🖨️ ইনভয়েস</button>}
+                  {!sheetDone(r) && <button className="chip" onClick={() => onShoes([r.id])}>👟 শিট</button>}
                 </div>
               </div>
             </div>

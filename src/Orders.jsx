@@ -19,12 +19,36 @@ function ParcelInfo({ p }) {
   );
 }
 // ইনভয়েস/কারিগর শিট প্রিন্ট হয়েছে কি না
-export const PrintBadges = ({ r }) => (
-  <span className="row" style={{ gap: 6, margin: "4px 0", display: "inline-flex", flexWrap: "wrap" }}>
-    <span className={"badge " + (r.invoice_printed_at ? "good" : "warn")}>{r.invoice_printed_at ? "🖨️ ইনভয়েস ✓ " + bnTime(r.invoice_printed_at) : "ইনভয়েস বাকি"}</span>
-    <span className={"badge " + (r.sheet_printed_at ? "good" : "warn")}>{r.sheet_printed_at ? "👟 শিট ✓ " + bnTime(r.sheet_printed_at) : "শিট বাকি"}</span>
-  </span>
-);
+// প্রিন্ট বা PNG — যেকোনোটা হলেই কাজ শেষ ধরা হয়
+export const invDone = (r) => !!(r.invoice_printed_at || r.invoice_png_at);
+export const sheetDone = (r) => !!(r.sheet_printed_at || r.sheet_png_at);
+const MARK = "invoice_printed_at,invoice_png_at,sheet_printed_at,sheet_png_at";
+export const PRINT_COLS = MARK;
+function Mark({ r, kind, onChange }) {
+  const pa = r[kind + "_printed_at"], pn = r[kind + "_png_at"], name = kind === "invoice" ? "ইনভয়েস" : "শিট";
+  const ic = kind === "invoice" ? "🧾" : "👟";
+  const done = pa || pn;
+  const undo = async (e) => {
+    e.stopPropagation();
+    if (!done || !confirm(`${r.order_no}: ${name}-এর চিহ্ন মুছে "বাকি" করবেন? (ভুল করে চিহ্ন পড়লে)`)) return;
+    const up = { [kind + "_printed_at"]: null, [kind + "_png_at"]: null };
+    const { error } = await sb.from("orders").update(up).eq("id", r.id);
+    if (!error) { Object.assign(r, up); onChange?.(); }
+  };
+  return (
+    <span className={"badge " + (done ? "good clicky" : "warn")} title={done ? "ভুল হলে চাপুন — চিহ্ন মুছে বাকি হবে" : ""} onClick={undo}>
+      {!done ? `${ic} ${name} বাকি` : <>{ic} {name}: {pa && "🖨️ প্রিন্ট ✓"}{pa && pn && " · "}{pn && "🖼️ PNG ✓"} <small style={{ opacity: .75 }}>{bnTime(pa || pn)}</small> ✕</>}
+    </span>
+  );
+}
+export const PrintBadges = ({ r }) => {
+  const [, re] = useState(0);
+  return (
+    <span className="row" style={{ gap: 6, margin: "4px 0", display: "inline-flex", flexWrap: "wrap" }}>
+      <Mark r={r} kind="invoice" onChange={() => re((x) => x + 1)} /><Mark r={r} kind="sheet" onChange={() => re((x) => x + 1)} />
+    </span>
+  );
+};
 const today = () => new Date().toISOString().slice(0, 10);
 const BN = (n) => String(n).replace(/\d/g, (d) => "০১২৩৪৫৬৭৮৯"[d]);
 const MON = ["জানুয়ারি", "ফেব্রুয়ারি", "মার্চ", "এপ্রিল", "মে", "জুন", "জুলাই", "আগস্ট", "সেপ্টেম্বর", "অক্টোবর", "নভেম্বর", "ডিসেম্বর"];
@@ -52,7 +76,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
 
   const load = async () => {
     let q = sb.from("orders")
-      .select("id,order_no,source,order_date,customer_name,phone,total,status,possible_duplicate,invoice_printed_at,sheet_printed_at,order_items(product_name,image_url,size,quantity),parcels(consignment_id,tracking_code,delivery_status)")
+      .select("id,order_no,source,order_date,customer_name,phone,total,status,possible_duplicate,invoice_printed_at,invoice_png_at,sheet_printed_at,sheet_png_at,order_items(product_name,image_url,size,quantity),parcels(consignment_id,tracking_code,delivery_status)")
       .order("order_date", { ascending: false }).limit(300);
     if (f.source) q = q.eq("source", f.source);
     if (f.status) q = q.eq("status", f.status);
@@ -68,7 +92,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
   };
   const loadInbox = async () => {
     let q = sb.from("orders")
-      .select("id,order_no,source,order_date,customer_name,phone,address,total,status,possible_duplicate,invoice_printed_at,sheet_printed_at,order_items(product_name,image_url,size,color,quantity),parcels(consignment_id,tracking_code,delivery_status)")
+      .select("id,order_no,source,order_date,customer_name,phone,address,total,status,possible_duplicate,invoice_printed_at,invoice_png_at,sheet_printed_at,sheet_png_at,order_items(product_name,image_url,size,color,quantity),parcels(consignment_id,tracking_code,delivery_status)")
       .match(mode === "confirmed" ? { status: "confirmed" } : { source: "website", status: "pending" });
     {
       if (cf.from) q = q.gte("order_date", cf.from + "T00:00:00+06:00");
@@ -77,8 +101,8 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
     const { data } = await q.order("order_date", { ascending: false }).limit(300);
     let list = data ?? [];
     if (mode === "confirmed") {
-      if (pr.inv) list = list.filter((r) => (pr.inv === "yes") === !!r.invoice_printed_at);
-      if (pr.sheet) list = list.filter((r) => (pr.sheet === "yes") === !!r.sheet_printed_at);
+      if (pr.inv) list = list.filter((r) => (pr.inv === "yes") === invDone(r));
+      if (pr.sheet) list = list.filter((r) => (pr.sheet === "yes") === sheetDone(r));
     }
     setRows(list); if (mode === "inbox") setInboxN(list.length); setSel([]);
     setRet(await statsFor(list.map((r) => r.phone)));

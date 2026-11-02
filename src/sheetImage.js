@@ -9,9 +9,9 @@ async function render(nodes, base, onStep) {
     onStep?.(`ছবি বানানো হচ্ছে ${i + 1}/${nodes.length}...`);
     const z = n.style.zoom; n.style.zoom = "1";
     try {
-      // A4 = 210×297mm; pixelRatio 3 ≈ ২৩৮০×৩৩৭০ পিক্সেল (প্রিন্টের মতো পরিষ্কার)
+      // A4 = 210×297mm; pixelRatio 2 ≈ ১৬০০×২২৫০ পিক্সেল — WhatsApp-এ পাঠানোর মতো ছোট, তবু পরিষ্কার
       // বড় ছবি data-link দিয়ে Chrome নামায় না, তাই Blob ফাইল বানাই
-      const blob = await toBlob(n, { pixelRatio: 3, cacheBust: true, backgroundColor: "#ffffff", imagePlaceholder: PH });
+      const blob = await toBlob(n, { pixelRatio: 2, cacheBust: true, backgroundColor: "#ffffff", imagePlaceholder: PH });
       if (!blob) throw new Error("ছবি বানানো যায়নি");
       out.push({ blob, name: nodes.length > 1 ? `${base}-${String(i + 1).padStart(2, "0")}.png` : `${base}.png` });
     } finally { n.style.zoom = z; }

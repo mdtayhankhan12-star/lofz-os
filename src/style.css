@@ -434,3 +434,5 @@ img{content-visibility:auto}
 .pq-card small{display:block;color:var(--muted);font-weight:700}.pq-card b{display:block;font-size:24px;margin:2px 0}.pq-card em{font-style:normal;color:var(--acc);font-weight:800;font-size:13px}
 .pq-ic{width:56px;height:56px;border-radius:16px;display:grid;place-items:center;font-size:26px;background:linear-gradient(135deg,var(--acc),color-mix(in srgb,var(--acc) 60%,#000));box-shadow:0 8px 18px -8px var(--acc);flex:none}
 @media (max-width:760px){.pq-top{grid-template-columns:1fr}}
+
+.askbar{position:sticky;top:8px;z-index:20;display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#fff7d6;border:2px solid #e8a93b;border-radius:14px;padding:10px 14px;box-shadow:0 10px 24px -14px #e8a93b;color:#111}

@@ -11,7 +11,17 @@ export async function loadOrders(ids) {
   return ids.map((i) => byId[i]).filter(Boolean);
 }
 
-// প্রিন্ট বাটনে ক্লিক করলে কোন অর্ডারের ইনভয়েস/শিট বের হলো তা সেভ থাকে
+// প্রিন্ট শেষে জিজ্ঞেস করি — সত্যিই প্রিন্ট হলে তবেই চিহ্ন (Cancel করলে চিহ্ন পড়বে না)
+export function AskPrinted({ onYes, onNo }) {
+  return (
+    <div className="askbar noprint">
+      <b>প্রিন্ট কি সত্যিই হয়েছে?</b>
+      <button className="btn ok2" onClick={onYes}>✅ হ্যাঁ, প্রিন্ট হয়েছে — চিহ্ন দিন</button>
+      <button className="chip" onClick={onNo}>❌ না, হয়নি</button>
+    </div>
+  );
+}
+// কোন অর্ডারের ইনভয়েস/শিট বের হলো তা সেভ থাকে
 export async function markPrinted(ids, col) {
   if (!ids?.length) return;
   const { error } = await sb.from("orders").update({ [col]: new Date().toISOString() }).in("id", ids);
@@ -69,7 +79,7 @@ export function InvoiceSheet({ o }) {
 
 export function PrintView({ ids, onClose }) {
   const [list, setList] = useState(null);
-  const refs = React.useRef([]); const [busy, setBusy] = useState("");
+  const refs = React.useRef([]); const [busy, setBusy] = useState(""); const [ask, setAsk] = useState(false);
   useEffect(() => { loadOrders(ids).then(setList); }, [ids]);
   if (!list) return <div className="card">লোড হচ্ছে...</div>;
   // সবসময় এক পাতায় ২টা; শুধু ৬টার বেশি জুতা হলে আলাদা পাতা
@@ -82,12 +92,13 @@ export function PrintView({ ids, onClose }) {
   return (
     <div className="printwrap">
       <div className="row noprint">
-        <button className="btn" onClick={() => { markPrinted(ids, "invoice_printed_at"); window.print(); }}>🖨️ Print / PDF</button>
-        <button className="btn alt" disabled={!!busy && !busy.startsWith("✓")} onClick={async () => { try { const n = await downloadPng(refs.current.slice(0, pages.length), `LOFZ-invoice-${new Date().toISOString().slice(0, 10)}`, setBusy); setBusy(`✓ ${n}টা PNG ছবি নামানো হয়েছে`); } catch (e) { setBusy("সমস্যা: " + e.message); } }}>🖼️ PNG ছবি</button>
+        <button className="btn" onClick={() => { window.print(); setAsk(true); }}>🖨️ Print / PDF</button>
+        <button className="btn alt" disabled={!!busy && !busy.startsWith("✓")} onClick={async () => { try { const n = await downloadPng(refs.current.slice(0, pages.length), `LOFZ-invoice-${new Date().toISOString().slice(0, 10)}`, setBusy); await markPrinted(ids, "invoice_png_at"); setBusy(`✓ ${n}টা PNG ছবি নামানো হয়েছে — "PNG ✓" চিহ্ন বসেছে`); } catch (e) { setBusy("সমস্যা: " + e.message); } }}>🖼️ PNG ছবি</button>
         {busy && <span className="small" style={{ fontWeight: 700 }}>{busy}</span>}
         <button className="chip" onClick={onClose}>← ফিরে যান</button>
         <span className="muted small">{list.length}টা ইনভয়েস · {pages.length} পাতা · PDF চাইলে প্রিন্টারে “Save as PDF” বাছুন</span>
       </div>
+      {ask && <AskPrinted onYes={async () => { await markPrinted(ids, "invoice_printed_at"); setAsk(false); setBusy("✓ প্রিন্ট চিহ্ন বসেছে"); }} onNo={() => setAsk(false)} />}
       {pages.map((pg, k) => (
         <div className="sheet" key={k} ref={(el) => (refs.current[k] = el)}>
           <InvoiceSheet o={pg[0]} />
