@@ -4,7 +4,7 @@ import { bnTime } from "./Orders.jsx";
 import DateRange from "./DateRange.jsx";
 
 // মুছে ফেলা / বাদ দেওয়া সবকিছু এখানে জমা থাকে, যাতে পরে খুঁজে ফেরত আনা যায় (শুধু Owner)
-const KIND = { order: "🧾 মুছে ফেলা অর্ডার", item: "👟 বাদ দেওয়া জুতা/ছবি", edit: "✏️ আগের লেখা", expense: "💸 মুছে ফেলা খরচ", payment: "↩ মুছে ফেলা পরিশোধ" };
+const KIND = { order: "🧾 মুছে ফেলা অর্ডার", item: "👟 বাদ দেওয়া জুতা/ছবি", edit: "✏️ আগের লেখা", expense: "💸 মুছে ফেলা খরচ", payment: "↩ মুছে ফেলা পরিশোধ", cash: "💰 মুছে ফেলা ক্যাশ/ব্যাংক লেনদেন" };
 
 const Pic = ({ src }) => (src ? <img src={src} alt="" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 10 }} /> : <div className="pbox">👟</div>);
 
@@ -30,6 +30,7 @@ function Detail({ r }) {
     <small>নাম: <b>{d.customer_name}</b> · ফোন: <b>{d.phone}</b><br />ঠিকানা: {d.address}{d.note ? <><br />নোট: {d.note}</> : null}</small>
   );
   if (r.kind === "expense") return <small>{d.note} · <b>{tk(d.amount_bdt)}</b> · {d.expense_date} · {d.on_credit ? "বাকিতে আনা" : "নগদ"}</small>;
+  if (r.kind === "cash") return <small>{d.kind} · <b>{tk(d.amount_bdt)}</b> · {d.move_date}{d.note ? " · " + d.note : ""}</small>;
   if (r.kind === "payment") return <small>{d.party} · পরিশোধ <b>{tk(d.amount_bdt)}</b> · {d.paid_date}</small>;
   return null;
 }

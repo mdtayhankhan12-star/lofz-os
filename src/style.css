@@ -480,3 +480,30 @@ img{content-visibility:auto}
 .hbt{height:14px;border-radius:7px;background:color-mix(in srgb,var(--acc) 8%,transparent);overflow:hidden}.hbt i{display:block;height:100%;border-radius:7px;background:linear-gradient(90deg,#c9566c,#8E2C3F)}
 .hbv{display:flex;gap:6px;align-items:baseline;font-size:13px}.hbv small{color:var(--muted)}
 @media (max-width:760px){.grid.gbig .stat b{font-size:25px}.grid.gbig .stat{min-height:104px}.hb{grid-template-columns:86px 1fr 96px}}
+
+/* খরচ পেজ — ক্যাশ/ব্যাংক, বাকির খাতা, ক্যাশ খাতা */
+.cashtop{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.cbal{border-radius:20px;padding:18px 20px;color:#fff;display:flex;flex-direction:column;gap:2px;box-shadow:0 16px 30px -18px #0008}
+.cbal.cash{background:linear-gradient(135deg,#0f5a4a,#22a37f)}.cbal.bank{background:linear-gradient(135deg,#1f3b73,#3466c2)}
+.cbal small{font-weight:700;opacity:.9}.cbal b{font-size:34px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}.cbal em{font-style:normal;font-size:12px;opacity:.8}
+.cflow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0 4px}
+.cf{padding:6px 11px;border-radius:999px;font-weight:800;font-size:13.5px}.cf small{font-weight:600;opacity:.8}
+.cf.in{background:#e3f7ef;color:#0f6b4f}.cf.out{background:#fde7ec;color:#a3203f}
+.cacts{flex-wrap:wrap;gap:6px;margin-top:10px}
+.cmove{margin-top:10px;flex-wrap:wrap;gap:8px;background:color-mix(in srgb,var(--acc) 6%,var(--card));padding:10px;border-radius:14px}
+.exp-btns{flex-wrap:wrap;gap:8px;margin-top:10px}.exp-btns .btn{flex:1;min-width:150px;padding:13px}
+.exp-help{display:flex;flex-direction:column;gap:4px;margin-top:10px;font-size:12.5px;color:var(--muted)}
+.xrow.xpay{background:#effaf5}.tg{font-weight:700}.tg.pay{color:#178a5c}.tg.ok{color:#178a5c}.tg.due{color:#d0284f}
+.xsum{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.xsum span{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-size:13px}
+.xsum span.g{color:#178a5c}.xsum span.t{background:color-mix(in srgb,var(--acc) 8%,var(--card))}.xsum b{margin-left:4px}
+.duegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.duecard{border:1.5px solid var(--line);border-radius:16px;padding:12px 14px;background:var(--card)}
+.duecard.has{border-color:color-mix(in srgb,#d0284f 40%,var(--line));background:linear-gradient(135deg,#fff5f7,var(--card))}
+.duecard summary{list-style:none;cursor:pointer;display:flex;flex-direction:column;gap:2px}.duecard summary::-webkit-details-marker{display:none}
+.dueamt{font-size:24px;font-weight:900;color:#178a5c}.duecard.has .dueamt{color:#d0284f}.duecard summary small{color:var(--muted)}
+.ctable{overflow-x:auto}.ctable .ch,.ctable .cr{display:grid;grid-template-columns:110px repeat(7,minmax(90px,1fr));gap:6px;padding:8px 4px;min-width:820px;font-size:13px}
+.ctable .ch{font-weight:800;color:var(--muted);border-bottom:2px solid var(--line)}.ctable .cr{border-bottom:1px solid var(--line)}
+.ctable .in{color:#178a5c;font-weight:700}.ctable .out{color:#a3203f;font-weight:700}
+:root[data-theme="dark"] .xrow.xpay{background:#0f2a22}:root[data-theme="dark"] .cf.in{background:#0f2a22;color:#7fe0bc}:root[data-theme="dark"] .cf.out{background:#3a1520;color:#f5a3b6}
+:root[data-theme="dark"] .duecard.has{background:#2a1419}
+@media (max-width:760px){.cashtop{grid-template-columns:1fr 1fr}.cbal b{font-size:22px}.cbal{padding:14px}}
