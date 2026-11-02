@@ -21,23 +21,48 @@ export async function upload(file) {
 
 const blankItem = () => ({ product_name: "", size: "", quantity: 1, price: "", image_url: "", up: false });
 
-// অর্ডারের লেখা (যেমন: নাম, ঠিকানা, ফোন, Size, colour, Bill) থেকে ফর্ম ভরে দেয়। সেভ হয় না, আপনি দেখে নিয়ে সেভ করবেন।
+// অর্ডারের লেখা থেকে ফর্ম ভরে দেয় (বাংলা/ইংরেজি লেবেল চেনে: Name/নাম, Address/ঠিকানা, Phone/মোবাইল, Size/সাইজ, Bill/বিল, Colour/রং)।
+// সেভ হয় না — আপনি দেখে নিয়ে সেভ করবেন।
+const LBL = {
+  name: /^(?:customer\s*)?(?:name|nam|নাম|কাস্টমারের নাম)\s*[:：\-–=]*\s*/i,
+  address: /^(?:address|addr|thikana|ঠিকানা|ঠিকানাঃ)\s*[:：\-–=]*\s*/i,
+  phone: /^(?:phone|mobile|mob|number|num|contact|ফোন|মোবাইল|নাম্বার|নম্বর)[^:：\d]*[:：\-–=]*\s*/i,
+  size: /^(?:size|সাইজ|সাইজঃ)\s*[:：\-–=]*\s*/i,
+  bill: /^(?:bill|bil|বিল|price|দাম|total|টাকা)\s*[:：\-–=]*\s*/i,
+  colour: /^(?:colou?r|কালার|রং|রঙ)\s*[:：\-–=]*\s*/i,
+};
+// ঠিকানার ভেতরে অন্য তথ্য ঢুকে গেলে সেখান থেকে কেটে ফেলা
+const CUT = /[,،;।.\s]*(?:মোবাইল|mobile|phone|ফোন|নাম্বার|নম্বর|number|bill|bil|বিল|size|সাইজ|colou?r|কালার|রং|price|দাম)(?=\s|[:：\-–=]|$).*$/i;
 export function parseOrderText(text) {
-  const raw = String(text || "");
-  const lines = raw.split(/\n+/).map((l) => l.trim()).filter(Boolean);
-  const bn = (x) => x.replace(/[০-৯]/g, (d) => "০১২৩৪৫৬৭৮৯".indexOf(d));
-  const t = bn(raw);
-  const phoneM = t.replace(/[\s-]/g, "").match(/(?:\+?88)?(01[3-9]\d{8})/);
-  const phone = phoneM ? phoneM[1] : "";
-  const size = (t.match(/size\s*[-:=]?\s*([0-9A-Za-z]+)/i) || [])[1] || "";
-  const colour = ((t.match(/colou?r\s*[-:=]?\s*([^\n,;]+)/i) || [])[1] || "").trim();
-  const bill = Number((t.match(/bill\s*[-:=]?\s*(\d+)/i) || [])[1] || 0);
-  const isOther = (l) => /size|colou?r|bill|total|price/i.test(l) || l.replace(/[\s+-]/g, "").match(/^(?:88)?01\d{9}$/);
-  const rest = lines.filter((l) => !isOther(l));
-  const name = (rest[0] || "").slice(0, 80);
-  const address = rest.slice(1).join(", ").replace(/,\s*,/g, ",").replace(/[,\s]+$/, "");
-  const dhaka = /ঢাকা|dhaka/i.test(address + " " + name) && !/ঢাকার বাইরে/i.test(address);
-  return { phone, name, address, size, colour, price: bill, delivery: dhaka ? 80 : 150 };
+  const bn = (x) => String(x).replace(/[০-৯]/g, (d) => "০১২৩৪৫৬৭৮৯".indexOf(d));
+  const t = bn(text || "");
+  const out = { phone: "", name: "", address: "", size: "", colour: "", price: 0, delivery: null };
+  const rest = [];
+  // একই লাইনে কমা দিয়ে কয়েকটা তথ্য থাকলেও আলাদা করা
+  const parts = t.split(/\n+/).flatMap((l) => l.split(/[,;]\s*(?=(?:size|সাইজ|colou?r|কালার|রং|bill|bil|বিল|price|দাম|phone|mobile|মোবাইল|ফোন|name|নাম|address|ঠিকানা)\b)/i)).map((l) => l.trim()).filter(Boolean);
+  for (const l of parts) {
+    const k = Object.keys(LBL).find((x) => LBL[x].test(l));
+    const v = k ? l.replace(LBL[k], "").trim() : l;
+    const digits = l.replace(/[\s-]/g, "").match(/(?:\+?88)?(01[3-9]\d{8})/);
+    if (k === "name") out.name = v.replace(/[.,]+$/, "");
+    else if (k === "address") out.address = v.replace(CUT, "").replace(/[,\s।]+$/, "");
+    else if (k === "size") out.size = (v.match(/\d{1,2}(?:\.\d)?/) || [v.split(/[\s,]/)[0]])[0];
+    else if (k === "colour") out.colour = v.split(/[,.;]/)[0].trim();
+    else if (k === "bill") {
+      const n = v.match(/(\d+)\s*(?:\+\s*(\d+))?/);
+      if (n) { out.price = Number(n[1]); if (n[2]) out.delivery = Number(n[2]); }
+    } else if (k === "phone" || (digits && l.replace(/[\s+\-]/g, "").length <= 14)) out.phone = digits ? digits[1] : out.phone;
+    else rest.push(l);
+    if (!out.phone && digits) out.phone = digits[1];
+  }
+  // লেবেল ছাড়া লেখা: প্রথম লাইন নাম, বাকিগুলো ঠিকানা
+  if (!out.name && rest.length) out.name = rest.shift().replace(/[.,]+$/, "").slice(0, 80);
+  if (!out.address && rest.length) out.address = rest.join(", ").replace(CUT, "").replace(/[,\s।]+$/, "");
+  if (!out.size) out.size = (t.match(/(?:size|সাইজ)\s*[:：\-–=]*\s*(\d{1,2})/i) || [])[1] || "";
+  if (!out.price) { const n = t.match(/(?:bill|bil|বিল)\s*[:：\-–=]*\s*(\d+)\s*(?:\+\s*(\d+))?/i); if (n) { out.price = Number(n[1]); if (n[2]) out.delivery = Number(n[2]); } }
+  if (out.delivery == null) out.delivery = /ঢাকা|dhaka/i.test(out.address) ? 80 : 150;
+  out.name = out.name.slice(0, 80);
+  return out;
 }
 
 export default function NewOrder({ onCreated, book }) {
