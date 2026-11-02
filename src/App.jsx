@@ -10,6 +10,7 @@ import Parcels, { ST_BN } from "./Parcels.jsx";
 import AI from "./AI.jsx";
 import Trash from "./Trash.jsx";
 import Backup from "./Backup.jsx";
+import PrintQueue, { printCounts } from "./PrintQueue.jsx";
 import DateRange from "./DateRange.jsx";
 import { bnTime } from "./Orders.jsx";
 
@@ -121,6 +122,7 @@ const NAV = [
   ["dashboard", "📊"], ["orders", "🧾"], ["invoice", "➕"], ["expenses", "💸"],
   ["finance", "💰", "owner"], ["ai", "🤖", "owner"], ["team", "👥", "owner"],
   ["addparcel", "📦", null, "parcel"], ["parcels_pending", "⏳", null, "parcel"], ["consignments", "🗂️", null, "parcel"], ["risk", "🛡️", null, "parcel"], ["returns", "↩️", null, "parcel"],
+  ["printq", "🖨️", null, "print"],
   ["trash", "🗑️", "owner", "end"],
 ];
 // প্রতিটা পেজ কী কাজ করে — উপরে ছোট করে লেখা থাকে, যাতে স্টাফ সহজে বোঝে
@@ -136,6 +138,7 @@ const HELP = {
   consignments: "Steadfast-এ পাঠানো সব পার্সেল, স্ট্যাটাস আর ট্র্যাকিং লিংকসহ।",
   ai: "গত ৩০ দিনের হিসাব নিয়ে বাংলায় প্রশ্ন করুন। শুধু Owner দেখতে পারবেন।",
   risk: "কাস্টমারের ফোন নম্বর দিয়ে দেখুন আগে কয়টা পার্সেল নিয়েছেন, কয়টা Return করেছেন, Fraud রিপোর্ট আছে কি না।",
+  printq: "যে Confirmed অর্ডারের ইনভয়েস বা কারিগর শিট এখনো প্রিন্ট হয়নি — এক চাপে সব প্রিন্ট করুন। প্রিন্ট হলে নিজে থেকে তালিকা থেকে সরে যাবে।",
   trash: "যেকোনো মুছে ফেলা অর্ডার, খরচ, পরিশোধ, এডিটে বাদ দেওয়া জুতা/ছবি আর আগের লেখা এখানে জমা থাকে। Cancel করা অর্ডারও এখানে পাবেন। চাইলে ফেরত আনতে পারবেন।",
   returns: "Steadfast থেকে ফেরত আসা জুতার ছবি, সাইজ, রং আর সংখ্যা। স্টক মিলিয়ে আবার পাঠাতে পারবেন।",
 };
@@ -163,9 +166,12 @@ function Shell({ profile, prefs }) {
   const [shoeIds, setShoeIds] = useState(null);
   const [q, setQ] = useState("");
   useEffect(() => { document.documentElement.dataset.page = printIds || shoeIds ? "print" : cur; }, [cur, printIds, shoeIds]);
+  const [pc, setPc] = useState(null); // প্রিন্ট বাকির সংখ্যা (মেনুতে দেখায়)
+  useEffect(() => { const f = () => printCounts().then(setPc).catch(() => {}); f(); const i = setInterval(f, 60e3); return () => clearInterval(i); }, [page, printIds, shoeIds]);
   if (printIds) return <PrintView ids={printIds} onClose={() => setPrintIds(null)} />;
   if (shoeIds) return <ShoeSheet ids={shoeIds} onClose={() => setShoeIds(null)} />;
-  const NavBtn = ([k, ic]) => <button key={k} className={"nav" + (cur === k ? " on" : "")} onClick={() => go(k)}><span>{ic}</span>{t(k)}</button>;
+  const NavBtn = ([k, ic]) => <button key={k} className={"nav" + (cur === k ? " on" : "")} onClick={() => go(k)}><span>{ic}</span>{t(k)}
+    {k === "printq" && pc && <span className="navcnt"><i title="ইনভয়েস বাকি">🧾 {pc.inv}</i><i title="কারিগর শিট বাকি">👟 {pc.sheet}</i></span>}</button>;
   const search = (e) => { e.preventDefault(); const v = q.trim(); if (!v) return; if (v.replace(/\D/g, "").length >= 10 && /^[\d\s+-]+$/.test(v)) go("risk", v); else go("orders", { mode: "all", q: v }); setQ(""); };
   return (
     <div className="shell">
@@ -173,6 +179,8 @@ function Shell({ profile, prefs }) {
         <div className="brand clicky" role="button" title="মূল পেজে (ড্যাশবোর্ড) যান" onClick={() => go("dashboard")}><img src="/logo.png" alt="LOFZ" className="logo-side" /><small>Business OS</small></div>
         <div className="muted small" style={{ opacity: .55, fontSize: 10.5, margin: "-6px 0 8px 4px" }} title="অ্যাপের ভার্সন — নতুন আপডেট এসেছে কি না এখানে দেখুন">ভার্সন {__BUILD__}</div>
         {items.filter((x) => !x[3]).map(NavBtn)}
+        <div className="navgap" />
+        {items.filter((x) => x[3] === "print").map(NavBtn)}
         <div className="navsec">PARCEL DATA</div>
         {items.filter((x) => x[3] === "parcel").map(NavBtn)}
         {items.some((x) => x[3] === "end") && <div className="navsec">অন্যান্য</div>}
@@ -194,6 +202,7 @@ function Shell({ profile, prefs }) {
         {cur === "finance" && isOwner && <Finance />}
         {cur === "ai" && isOwner && <AI />}
         {cur === "trash" && isOwner && <Trash />}
+        {cur === "printq" && <PrintQueue onPrint={setPrintIds} onShoes={setShoeIds} go={go} />}
         {["parcels_pending", "consignments", "risk", "returns"].includes(cur) && <Parcels tab={cur} phone={phone} isOwner={isOwner} go={go} />}
       </main>
       <nav className="bottom">
@@ -313,7 +322,6 @@ function Dashboard({ isOwner, t, go }) {
         <S k="today_orders" l={isToday ? undefined : "অর্ডার"} v={d.n} accent to={O({})} /><S k="today_sales" l={isToday ? undefined : "সেল"} v={tk(d.sales)} accent to={O({ revenue: true })} />
         <S k="website" v={d.web} to={O({ source: "website" })} /><S k="facebook" v={d.fb} to={O({ source: "facebook" })} />
         <S k="pending" v={d.pending} to={() => go("orders", { mode: "inbox" })} /><S k="confirmed" l={isToday ? "আজ Confirmed" : "Confirmed"} v={d.confirmed} to={O({ status: "confirmed" })} />
-        <S k="inv_left" v={d.invLeft} to={() => go("orders", { mode: "confirmed", inv: "no" })} /><S k="sheet_left" v={d.sheetLeft} to={() => go("orders", { mode: "confirmed", sheet: "no" })} />
         <S k="delivered" l={one ? `${bn(rg.to, { month: "long" })} মাসে Delivered` : "Delivered"} v={d.delivered} to={() => go("orders", { mode: "all", status: "delivered", from: "", to: "" })} /><S k="returned" l={one ? `${bn(rg.to, { month: "long" })} মাসে Return` : "Return"} v={d.returned} to={() => go("orders", { mode: "all", status: "returned", from: "", to: "" })} />
         <S k="cancelled" l={isToday ? "আজ Cancel" : "Cancel"} v={d.cancelled} to={O({ status: "cancelled" })} />
         {isOwner && <S k="expense_month" secret v={tk(d.exp)} to={() => go("expenses")} />}
