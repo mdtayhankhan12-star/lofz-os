@@ -133,7 +133,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
             {rows.map((r) => { const h = ret[r.phone]; const wa = "88" + String(r.phone).replace(/\D/g, "").replace(/^88/, ""); return (
               <div key={r.id} className={"card orow" + (sel.includes(r.id) ? " picked" : "")}>
                 {mode === "confirmed" && <input type="checkbox" className="pick" checked={sel.includes(r.id)} onChange={() => toggle(r.id)} />}
-                <div className="thumbs">{(r.order_items ?? []).slice(0, 3).map((i, k) => i.image_url ? <img key={k} src={i.image_url} alt="" /> : <div key={k} className="ph" />)}</div>
+                <div className="thumbs">{(r.order_items ?? []).slice(0, 3).map((i, k) => i.image_url ? <img key={k} src={i.image_url} alt="" loading="lazy" /> : <div key={k} className="ph" />)}</div>
                 <div className="grow">
                   <div className="row"><b>{r.order_no}</b>
                     {r.possible_duplicate && <span className="badge bad">সম্ভাব্য ডুপ্লিকেট</span>}
@@ -190,7 +190,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
           {rows.map((r) => (
             <div key={r.id} className="card orow">
               <input type="checkbox" checked={sel.includes(r.id)} onChange={() => toggle(r.id)} />
-              <div className="thumbs">{(r.order_items ?? []).slice(0, 3).map((i, k) => i.image_url ? <img key={k} src={i.image_url} alt="" /> : <div key={k} className="ph" />)}</div>
+              <div className="thumbs">{(r.order_items ?? []).slice(0, 3).map((i, k) => i.image_url ? <img key={k} src={i.image_url} alt="" loading="lazy" /> : <div key={k} className="ph" />)}</div>
               <div className="grow">
                 <div className="row"><b>{r.order_no}</b>
                   <span className={"badge " + (r.source === "facebook" ? "fb" : "web")}>{r.source === "facebook" ? "Facebook" : "Website"}</span>
