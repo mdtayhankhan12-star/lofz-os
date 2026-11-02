@@ -20,7 +20,7 @@ export default function Expenses({ isOwner }) {
   const day = dhakaToday();
 
   const load = async () => {
-    const { data } = await sb.from("expenses").select("id,note,amount_bdt,created_at").eq("category", "production").eq("expense_date", day).order("created_at", { ascending: false });
+    const { data } = await sb.from("expenses").select("id,note,amount_bdt,created_at,on_credit").eq("category", "production").eq("expense_date", day).order("created_at", { ascending: false });
     setItems(data ?? []);
     const { data: pd } = await sb.from("supplier_payments").select("id,party,amount_bdt,created_at").eq("paid_date", day).order("created_at", { ascending: false });
     setPays(pd ?? []);
@@ -42,9 +42,8 @@ export default function Expenses({ isOwner }) {
         .in("delivery_status", ["delivered", "partial_delivered", "cancelled"])
         .gte("updated_at", month + "-01T00:00:00+06:00").lte("updated_at", end + "T23:59:59+06:00").limit(5000),
     ]);
-    const sup = new Set(SUPPLIERS.map(key)); for (const p of py ?? []) sup.add(key(p.party));
     const bought = ex.reduce((a, r) => a + Number(r.amount_bdt), 0);
-    const credit = ex.filter((r) => sup.has(key(r.note))).reduce((a, r) => a + Number(r.amount_bdt), 0);
+    const credit = ex.filter((r) => r.on_credit).reduce((a, r) => a + Number(r.amount_bdt), 0);
     const paid = (py ?? []).reduce((a, r) => a + Number(r.amount_bdt), 0);
     let cod = 0, charge = 0, nd = 0, np = 0, nr = 0, noCharge = 0;
     for (const r of pc ?? []) {
@@ -59,23 +58,23 @@ export default function Expenses({ isOwner }) {
   // সাপ্লায়ারের বাকি: মোট মাল (খরচে একই নামে লেখা) − মোট দেওয়া টাকা
   const loadLedger = async () => {
     const [{ data: ex }, { data: py }] = await Promise.all([
-      sb.from("expenses").select("note,amount_bdt,expense_date").eq("category", "production").limit(10000),
+      sb.from("expenses").select("note,amount_bdt,expense_date").eq("category", "production").eq("on_credit", true).limit(10000),
       sb.from("supplier_payments").select("party,amount_bdt,paid_date").order("paid_date", { ascending: false }).limit(5000),
     ]);
     const g = {};
     const get = (name) => (g[key(name)] ??= { name: name.trim(), bought: 0, paid: 0, hist: [] });
-    for (const n of SUPPLIERS) get(n);
     for (const p of py ?? []) { const x = get(p.party); x.paid += Number(p.amount_bdt); x.hist.push({ d: p.paid_date, a: -Number(p.amount_bdt) }); }
-    for (const e of ex ?? []) { const x = g[key(e.note)]; if (x) { x.bought += Number(e.amount_bdt); x.hist.push({ d: e.expense_date, a: Number(e.amount_bdt) }); } }
+    for (const e of ex ?? []) { const x = get(e.note || "(নাম নেই)"); x.bought += Number(e.amount_bdt); x.hist.push({ d: e.expense_date, a: Number(e.amount_bdt) }); }
     for (const x of Object.values(g)) x.hist.sort((a, b) => b.d.localeCompare(a.d));
-    setLed(Object.values(g));
+    // বাকি আছে এমনগুলো আগে, তারপর পরিশোধ হয়ে যাওয়াগুলো
+    setLed(Object.values(g).sort((a, b) => (b.bought - b.paid) - (a.bought - a.paid)));
   };
   // আগের নামগুলো সাজেশন হিসেবে, যাতে একই জিনিস একই নামে লেখা হয় (রিপোর্ট ঠিক থাকে)
   useEffect(() => { if (isOwner) sb.from("expenses").select("note").eq("category", "production").limit(1000).then(({ data }) => setNames([...new Set((data ?? []).map((r) => (r.note ?? "").trim()).filter(Boolean))])); }, []);
   useEffect(() => {
     if (!isOwner) return;
     const [y, m] = month.split("-").map(Number), end = `${month}-${String(new Date(y, m, 0).getDate()).padStart(2, "0")}`;
-    sb.from("expenses").select("note,amount_bdt,expense_date").eq("category", "production").gte("expense_date", month + "-01").lte("expense_date", end)
+    sb.from("expenses").select("note,amount_bdt,expense_date,on_credit").eq("category", "production").gte("expense_date", month + "-01").lte("expense_date", end)
       .then(({ data }) => {
         const g = {}, byDay = {};
         for (const r of data ?? []) {
@@ -91,7 +90,8 @@ export default function Expenses({ isOwner }) {
       });
   }, [month]);
 
-  const add = async (e, pay = false) => {
+  const add = async (e, how = "cash") => {
+    const pay = how === "pay";
     e.preventDefault(); setErr("");
     const raw = String(f.amount_bdt).replace(/\s/g, "");
     const isPay = pay || raw.startsWith("-") || f.note.trim().startsWith("-");
@@ -102,7 +102,7 @@ export default function Expenses({ isOwner }) {
     setBusy(true);
     const { error } = isPay
       ? await sb.from("supplier_payments").insert({ party: note, amount_bdt: amt, paid_date: day })
-      : await sb.from("expenses").insert({ category: "production", platform: "both", note, amount_bdt: amt, expense_date: day });
+      : await sb.from("expenses").insert({ category: "production", platform: "both", note, amount_bdt: amt, expense_date: day, on_credit: how === "credit" });
     setBusy(false);
     if (error) return setErr(error.message);
     setF({ note: "", amount_bdt: "" }); load();
@@ -122,12 +122,13 @@ export default function Expenses({ isOwner }) {
         <p className="muted small">যখন যা খরচ হয় সাথে সাথে লিখে রাখুন। রাত ১২টায় দিনের মোট নিজে থেকেই কারখানার খরচ হিসেবে লাভ-ক্ষতিতে যোগ হয়ে যাবে।</p>
         <div className="row exp-add">
           <input className="grow" list="exp-names" placeholder="কী বাবদ? (যেমন: চামড়া, আঠা, রিকশা ভাড়া)" required value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} />
-          <input type="text" inputMode="decimal" placeholder="টাকা (দিলে -)" title="মাল আনলে শুধু টাকা লিখুন। কাউকে বাকি শোধ দিলে টাকার আগে মাইনাস দিন, যেমন -3000" required style={{ width: 120 }} value={f.amount_bdt} onChange={(e) => setF({ ...f, amount_bdt: e.target.value })} />
-          <button className="btn" disabled={busy} title="জিনিস কিনলাম — খরচে যোগ হবে">+ যোগ</button>
-          <button type="button" className="btn minus" disabled={busy} title="সাপ্লায়ারকে টাকা দিলাম — খরচে যোগ হবে না, শুধু বাকি কমবে" onClick={(e) => { if (e.currentTarget.form.reportValidity()) add(e, true); }}>− দিলাম</button>
+          <input type="text" inputMode="decimal" placeholder="টাকা" required style={{ width: 110 }} value={f.amount_bdt} onChange={(e) => setF({ ...f, amount_bdt: e.target.value })} />
+          <button className="btn" disabled={busy} title="টাকা সাথে সাথে দিয়ে দিলাম (কারিগরের মজুরি, রিকশা ইত্যাদি) — খরচে যোগ হবে, বাকি থাকবে না">+ নগদ খরচ</button>
+          <button type="button" className="btn dark" disabled={busy} title="জিনিস আনলাম, টাকা পরে দেব — খরচে যোগ হবে, ওই নামে বাকি জমবে" onClick={(e) => { if (e.currentTarget.form.reportValidity()) add(e, "credit"); }}>+ বাকিতে আনলাম</button>
+          <button type="button" className="btn minus" disabled={busy} title="বাকির টাকা দিলাম — খরচে যোগ হবে না, শুধু বাকি কমবে" onClick={(e) => { if (e.currentTarget.form.reportValidity()) add(e, "pay"); }}>− পরিশোধ</button>
         </div>
         <datalist id="exp-names">{[...new Set([...SUPPLIERS, ...names])].map((n) => <option key={n} value={n} />)}</datalist>
-        <p className="muted small">💡 Raju Vai / Rubel Vai-কে টাকা দিলে একই নাম লিখে টাকার আগে <b>মাইনাস (-)</b> দিন, যেমন <b>-3000</b>। এটা খরচে যোগ হবে না, শুধু তার বাকি কমবে।</p>
+        <p className="muted small">💡 <b>নগদ খরচ</b> = টাকা সাথে সাথে দিলেন (কারিগরের মজুরি ইত্যাদি)। <b>বাকিতে আনলাম</b> = জিনিস আনলেন, টাকা পরে দেবেন (Cha, Samana, Raju Vai, Rubel Vai)। <b>পরিশোধ</b> = বাকির টাকা দিলেন — একই নাম লিখবেন, খরচে আর যোগ হবে না।</p>
         {err && <p className="err">{err}</p>}
       </form>
 
@@ -138,7 +139,7 @@ export default function Expenses({ isOwner }) {
             {items.map((r, i) => (
               <div key={r.id} className="xrow">
                 <span className="xno">{BN(i + 1)}</span>
-                <div className="xname"><b>{r.note || "—"}</b><small>{t(r.created_at)}</small></div>
+                <div className="xname"><b>{r.note || "—"}</b><small>{t(r.created_at)} · {!r.on_credit ? "নগদ" : (() => { const x = led?.find((l) => key(l.name) === key(r.note)); return x && x.bought - x.paid <= 0 ? <span style={{ color: "#178a5c", fontWeight: 800 }}>পরিশোধ ✓</span> : <span style={{ color: "#d0284f", fontWeight: 800 }}>বাকি</span>; })()}</small></div>
                 <span className="xamt">{tk(r.amount_bdt)}</span>
                 <button className="xdel" title="মুছুন" onClick={() => del(r.id)}>✕</button>
               </div>
@@ -147,12 +148,12 @@ export default function Expenses({ isOwner }) {
           <div className="xtotal"><span>আজকের মোট খরচ</span><b>{tk(total)}</b></div>
         </>}
         {pays.length > 0 && <>
-          <h3 style={{ marginTop: 14 }}>আজ বাকি শোধ (খরচে যোগ হয়নি)</h3>
+          <h3 style={{ marginTop: 14 }}>আজ পরিশোধ (খরচে যোগ হয়নি)</h3>
           <div className="xlist">
             {pays.map((r) => (
               <div key={r.id} className="xrow">
                 <span className="xno">↩</span>
-                <div className="xname"><b>{r.party}</b><small>{t(r.created_at)} · টাকা দেওয়া</small></div>
+                <div className="xname"><b>{r.party}</b><small>{t(r.created_at)} · পরিশোধ</small></div>
                 <span className="xamt" style={{ color: "#178a5c" }}>-{tk(r.amount_bdt)}</span>
                 <button className="xdel" title="মুছুন" onClick={() => delPay(r.id)}>✕</button>
               </div>
@@ -163,18 +164,18 @@ export default function Expenses({ isOwner }) {
 
       {isOwner && (
         <div className="card">
-          <h2>সাপ্লায়ারের বাকি হিসাব</h2>
-          <p className="muted small">মাল আনা = খরচে একই নামে যা লেখা হয়েছে। দেওয়া = মাইনাস দিয়ে যা লেখা হয়েছে। বাকি = মাল − দেওয়া।</p>
+          <h2>বাকির খাতা</h2>
+          <p className="muted small">"বাকিতে আনলাম" দিয়ে যা লেখা হয়েছে আর "পরিশোধ" দিয়ে যা দেওয়া হয়েছে — নাম ধরে মেলানো। নামে চাপলে তারিখসহ সব লেনদেন খুলবে।</p>
           {!led ? "লোড হচ্ছে..." : <div className="xlist">
             {led.map((x) => { const due = x.bought - x.paid; return (
               <details key={x.name} className="xrow" style={{ display: "block" }}>
                 <summary className="row" style={{ cursor: "pointer", justifyContent: "space-between" }}>
-                  <div className="xname"><b>{x.name}</b><small>মাল {tk(x.bought)} · দেওয়া {tk(x.paid)}</small></div>
-                  <span className="xamt" style={{ color: due > 0 ? "#d0284f" : "#178a5c" }}>{due > 0 ? "বাকি " + tk(due) : due < 0 ? "অগ্রিম " + tk(-due) : "শোধ ✓"}</span>
+                  <div className="xname"><b>{x.name}</b><small>নেওয়া {tk(x.bought)} · দেওয়া {tk(x.paid)}</small></div>
+                  <span className="xamt" style={{ color: due > 0 ? "#d0284f" : "#178a5c" }}>{due > 0 ? "বাকি " + tk(due) : due < 0 ? "অগ্রিম " + tk(-due) : "পরিশোধ ✓"}</span>
                 </summary>
                 {!x.hist.length ? <p className="muted small">এখনো কোনো লেনদেন নেই।</p> : x.hist.slice(0, 30).map((h, i) => (
                   <div key={i} className="row small" style={{ justifyContent: "space-between", padding: "4px 0" }}>
-                    <span>{new Date(h.d).toLocaleDateString("bn-BD", { day: "numeric", month: "long" })} · {h.a > 0 ? "মাল আনা" : "টাকা দেওয়া"}</span>
+                    <span>{new Date(h.d).toLocaleDateString("bn-BD", { day: "numeric", month: "long" })} · {h.a > 0 ? "বাকিতে আনা" : "পরিশোধ"}</span>
                     <b style={{ color: h.a > 0 ? "#d0284f" : "#178a5c" }}>{h.a > 0 ? "+" : "-"}{tk(Math.abs(h.a))}</b>
                   </div>))}
               </details>); })}

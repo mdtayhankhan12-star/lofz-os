@@ -98,7 +98,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
     setRows((rs) => rs.map((r) => (r.id === id ? { ...r, status } : r)));
   };
   const del = async (id) => {
-    if (!confirm("এই অর্ডার একেবারে মুছে ফেলবেন?")) return;
+    if (!confirm("এই অর্ডার মুছে ফেলবেন? (মুছে ফেলা / ট্র্যাশ পাতায় থাকবে, চাইলে ফেরত আনা যাবে)")) return;
     const { error } = await sb.from("orders").delete().eq("id", id);
     if (error) return setMsg(error.message);
     setRows((rs) => rs.filter((r) => r.id !== id));

@@ -8,6 +8,7 @@ import Expenses from "./Expenses.jsx";
 import Finance from "./Finance.jsx";
 import Parcels, { ST_BN } from "./Parcels.jsx";
 import AI from "./AI.jsx";
+import Trash from "./Trash.jsx";
 import { bnTime } from "./Orders.jsx";
 
 const ls = {
@@ -118,6 +119,7 @@ const NAV = [
   ["dashboard", "📊"], ["orders", "🧾"], ["invoice", "➕"], ["expenses", "💸"],
   ["finance", "💰", "owner"], ["ai", "🤖", "owner"], ["team", "👥", "owner"],
   ["addparcel", "📦", null, "parcel"], ["parcels_pending", "⏳", null, "parcel"], ["consignments", "🗂️", null, "parcel"], ["risk", "🛡️", null, "parcel"], ["returns", "↩️", null, "parcel"],
+  ["trash", "🗑️", "owner", "end"],
 ];
 // প্রতিটা পেজ কী কাজ করে — উপরে ছোট করে লেখা থাকে, যাতে স্টাফ সহজে বোঝে
 const HELP = {
@@ -132,6 +134,7 @@ const HELP = {
   consignments: "Steadfast-এ পাঠানো সব পার্সেল, স্ট্যাটাস আর ট্র্যাকিং লিংকসহ।",
   ai: "গত ৩০ দিনের হিসাব নিয়ে বাংলায় প্রশ্ন করুন। শুধু Owner দেখতে পারবেন।",
   risk: "কাস্টমারের ফোন নম্বর দিয়ে দেখুন আগে কয়টা পার্সেল নিয়েছেন, কয়টা Return করেছেন, Fraud রিপোর্ট আছে কি না।",
+  trash: "যেকোনো মুছে ফেলা অর্ডার, খরচ, পরিশোধ, এডিটে বাদ দেওয়া জুতা/ছবি আর আগের লেখা এখানে জমা থাকে। Cancel করা অর্ডারও এখানে পাবেন। চাইলে ফেরত আনতে পারবেন।",
   returns: "Steadfast থেকে ফেরত আসা জুতার ছবি, সাইজ, রং আর সংখ্যা। স্টক মিলিয়ে আবার পাঠাতে পারবেন।",
 };
 
@@ -160,7 +163,9 @@ function Shell({ profile, prefs }) {
         <div className="brand"><img src="/logo.png" alt="LOFZ" className="logo-side" /><small>Business OS</small></div>
         {items.filter((x) => !x[3]).map(NavBtn)}
         <div className="navsec">PARCEL DATA</div>
-        {items.filter((x) => x[3]).map(NavBtn)}
+        {items.filter((x) => x[3] === "parcel").map(NavBtn)}
+        {items.some((x) => x[3] === "end") && <div className="navsec">অন্যান্য</div>}
+        {items.filter((x) => x[3] === "end").map(NavBtn)}
       </aside>
       <main className="main">
         <header className="top">
@@ -177,6 +182,7 @@ function Shell({ profile, prefs }) {
         {cur === "expenses" && <Expenses isOwner={isOwner} />}
         {cur === "finance" && isOwner && <Finance />}
         {cur === "ai" && isOwner && <AI />}
+        {cur === "trash" && isOwner && <Trash />}
         {["parcels_pending", "consignments", "risk", "returns"].includes(cur) && <Parcels tab={cur} phone={phone} isOwner={isOwner} go={go} />}
       </main>
       <nav className="bottom">

@@ -34,7 +34,7 @@ const T = {
     website: "Website", facebook: "Facebook", confirmed: "Confirmed", delivered: "আজ Delivered",
     returned: "আজ Return", cancelled: "Cancel", pending: "Pending", profit_month: "এই মাসের লাভ",
     expense_month: "এই মাসের খরচ", sf_balance: "Steadfast ব্যালান্স (তোলা যাবে)", overdue: "কারিগরের দেরি (৫+ দিন)",
-    addparcel: "Add parcel", parcels_pending: "Steadfast Pending", consignments: "সব পার্সেল (Consignments)", risk: "Delivery Risk Check", returns: "Return শিপমেন্ট", ai: "AI সহকারী",
+    addparcel: "Add parcel", parcels_pending: "Steadfast Pending", consignments: "সব পার্সেল (Consignments)", risk: "Delivery Risk Check", returns: "Return শিপমেন্ট", trash: "মুছে ফেলা / ট্র্যাশ", ai: "AI সহকারী",
   },
   en: {
     dashboard: "Dashboard", orders: "Orders", invoice: "Invoice", production: "Production", expenses: "Expenses",
@@ -43,7 +43,7 @@ const T = {
     website: "Website", facebook: "Facebook", confirmed: "Confirmed", delivered: "Delivered",
     returned: "Returned", cancelled: "Cancelled", pending: "Pending", profit_month: "Profit this month",
     expense_month: "Expenses this month", sf_balance: "Steadfast balance", overdue: "Artisan overdue (5+ days)",
-    addparcel: "Add parcel", parcels_pending: "Steadfast Pending", consignments: "Consignments", risk: "Delivery Risk Check", returns: "Return shipments", ai: "AI Assistant",
+    addparcel: "Add parcel", parcels_pending: "Steadfast Pending", consignments: "Consignments", risk: "Delivery Risk Check", returns: "Return shipments", trash: "Trash", ai: "AI Assistant",
   },
 };
 export const tr = (lang, k) => T[lang]?.[k] ?? T.bn[k] ?? k;
