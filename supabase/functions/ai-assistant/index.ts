@@ -67,7 +67,9 @@ Deno.serve(async (req) => {
     }
     lastErr = j?.error?.message ?? `Gemini ${r.status}`;
     // মডেল না পাওয়া গেলে বা বন্ধ থাকলে পরেরটা; অন্য এরর (যেমন key ভুল, সীমা শেষ) হলে থামি
-    if (![404, 400].includes(r.status) && r.status !== 429) break;
+    // ব্যস্ততা (503/500), সীমা (429), মডেল নেই (404/400) হলে পরের মডেল; বাকি এরর হলে থামি
+    if (![404, 400, 429, 500, 503].includes(r.status)) break;
+    await new Promise((res) => setTimeout(res, 1200));
   }
   return reply({ error: lastErr || "Gemini উত্তর দিতে পারেনি" }, 502);
 });
