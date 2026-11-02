@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import DateRange from "./DateRange.jsx";
 import { sb, tk } from "./lib.js";
 
 const iso = (d) => d.toISOString().slice(0, 10);
@@ -90,10 +91,7 @@ export default function Finance() {
   return (
     <div className="stack">
       <div className="card filters noprint">
-        {[["today", "আজ"], ["week", "৭ দিন"], ["month", "এই মাস"], ["last", "গত মাস"]].map(([k, l]) =>
-          <button key={k} className={"chip" + (kind === k ? " sel" : "")} onClick={() => pick(k)}>{l}</button>)}
-        <input type="date" value={from} onChange={(ev) => { setKind("c"); setRange([ev.target.value, to]); }} />
-        <input type="date" value={to} onChange={(ev) => { setKind("c"); setRange([from, ev.target.value]); }} />
+        <DateRange value={{ from, to }} onChange={(v) => { setKind("c"); setRange([v.from, v.to]); }} />
         <button className="chip" onClick={csv}>⬇️ Excel (CSV)</button>
         <button className="chip" onClick={() => window.print()}>🖨️ PDF</button>
       </div>

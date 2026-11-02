@@ -3,6 +3,7 @@ import { sb, tk, fnCall } from "./lib.js";
 import { Ring, statsFor } from "./Parcels.jsx";
 import EditOrder from "./EditOrder.jsx";
 import ViewOrder from "./ViewOrder.jsx";
+import DateRange from "./DateRange.jsx";
 
 export const STATUSES = [
   ["pending", "Pending"], ["confirmed", "Confirmed"], ["delivered", "Delivered"],
@@ -69,7 +70,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
     let q = sb.from("orders")
       .select("id,order_no,source,order_date,customer_name,phone,address,total,status,possible_duplicate,invoice_printed_at,sheet_printed_at,order_items(product_name,image_url,size,color,quantity),parcels(consignment_id,tracking_code,delivery_status)")
       .match(mode === "confirmed" ? { status: "confirmed" } : { source: "website", status: "pending" });
-    if (mode === "confirmed") {
+    {
       if (cf.from) q = q.gte("order_date", cf.from + "T00:00:00+06:00");
       if (cf.to) q = q.lte("order_date", cf.to + "T23:59:59+06:00");
     }
@@ -139,9 +140,9 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
         <button className={"tab" + (mode === "confirmed" ? " on" : "")} onClick={() => setMode("confirmed")}>✅ Confirmed (বানানো/পাঠানো বাকি)</button>
         <button className={"tab" + (mode === "all" ? " on" : "")} onClick={() => setMode("all")}>📋 সব অর্ডার</button>
       </div>
+      {mode === "inbox" && <div className="card filters"><DateRange allowAll value={cf} onChange={setCf} /><span className="muted small">Confirm বা Cancel না করা পর্যন্ত অর্ডার এখানে থাকে। তারিখ বাছলে শুধু সেই দিনের অর্ডার দেখাবে।</span></div>}
       {mode === "confirmed" && <div className="card filters">
-        <input type="date" value={cf.from} onChange={(e) => setCf({ ...cf, from: e.target.value })} title="কোন তারিখ থেকে" />
-        <input type="date" value={cf.to} onChange={(e) => setCf({ ...cf, to: e.target.value })} title="কোন তারিখ পর্যন্ত" />
+        <DateRange allowAll value={cf} onChange={setCf} />
         <select value={pr.inv} onChange={(e) => setPr({ ...pr, inv: e.target.value })}>
           <option value="">ইনভয়েস: সব</option><option value="no">ইনভয়েস বাকি</option><option value="yes">ইনভয়েস হয়ে গেছে</option>
         </select>
@@ -204,8 +205,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
         <select value={f.status} onChange={(e) => setF({ ...f, status: e.target.value })}>
           <option value="">সব স্ট্যাটাস</option>{STATUSES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
-        <input type="date" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} />
-        <input type="date" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} />
+        <DateRange allowAll value={{ from: f.from, to: f.to }} onChange={(v) => setF({ ...f, from: v.from, to: v.to })} />
         <form onSubmit={(e) => { e.preventDefault(); load(); }} className="row grow">
           <input placeholder="ফোন / নাম / FB-0001" value={f.q} onChange={(e) => setF({ ...f, q: e.target.value })} className="grow" />
           <button className="chip">খুঁজুন</button>

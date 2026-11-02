@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { sb, tk } from "./lib.js";
 import { bnTime } from "./Orders.jsx";
+import DateRange from "./DateRange.jsx";
 
 // মুছে ফেলা / বাদ দেওয়া সবকিছু এখানে জমা থাকে, যাতে পরে খুঁজে ফেরত আনা যায় (শুধু Owner)
 const KIND = { order: "🧾 মুছে ফেলা অর্ডার", item: "👟 বাদ দেওয়া জুতা/ছবি", edit: "✏️ আগের লেখা", expense: "💸 মুছে ফেলা খরচ", payment: "↩ মুছে ফেলা পরিশোধ" };
@@ -36,7 +37,8 @@ function Detail({ r }) {
 export default function Trash() {
   const [tab, setTab] = useState("trash");
   const [rows, setRows] = useState(null); const [k, setK] = useState(""); const [q, setQ] = useState(""); const [msg, setMsg] = useState("");
-  const [canc, setCanc] = useState(null);
+  const [canc, setCanc] = useState(null); const [rg, setRg] = useState({ from: "", to: "" });
+  const inR = (d) => !rg.from || (d && (() => { const x = new Date(new Date(d).getTime() + 6 * 3600e3).toISOString().slice(0, 10); return x >= rg.from && x <= rg.to; })());
 
   const load = async () => {
     const { data, error } = await sb.from("trash").select("*").order("deleted_at", { ascending: false }).limit(500);
@@ -70,8 +72,8 @@ export default function Trash() {
 
   const cnt = {}; for (const r of rows ?? []) cnt[r.kind] = (cnt[r.kind] ?? 0) + 1;
   const s = q.trim().toLowerCase();
-  const list = (rows ?? []).filter((r) => (!k || r.kind === k) && (!s || JSON.stringify([r.title, r.data]).toLowerCase().includes(s)));
-  const clist = (canc ?? []).filter((o) => !s || JSON.stringify([o.order_no, o.customer_name, o.phone]).toLowerCase().includes(s));
+  const list = (rows ?? []).filter((r) => inR(r.deleted_at) && (!k || r.kind === k) && (!s || JSON.stringify([r.title, r.data]).toLowerCase().includes(s)));
+  const clist = (canc ?? []).filter((o) => inR(o.updated_at ?? o.order_date)) .filter((o) => !s || JSON.stringify([o.order_no, o.customer_name, o.phone]).toLowerCase().includes(s));
 
   return (
     <div className="stack">
@@ -80,6 +82,7 @@ export default function Trash() {
         <button className={"tab" + (tab === "cancel" ? " on" : "")} onClick={() => setTab("cancel")}>❌ Cancel করা অর্ডার</button>
       </div>
       <div className="card filters">
+        <DateRange allowAll value={rg} onChange={setRg} />
         <input className="grow" placeholder="নাম / ফোন / অর্ডার নম্বর / জিনিসের নাম" value={q} onChange={(e) => setQ(e.target.value)} />
         {tab === "trash" && <>
           <button className={"chip" + (!k ? " sel" : "")} onClick={() => setK("")}>সব ({rows?.length ?? 0})</button>

@@ -10,6 +10,7 @@ import Parcels, { ST_BN } from "./Parcels.jsx";
 import AI from "./AI.jsx";
 import Trash from "./Trash.jsx";
 import Backup from "./Backup.jsx";
+import DateRange from "./DateRange.jsx";
 import { bnTime } from "./Orders.jsx";
 
 const ls = {
@@ -284,17 +285,9 @@ function Dashboard({ isOwner, t, go }) {
   const label = isToday ? "আজকের হিসাব" : one ? bn(rg.from, { day: "numeric", month: "long", year: "numeric", weekday: "long" }) : `${bn(rg.from)} থেকে ${bn(rg.to)}`;
   const dateBar = (
     <div className="card datebar">
-      <div className="row" style={{ justifyContent: "space-between", width: "100%" }}>
-        <b>📅 {label}</b>
-        {one && <span className="row"><button className="chip" onClick={() => setRg({ from: addD(rg.from, -1), to: addD(rg.from, -1) })}>← আগের দিন</button>
-          <button className="chip" disabled={rg.from >= td} onClick={() => setRg({ from: addD(rg.from, 1), to: addD(rg.from, 1) })}>পরের দিন →</button></span>}
-      </div>
-      <div className="row" style={{ flexWrap: "wrap" }}>
-        {quick.map(([l, f, t2]) => <button key={l} className={"chip" + (rg.from === f && rg.to === t2 ? " sel" : "")} onClick={() => setRg({ from: f, to: t2 })}>{l}</button>)}
-      </div>
-      <div className="row" style={{ flexWrap: "wrap" }}>
-        <label className="small">থেকে <input type="date" value={rg.from} max={td} onChange={(e) => e.target.value && setRg({ from: e.target.value, to: e.target.value > rg.to ? e.target.value : rg.to })} /></label>
-        <label className="small">পর্যন্ত <input type="date" value={rg.to} max={td} min={rg.from} onChange={(e) => e.target.value && setRg({ ...rg, to: e.target.value })} /></label>
+      <div className="row" style={{ justifyContent: "space-between", width: "100%", alignItems: "center" }}>
+        <div><small className="muted">কোন দিনের হিসাব দেখবেন</small><h2 style={{ margin: "2px 0 0" }}>📅 {label}</h2></div>
+        <DateRange value={rg} onChange={setRg} />
       </div>
     </div>
   );

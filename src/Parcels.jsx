@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { sb, tk, SUPABASE_URL, fnCall } from "./lib.js";
 import { bnTime, trackUrl } from "./Orders.jsx";
+import DateRange from "./DateRange.jsx";
 
 const FIN = ["delivered", "partial_delivered", "cancelled"];
 export const ST_BN = {
@@ -43,12 +44,14 @@ export default function Parcels({ tab, phone, isOwner, go }) {
 // Steadfast থেকে ফেরত আসা জুতার তালিকা: ছবি, সাইজ, রং, কয়টা — স্টক মেলানোর জন্য
 const RET = ["cancelled", "cancelled_approval_pending", "partial_delivered", "partial_delivered_approval_pending"];
 export function ReturnList() {
-  const [rows, setRows] = useState(null); const [f, setF] = useState("");
+  const [rows, setRows] = useState(null); const [f, setF] = useState(""); const [rg, setRg] = useState({ from: "", to: "" });
   useEffect(() => {
-    sb.from("parcels").select("id,consignment_id,tracking_code,delivery_status,updated_at,orders(id,order_no,customer_name,phone,source,order_items(product_name,size,color,quantity,image_url))")
-      .in("delivery_status", RET).order("updated_at", { ascending: false }).limit(500)
-      .then(({ data }) => setRows(data ?? []));
-  }, []);
+    setRows(null);
+    let x = sb.from("parcels").select("id,consignment_id,tracking_code,delivery_status,updated_at,orders(id,order_no,customer_name,phone,source,order_items(product_name,size,color,quantity,image_url))")
+      .in("delivery_status", RET).order("updated_at", { ascending: false }).limit(500);
+    if (rg.from) x = x.gte("updated_at", rg.from + "T00:00:00+06:00").lte("updated_at", rg.to + "T23:59:59+06:00");
+    x.then(({ data }) => setRows(data ?? []));
+  }, [rg.from, rg.to]);
   const full = (r) => r.delivery_status.startsWith("cancelled");
   const list = (rows ?? []).filter((r) => r.orders && (!f || (f === "full" ? full(r) : !full(r))));
   const sum = {};
@@ -62,6 +65,7 @@ export function ReturnList() {
   return (
     <div className="stack">
       <div className="card filters">
+        <DateRange allowAll value={rg} onChange={setRg} />
         <button className={"chip" + (!f ? " sel" : "")} onClick={() => setF("")}>সব ({rows?.length ?? 0})</button>
         <button className={"chip" + (f === "full" ? " sel" : "")} onClick={() => setF("full")}>পুরো Return</button>
         <button className={"chip" + (f === "partial" ? " sel" : "")} onClick={() => setF("partial")}>Partial</button>
@@ -111,20 +115,22 @@ export function ReturnList() {
 
 function ParcelList({ pendingOnly, isOwner, go }) {
   const [view, setView] = useState(null);
-  const [rows, setRows] = useState(null); const [q, setQ] = useState(""); const [st, setSt] = useState("");
+  const [rows, setRows] = useState(null); const [q, setQ] = useState(""); const [st, setSt] = useState(""); const [rg, setRg] = useState({ from: "", to: "" });
   useEffect(() => {
     setRows(null);
     let x = sb.from("parcels").select("id,consignment_id,tracking_code,delivery_status,cod_amount,booking_date,updated_at,raw,orders(id,order_no,customer_name,phone,address,total,delivery_charge,source,status,order_date,order_items(product_name,size,quantity,image_url))")
       .order("updated_at", { ascending: false }).limit(500);
     if (pendingOnly) x = x.not("delivery_status", "in", `(${FIN.join(",")})`);
+    if (rg.from) x = x.gte("booking_date", rg.from + "T00:00:00+06:00").lte("booking_date", rg.to + "T23:59:59+06:00");
     x.then(({ data }) => setRows(data ?? []));
-  }, [pendingOnly]);
+  }, [pendingOnly, rg.from, rg.to]);
   const list = (rows ?? []).filter((r) => (!st || r.delivery_status === st) && (!q.trim() || JSON.stringify([r.consignment_id, r.tracking_code, r.orders, r.raw?.invoice]).toLowerCase().includes(q.trim().toLowerCase())));
   const cnt = {}; for (const r of rows ?? []) cnt[r.delivery_status] = (cnt[r.delivery_status] ?? 0) + 1;
   const cod = list.reduce((a, r) => a + Number(r.cod_amount ?? r.orders?.total ?? r.raw?.cod_amount ?? 0), 0);
   return (
     <div className="stack">
       <div className="card filters">
+        <DateRange allowAll value={rg} onChange={setRg} />
         <input className="grow" placeholder="Parcel ID / Invoice / ফোন / নাম / Tracking code" value={q} onChange={(e) => setQ(e.target.value)} />
         <button className={"chip" + (!st ? " sel" : "")} onClick={() => setSt("")}>সব ({rows?.length ?? 0})</button>
         {Object.entries(cnt).sort((a, b) => b[1] - a[1]).map(([k, n]) => <button key={k} className={"chip" + (st === k ? " sel" : "")} onClick={() => setSt(k)}>{ST_BN[k] ?? k} ({n})</button>)}

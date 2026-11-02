@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { sb, tk } from "./lib.js";
+import DateRange, { rangeLabel } from "./DateRange.jsx";
 
 // কারখানার দৈনিক খরচ: সারাদিন একটার পর একটা যোগ হবে; রাত ১২টায় নতুন দিন শুরু।
 // দিনের মোট নিজে থেকেই "কারখানার খরচ" হিসেবে লাভ-ক্ষতিতে যোগ হয়।
@@ -18,11 +19,13 @@ export default function Expenses({ isOwner }) {
   const [err, setErr] = useState(""); const [busy, setBusy] = useState(false);
   const [pays, setPays] = useState([]); const [led, setLed] = useState(null); const [mon, setMon] = useState(null);
   const day = dhakaToday();
+  const [vr, setVr] = useState({ from: day, to: day }); // Owner আগের দিনের খরচও দেখতে পারবেন
+  const vIsToday = vr.from === day && vr.to === day;
 
   const load = async () => {
-    const { data } = await sb.from("expenses").select("id,note,amount_bdt,created_at,on_credit").eq("category", "production").eq("expense_date", day).order("created_at", { ascending: false });
+    const { data } = await sb.from("expenses").select("id,note,amount_bdt,created_at,on_credit").eq("category", "production").gte("expense_date", vr.from).lte("expense_date", vr.to).order("created_at", { ascending: false });
     setItems(data ?? []);
-    const { data: pd } = await sb.from("supplier_payments").select("id,party,amount_bdt,created_at").eq("paid_date", day).order("created_at", { ascending: false });
+    const { data: pd } = await sb.from("supplier_payments").select("id,party,amount_bdt,created_at").gte("paid_date", vr.from).lte("paid_date", vr.to).order("created_at", { ascending: false });
     setPays(pd ?? []);
     if (isOwner) loadLedger();
     if (isOwner) {
@@ -32,7 +35,7 @@ export default function Expenses({ isOwner }) {
       setDays(Object.entries(m).sort((a, b) => b[0].localeCompare(a[0])));
     }
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [vr.from, vr.to]);
   // মাস শেষের হিসাব-নিকাশ: কত টাকার মাল, কত দেওয়া, Steadfast থেকে কত, হাতে কত
   const monthClose = async (ex, end) => {
     setMon(null);
@@ -133,8 +136,8 @@ export default function Expenses({ isOwner }) {
       </form>
 
       <div className="card">
-        <div className="xhead"><h2>আজ · {new Date(day).toLocaleDateString("bn-BD", { day: "numeric", month: "long" })}</h2><span className="muted small">{BN((items ?? []).length)}টা খরচ</span></div>
-        {!items ? "লোড হচ্ছে..." : !items.length ? <p className="muted">আজ এখনো কোনো খরচ লেখা হয়নি।</p> : <>
+        <div className="xhead"><h2>{vIsToday ? "আজ · " + new Date(day).toLocaleDateString("bn-BD", { day: "numeric", month: "long" }) : rangeLabel(vr) + "-এর খরচ"}</h2>{isOwner && <DateRange value={vr} onChange={setVr} compact />}<span className="muted small">{BN((items ?? []).length)}টা খরচ</span></div>
+        {!items ? "লোড হচ্ছে..." : !items.length ? <p className="muted">{vIsToday ? "আজ এখনো কোনো খরচ লেখা হয়নি।" : "এই সময়ে কোনো খরচ লেখা নেই।"}</p> : <>
           <div className="xlist">
             {items.map((r, i) => (
               <div key={r.id} className="xrow">
@@ -145,10 +148,10 @@ export default function Expenses({ isOwner }) {
               </div>
             ))}
           </div>
-          <div className="xtotal"><span>আজকের মোট খরচ</span><b>{tk(total)}</b></div>
+          <div className="xtotal"><span>{vIsToday ? "আজকের মোট খরচ" : "মোট খরচ"}</span><b>{tk(total)}</b></div>
         </>}
         {pays.length > 0 && <>
-          <h3 style={{ marginTop: 14 }}>আজ পরিশোধ (খরচে যোগ হয়নি)</h3>
+          <h3 style={{ marginTop: 14 }}>{vIsToday ? "আজ পরিশোধ" : "পরিশোধ"} (খরচে যোগ হয়নি)</h3>
           <div className="xlist">
             {pays.map((r) => (
               <div key={r.id} className="xrow">
