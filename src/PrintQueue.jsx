@@ -1,42 +1,59 @@
 import React, { useEffect, useState } from "react";
 import { sb, tk } from "./lib.js";
-import { PrintBadges, invDone, sheetDone, PRINT_COLS } from "./Orders.jsx";
+import { PrintBadges, invDone, sheetDone, pngDone, PRINT_COLS } from "./Orders.jsx";
 
-// ইনভয়েস আর কারিগর শিট — যেগুলো এখনো প্রিন্ট হয়নি, এক জায়গায়
+// তিনটা আলাদা ঘর — Confirmed হলেই অর্ডার তিনটাতেই বসে; যেটার কাজ শেষ, শুধু সেখান থেকে সরে যায়
+export const QUEUES = {
+  inv: { ic: "🧾", title: "INVOICE READY PRINT", sub: "ইনভয়েস প্রিন্ট বাকি", done: invDone, act: "🖨️ সব ইনভয়েস প্রিন্ট করুন" },
+  sheet: { ic: "👟", title: "KARIGOR SHEET READY", sub: "কারিগর শিট প্রিন্ট বাকি", done: sheetDone, act: "🖨️ কারিগর শিট প্রিন্ট করুন" },
+  png: { ic: "🖼️", title: "PNG SHEET", sub: "PNG শিট নামানো বাকি", done: pngDone, act: "⬇️ PNG শিট নামান" },
+};
+
 export async function printCounts() {
   const { data } = await sb.from("orders").select(PRINT_COLS).eq("status", "confirmed").limit(3000);
   const r = data ?? [];
-  return { inv: r.filter((x) => !invDone(x)).length, sheet: r.filter((x) => !sheetDone(x)).length };
+  return { inv: r.filter((x) => !invDone(x)).length, sheet: r.filter((x) => !sheetDone(x)).length, png: r.filter((x) => !pngDone(x)).length };
 }
 
-export default function PrintQueue({ onPrint, onShoes, go }) {
+export function QueueCards({ counts, open, active }) {
+  return (
+    <div className="q3">
+      {Object.entries(QUEUES).map(([k, q]) => (
+        <button key={k} type="button" className={"qcard q-" + k + (active === k ? " on" : "") + (counts?.[k] ? " has" : "")} onClick={() => open(k)}>
+          <span className="qic">{q.ic}</span>
+          <span className="qtx"><b>{q.title}</b><small>{q.sub}</small></span>
+          <span className="qn">{counts ? counts[k] : "…"}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export default function PrintQueue({ mode = "inv", setMode, onPrint, onShoes, go }) {
   const [rows, setRows] = useState(null); const [src, setSrc] = useState("");
   useEffect(() => {
     sb.from("orders").select("id,order_no,source,order_date,customer_name,phone,total,invoice_printed_at,invoice_png_at,sheet_printed_at,sheet_png_at,order_items(product_name,image_url,size,quantity)")
-      .eq("status", "confirmed").order("order_date", { ascending: true }).limit(1000)
-      .then(({ data }) => setRows((data ?? []).filter((r) => !invDone(r) || !sheetDone(r))));
+      .eq("status", "confirmed").order("order_date", { ascending: false }).limit(1000)
+      .then(({ data }) => setRows(data ?? []));
   }, []);
-  const list = (rows ?? []).filter((r) => !src || r.source === src);
-  const inv = list.filter((r) => !invDone(r)), sh = list.filter((r) => !sheetDone(r));
-  const pairs = sh.reduce((a, r) => a + (r.order_items ?? []).reduce((b, i) => b + (i.quantity || 1), 0), 0);
+  const q = QUEUES[mode] ?? QUEUES.inv;
+  const counts = rows && Object.fromEntries(Object.entries(QUEUES).map(([k, x]) => [k, rows.filter((r) => !x.done(r)).length]));
+  const list = (rows ?? []).filter((r) => !q.done(r) && (!src || r.source === src));
+  const pairs = list.reduce((a, r) => a + (r.order_items ?? []).reduce((b, i) => b + (i.quantity || 1), 0), 0);
+  const run = (ids) => (mode === "inv" ? onPrint(ids) : onShoes(ids, mode === "png"));
   return (
     <div className="stack">
-      <div className="pq-top">
-        <button className="pq-card" disabled={!inv.length} onClick={() => onPrint(inv.map((r) => r.id))}>
-          <span className="pq-ic">🖨️</span>
-          <div><small>ইনভয়েস প্রিন্ট বাকি</small><b>{rows ? inv.length : "…"}টা</b><em>{inv.length ? "এক চাপে সব প্রিন্ট করুন →" : "সব প্রিন্ট হয়ে গেছে ✓"}</em></div>
-        </button>
-        <button className="pq-card" disabled={!sh.length} onClick={() => onShoes(sh.map((r) => r.id))}>
-          <span className="pq-ic">👟</span>
-          <div><small>কারিগর শিট বাকি</small><b>{rows ? sh.length : "…"}টা অর্ডার · {pairs} জোড়া</b><em>{sh.length ? "এক চাপে শিট প্রিন্ট করুন →" : "সব প্রিন্ট হয়ে গেছে ✓"}</em></div>
-        </button>
+      <QueueCards counts={counts} open={setMode} active={mode} />
+      <div className="qhead card">
+        <div><small className="muted">{q.sub}</small><h2 style={{ margin: "2px 0" }}>{q.ic} {q.title} — {rows ? list.length : "…"}টা অর্ডার{mode !== "inv" && ` · ${pairs} জোড়া`}</h2></div>
+        <button className="btn big" disabled={!list.length} onClick={() => run(list.map((r) => r.id))}>{list.length ? q.act + ` (${list.length})` : "সব হয়ে গেছে ✓"}</button>
       </div>
       <div className="card filters">
         {[["", "সব"], ["website", "Website"], ["facebook", "Facebook"]].map(([k, l]) => <button key={k} className={"chip" + (src === k ? " sel" : "")} onClick={() => setSrc(k)}>{l}</button>)}
-        <span className="muted small">শুধু Confirmed অর্ডার। প্রিন্ট শেষে "হ্যাঁ, প্রিন্ট হয়েছে" চাপলে বা PNG নামালে "✓" হয়ে তালিকা থেকে সরে যাবে। ভুল চিহ্ন পড়লে সবুজ চিহ্নে চাপুন — মুছে আবার বাকি হবে।</span>
+        <span className="muted small">{mode === "png" ? "PNG নামানো শেষ হলে এই ঘর থেকে নিজে থেকে সরে যাবে।" : "প্রিন্টের পর \"হ্যাঁ, প্রিন্ট করেছি\" চাপলে এই ঘর থেকে সরে যাবে।"} অর্ডার Confirmed ট্যাবে সবসময় থাকবে।</span>
         <button className="chip" onClick={() => go("orders", { mode: "confirmed" })}>✅ সব Confirmed দেখুন</button>
       </div>
-      {!rows ? <div className="card">লোড হচ্ছে...</div> : !list.length ? <div className="card muted">🎉 কোনো প্রিন্ট বাকি নেই।</div> : (
+      {!rows ? <div className="card">লোড হচ্ছে...</div> : !list.length ? <div className="card muted">🎉 এই ঘরে কিছু বাকি নেই। নতুন অর্ডার Confirmed হলে এখানে আসবে।</div> : (
         <div className="olist">
           {list.map((r) => (
             <div key={r.id} className="card orow">
@@ -47,12 +64,7 @@ export default function PrintQueue({ onPrint, onShoes, go }) {
                 <small className="muted">{(r.order_items ?? []).map((i) => `${i.product_name} (${i.size ?? "-"}) ×${i.quantity}`).join(", ")}</small>
                 <div><PrintBadges r={r} /></div>
               </div>
-              <div className="oright"><b>{tk(r.total)}</b>
-                <div className="row">
-                  {!invDone(r) && <button className="chip" onClick={() => onPrint([r.id])}>🖨️ ইনভয়েস</button>}
-                  {!sheetDone(r) && <button className="chip" onClick={() => onShoes([r.id])}>👟 শিট</button>}
-                </div>
-              </div>
+              <div className="oright"><b>{tk(r.total)}</b><button className="chip" onClick={() => run([r.id])}>{q.ic} শুধু এটা</button></div>
             </div>
           ))}
         </div>

@@ -4,7 +4,7 @@ import { loadOrders, markPrinted, AskPrinted } from "./Invoice.jsx";
 
 // কারিগরের A4 শিট: প্রতি পাতায় ১২টা জুতা (৩ কলাম × ৪ সারি)।
 // প্রতি জোড়া আলাদা ঘর; Website-এর ঘরে অর্ডার নম্বর, Facebook-এর ঘরে ফোন নম্বর।
-export default function ShoeSheet({ ids, onClose }) {
+export default function ShoeSheet({ ids, onClose, png = false }) {
   const [list, setList] = useState(null);
   const refs = useRef([]); const [busy, setBusy] = useState(""); const [ask, setAsk] = useState(false);
   useEffect(() => { loadOrders(ids).then(setList); }, [ids]);
@@ -26,14 +26,15 @@ export default function ShoeSheet({ ids, onClose }) {
   return (
     <div className="printwrap">
       <div className="row noprint">
-        <button className="btn" onClick={() => { window.print(); setAsk(true); }}>🖨️ Print / PDF</button>
+        {!png && <button className="btn" onClick={() => { window.print(); setAsk(true); }}>🖨️ Print / PDF</button>}
         <button className="btn alt" disabled={!!busy && !busy.startsWith("✓")} onClick={async () => { try { const n = await downloadPng(refs.current.slice(0, pages.length), `LOFZ-karigor-sheet-${new Date().toISOString().slice(0, 10)}`, setBusy); await markPrinted(okIds, "sheet_png_at"); setBusy(`✓ ${n}টা PNG ছবি নামানো হয়েছে — "PNG ✓" চিহ্ন বসেছে`); } catch (e) { setBusy("সমস্যা: " + e.message); } }}>🖼️ PNG ছবি ডাউনলোড</button>
         {canShare() && <button className="btn dark" disabled={!!busy && !busy.startsWith("✓")} onClick={async () => { try { await sharePng(refs.current.slice(0, pages.length), "LOFZ কারিগর শিট", setBusy); await markPrinted(okIds, "sheet_png_at"); setBusy("✓ শেয়ার হয়েছে — PNG ✓ চিহ্ন বসেছে"); } catch (e) { setBusy(e.message); } }}>📤 WhatsApp-এ পাঠান</button>}
         {busy && <span className="small" style={{ fontWeight: 700 }}>{busy}</span>}
         <button className="chip" onClick={onClose}>← ফিরে যান</button>
         {skipped > 0 && <span className="err small">{skipped}টা অর্ডার Confirmed না হওয়ায় বাদ গেছে · </span>}<span className="muted small">Website {cells.website.length} জোড়া · Facebook {cells.facebook.length} জোড়া · {pages.length} পাতা</span>
       </div>
-      {ask && <AskPrinted onYes={async () => { await markPrinted(okIds, "sheet_printed_at"); setAsk(false); setBusy("✓ প্রিন্ট চিহ্ন বসেছে"); }} onNo={() => setAsk(false)} />}
+      {ask && <AskPrinted what="কারিগর শিট প্রিন্ট" onYes={async () => { await markPrinted(okIds, "sheet_printed_at"); setAsk(false); setBusy("✓ কারিগর শিট প্রিন্ট চিহ্ন বসেছে"); }} onNo={() => setAsk(false)} />}
+      {png && <div className="pngnote noprint">🖼️ <b>PNG SHEET</b> — নিচের "PNG ছবি ডাউনলোড" চাপুন, অথবা প্রতিটা পাতার উপরে "এই পাতার PNG"। নামানো হলে এই অর্ডারগুলো PNG ঘর থেকে সরে যাবে।</div>}
       {pages.map((pg, k) => (
         <React.Fragment key={k}>
         <div className="row noprint" style={{ width: "210mm", maxWidth: "100%", justifyContent: "space-between" }}>

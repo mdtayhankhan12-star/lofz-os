@@ -440,3 +440,24 @@ img{content-visibility:auto}
 .donebar{margin:10px 0 2px;padding:9px 14px;border-radius:12px;font-weight:800;font-size:13.5px;background:color-mix(in srgb,var(--good) 14%,var(--card));color:var(--good);border:1.5px dashed color-mix(in srgb,var(--good) 55%,transparent)}
 .donebar.todo{background:color-mix(in srgb,var(--acc2) 18%,var(--card));color:#8a5a00;border-color:color-mix(in srgb,var(--acc2) 70%,transparent)}
 .card.orow.isdone{opacity:.62}.card.orow.isdone:hover{opacity:1}
+
+/* প্রিন্টের তিনটা ঘর */
+.dsec{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:18px 2px 8px}.dsec span{font-weight:800;font-size:15px;letter-spacing:.01em}.dsec small{color:var(--muted);font-size:12px}
+.q3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.qcard{position:relative;display:flex;align-items:center;gap:14px;padding:18px;border-radius:22px;border:0;cursor:pointer;color:#fff;text-align:left;overflow:hidden;transition:.2s;box-shadow:0 18px 34px -20px rgba(0,0,0,.55)}
+.qcard::after{content:"";position:absolute;right:-30px;top:-30px;width:120px;height:120px;border-radius:50%;background:#ffffff1f}
+.qcard:hover{transform:translateY(-3px)}.qcard.on{outline:3px solid #fff;outline-offset:-6px}
+.q-inv{background:linear-gradient(135deg,#1f3b73,#3466c2)}.q-sheet{background:linear-gradient(135deg,#7a3d00,#d98a1c)}.q-png{background:linear-gradient(135deg,#0f5a4a,#22a37f)}
+.qic{width:54px;height:54px;flex:none;border-radius:16px;display:grid;place-items:center;font-size:27px;background:#ffffff26;backdrop-filter:blur(4px);box-shadow:inset 0 0 0 1px #ffffff40}
+.qtx{display:flex;flex-direction:column;flex:1;min-width:0}.qtx b{font-size:15px;letter-spacing:.04em}.qtx small{opacity:.85;font-size:12px;font-weight:600}
+.qn{font-size:34px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums}
+.qcard:not(.has) .qn{opacity:.55}.qcard.has .qn{text-shadow:0 2px 12px #0005}
+.qhead{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.btn.big{padding:13px 22px;font-size:15.5px;border-radius:14px}
+@media (max-width:760px){.q3{grid-template-columns:1fr}.qcard{padding:14px}.qn{font-size:28px}}
+/* প্রিন্ট শেষে বড় প্রশ্ন */
+.askmodal{position:fixed;inset:0;z-index:100;background:#1a0b1199;backdrop-filter:blur(3px);display:grid;place-items:center;padding:16px}
+.askbox{background:#fff;color:#111;border-radius:24px;padding:26px 24px;max-width:460px;width:100%;text-align:center;box-shadow:0 30px 80px -20px #000a;animation:drpIn .18s ease-out}
+.askbox h2{margin:8px 0 6px;font-size:22px}.askbox p{color:#666;margin:0 0 18px;font-size:14px}
+.askic{width:70px;height:70px;margin:0 auto;border-radius:22px;display:grid;place-items:center;font-size:34px;background:linear-gradient(135deg,#8E2C3F,#c9566c);box-shadow:0 12px 26px -10px #8E2C3F}
+.pngnote{width:210mm;max-width:100%;background:#e3f7ef;border:2px solid #22a37f;border-radius:14px;padding:10px 14px;color:#0f5a4a;font-size:14px}

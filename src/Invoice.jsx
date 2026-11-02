@@ -12,12 +12,18 @@ export async function loadOrders(ids) {
 }
 
 // প্রিন্ট শেষে জিজ্ঞেস করি — সত্যিই প্রিন্ট হলে তবেই চিহ্ন (Cancel করলে চিহ্ন পড়বে না)
-export function AskPrinted({ onYes, onNo }) {
+export function AskPrinted({ onYes, onNo, what = "প্রিন্ট" }) {
   return (
-    <div className="askbar noprint">
-      <b>প্রিন্ট কি সত্যিই হয়েছে?</b>
-      <button className="btn ok2" onClick={onYes}>✅ হ্যাঁ, প্রিন্ট হয়েছে — চিহ্ন দিন</button>
-      <button className="chip" onClick={onNo}>❌ না, হয়নি</button>
+    <div className="askmodal noprint">
+      <div className="askbox">
+        <div className="askic">🖨️</div>
+        <h2>আপনি কি {what} করে ফেলেছেন?</h2>
+        <p>"হ্যাঁ" দিলে এই অর্ডারগুলো {what}-এর ঘর থেকে সরে যাবে। Confirmed-এ ঠিকই থাকবে।</p>
+        <div className="row" style={{ justifyContent: "center", gap: 12 }}>
+          <button className="btn ok2 big" onClick={onYes}>✅ হ্যাঁ, করেছি</button>
+          <button className="btn alt big" onClick={onNo}>❌ না, এখনো না</button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -98,7 +104,7 @@ export function PrintView({ ids, onClose }) {
         <button className="chip" onClick={onClose}>← ফিরে যান</button>
         <span className="muted small">{list.length}টা ইনভয়েস · {pages.length} পাতা · PDF চাইলে প্রিন্টারে “Save as PDF” বাছুন</span>
       </div>
-      {ask && <AskPrinted onYes={async () => { await markPrinted(ids, "invoice_printed_at"); setAsk(false); setBusy("✓ প্রিন্ট চিহ্ন বসেছে"); }} onNo={() => setAsk(false)} />}
+      {ask && <AskPrinted what="ইনভয়েস প্রিন্ট" onYes={async () => { await markPrinted(ids, "invoice_printed_at"); setAsk(false); setBusy("✓ প্রিন্ট চিহ্ন বসেছে"); }} onNo={() => setAsk(false)} />}
       {pages.map((pg, k) => (
         <div className="sheet" key={k} ref={(el) => (refs.current[k] = el)}>
           <InvoiceSheet o={pg[0]} />

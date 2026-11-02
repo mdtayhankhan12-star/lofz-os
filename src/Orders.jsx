@@ -18,26 +18,29 @@ function ParcelInfo({ p }) {
     </small>
   );
 }
-// ইনভয়েস/কারিগর শিট প্রিন্ট হয়েছে কি না
-// প্রিন্ট বা PNG — যেকোনোটা হলেই কাজ শেষ ধরা হয়
+// তিনটা আলাদা কাজ: ইনভয়েস প্রিন্ট · কারিগর শিট প্রিন্ট · PNG শিট — প্রতিটার আলাদা চিহ্ন
 export const invDone = (r) => !!(r.invoice_printed_at || r.invoice_png_at);
-export const sheetDone = (r) => !!(r.sheet_printed_at || r.sheet_png_at);
-const MARK = "invoice_printed_at,invoice_png_at,sheet_printed_at,sheet_png_at";
-export const PRINT_COLS = MARK;
-function Mark({ r, kind, onChange }) {
-  const pa = r[kind + "_printed_at"], pn = r[kind + "_png_at"], name = kind === "invoice" ? "ইনভয়েস" : "শিট";
-  const ic = kind === "invoice" ? "🧾" : "👟";
-  const done = pa || pn;
+export const sheetDone = (r) => !!r.sheet_printed_at;
+export const pngDone = (r) => !!r.sheet_png_at;
+export const allDone = (r) => invDone(r) && sheetDone(r) && pngDone(r);
+export const PRINT_COLS = "invoice_printed_at,invoice_png_at,sheet_printed_at,sheet_png_at";
+const MARKS = [
+  ["inv", "🧾", "ইনভয়েস", ["invoice_printed_at", "invoice_png_at"], invDone],
+  ["sheet", "👟", "কারিগর শিট", ["sheet_printed_at"], sheetDone],
+  ["png", "🖼️", "PNG শিট", ["sheet_png_at"], pngDone],
+];
+function Mark({ r, m, onChange }) {
+  const [, ic, name, cols, isDone] = m; const done = isDone(r); const at = cols.map((c) => r[c]).find(Boolean);
   const undo = async (e) => {
     e.stopPropagation();
-    if (!done || !confirm(`${r.order_no}: ${name}-এর চিহ্ন মুছে "বাকি" করবেন? (ভুল করে চিহ্ন পড়লে)`)) return;
-    const up = { [kind + "_printed_at"]: null, [kind + "_png_at"]: null };
+    if (!done || !confirm(`${r.order_no}: "${name}" চিহ্ন মুছে আবার "বাকি" করবেন?`)) return;
+    const up = Object.fromEntries(cols.map((c) => [c, null]));
     const { error } = await sb.from("orders").update(up).eq("id", r.id);
     if (!error) { Object.assign(r, up); onChange?.(); }
   };
   return (
     <span className={"badge " + (done ? "good clicky" : "warn")} title={done ? "ভুল হলে চাপুন — চিহ্ন মুছে বাকি হবে" : ""} onClick={undo}>
-      {!done ? `${ic} ${name} বাকি` : <>{ic} {name}: {pa && "🖨️ প্রিন্ট ✓"}{pa && pn && " · "}{pn && "🖼️ PNG ✓"} <small style={{ opacity: .75 }}>{bnTime(pa || pn)}</small> ✕</>}
+      {ic} {name} {done ? <>✓ <small style={{ opacity: .75 }}>{bnTime(at)}</small> ✕</> : "বাকি"}
     </span>
   );
 }
@@ -45,7 +48,7 @@ export const PrintBadges = ({ r }) => {
   const [, re] = useState(0);
   return (
     <span className="row" style={{ gap: 6, margin: "4px 0", display: "inline-flex", flexWrap: "wrap" }}>
-      <Mark r={r} kind="invoice" onChange={() => re((x) => x + 1)} /><Mark r={r} kind="sheet" onChange={() => re((x) => x + 1)} />
+      {MARKS.map((m) => <Mark key={m[0]} r={r} m={m} onChange={() => re((x) => x + 1)} />)}
     </span>
   );
 };
@@ -105,7 +108,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
       if (pr.sheet) list = list.filter((r) => (pr.sheet === "yes") === sheetDone(r));
     }
     // Confirmed: যেগুলোর ইনভয়েস/শিট বাকি সেগুলো উপরে (নতুনগুলো সবার উপরে), শেষ হওয়াগুলো নিচে
-    if (mode === "confirmed") list = [...list.filter((r) => !(invDone(r) && sheetDone(r))), ...list.filter((r) => invDone(r) && sheetDone(r))];
+    if (mode === "confirmed") list = [...list.filter((r) => !allDone(r)), ...list.filter((r) => allDone(r))];
     setRows(list); if (mode === "inbox") setInboxN(list.length); setSel([]);
     setRet(await statsFor(list.map((r) => r.phone)));
   };
@@ -157,11 +160,12 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
   };
   // যেগুলো আগেই প্রিন্ট/PNG করেছেন কিন্তু চিহ্ন নেই — বেছে এক চাপে "হয়ে গেছে"
   const markDone = async (ids) => {
-    if (!confirm(`${ids.length}টা অর্ডারের ইনভয়েস আর কারিগর শিট "হয়ে গেছে" চিহ্ন দেবেন?`)) return;
+    if (!confirm(`${ids.length}টা অর্ডারের ইনভয়েস, কারিগর শিট আর PNG শিট — তিনটাই "হয়ে গেছে" চিহ্ন দেবেন?`)) return;
     const now = new Date().toISOString(), list = (rows ?? []).filter((r) => ids.includes(r.id));
-    const a = list.filter((r) => !invDone(r)).map((r) => r.id), b = list.filter((r) => !sheetDone(r)).map((r) => r.id);
+    const a = list.filter((r) => !invDone(r)).map((r) => r.id), b = list.filter((r) => !sheetDone(r)).map((r) => r.id), c = list.filter((r) => !pngDone(r)).map((r) => r.id);
     if (a.length) await sb.from("orders").update({ invoice_printed_at: now }).in("id", a);
     if (b.length) await sb.from("orders").update({ sheet_printed_at: now }).in("id", b);
+    if (c.length) await sb.from("orders").update({ sheet_png_at: now }).in("id", c);
     setMsg(`${ids.length}টা অর্ডার "হয়ে গেছে" ✓`); loadInbox();
   };
   const toggle = (id) => setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
@@ -201,12 +205,12 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
         {!rows ? <div className="card">লোড হচ্ছে...</div> : !rows.length ? <div className="card muted">{mode === "inbox" ? "🎉 Confirm বাকি কোনো Website অর্ডার নেই।" : "কোনো Confirmed অর্ডার নেই।"}</div> : (
           <div className="olist">
             {rows.map((r, idx) => { const h = ret[r.phone]; const wa = "88" + String(r.phone).replace(/\D/g, "").replace(/^88/, "");
-              const done = mode === "confirmed" && invDone(r) && sheetDone(r);
-              const firstDone = done && (idx === 0 || !(invDone(rows[idx - 1]) && sheetDone(rows[idx - 1])));
-              const nLeft = mode === "confirmed" ? rows.filter((x) => !(invDone(x) && sheetDone(x))).length : 0;
+              const done = mode === "confirmed" && allDone(r);
+              const firstDone = done && (idx === 0 || !allDone(rows[idx - 1]));
+              const nLeft = mode === "confirmed" ? rows.filter((x) => !allDone(x)).length : 0;
               return (<React.Fragment key={r.id}>
-              {mode === "confirmed" && idx === 0 && !done && <div className="donebar todo">🆕 প্রিন্ট / শিট বাকি — {nLeft}টা</div>}
-              {firstDone && <div className="donebar">✅ নিচের {rows.length - nLeft}টার ইনভয়েস আর কারিগর শিট হয়ে গেছে</div>}
+              {mode === "confirmed" && idx === 0 && !done && <div className="donebar todo">🆕 ইনভয়েস / কারিগর শিট / PNG — কিছু বাকি আছে: {nLeft}টা</div>}
+              {firstDone && <div className="donebar">✅ নিচের {rows.length - nLeft}টার ইনভয়েস, কারিগর শিট আর PNG — তিনটাই হয়ে গেছে</div>}
               <div className={"card orow" + (sel.includes(r.id) ? " picked" : "") + (done ? " isdone" : "")}>
                 {mode === "confirmed" && <input type="checkbox" className="pick" checked={sel.includes(r.id)} onChange={() => toggle(r.id)} />}
                 <div className="thumbs clicky" onClick={() => setView(r.id)}>{(r.order_items ?? []).slice(0, 3).map((i, k) => i.image_url ? <img key={k} src={i.image_url} alt="" loading="lazy" /> : <div key={k} className="ph" />)}</div>

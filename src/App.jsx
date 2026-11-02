@@ -10,7 +10,7 @@ import Parcels, { ST_BN } from "./Parcels.jsx";
 import AI from "./AI.jsx";
 import Trash from "./Trash.jsx";
 import Backup from "./Backup.jsx";
-import PrintQueue, { printCounts } from "./PrintQueue.jsx";
+import PrintQueue, { printCounts, QueueCards } from "./PrintQueue.jsx";
 import DateRange from "./DateRange.jsx";
 import { bnTime } from "./Orders.jsx";
 
@@ -138,7 +138,7 @@ const HELP = {
   consignments: "Steadfast-এ পাঠানো সব পার্সেল, স্ট্যাটাস আর ট্র্যাকিং লিংকসহ।",
   ai: "গত ৩০ দিনের হিসাব নিয়ে বাংলায় প্রশ্ন করুন। শুধু Owner দেখতে পারবেন।",
   risk: "কাস্টমারের ফোন নম্বর দিয়ে দেখুন আগে কয়টা পার্সেল নিয়েছেন, কয়টা Return করেছেন, Fraud রিপোর্ট আছে কি না।",
-  printq: "যে Confirmed অর্ডারের ইনভয়েস বা কারিগর শিট এখনো প্রিন্ট হয়নি — এক চাপে সব প্রিন্ট করুন। প্রিন্ট হলে নিজে থেকে তালিকা থেকে সরে যাবে।",
+  printq: "তিনটা ঘর: INVOICE READY PRINT · KARIGOR SHEET READY · PNG SHEET। Confirmed হলেই অর্ডার তিনটাতেই আসে; কাজ শেষ করে \"হ্যাঁ\" দিলে শুধু সেই ঘর থেকে সরে যায়।",
   trash: "যেকোনো মুছে ফেলা অর্ডার, খরচ, পরিশোধ, এডিটে বাদ দেওয়া জুতা/ছবি আর আগের লেখা এখানে জমা থাকে। Cancel করা অর্ডারও এখানে পাবেন। চাইলে ফেরত আনতে পারবেন।",
   returns: "Steadfast থেকে ফেরত আসা জুতার ছবি, সাইজ, রং আর সংখ্যা। স্টক মিলিয়ে আবার পাঠাতে পারবেন।",
 };
@@ -152,7 +152,8 @@ function Shell({ profile, prefs }) {
   const [more, setMore] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   // পেজ বদলালে ব্রাউজারের ইতিহাসে রাখি, যাতে Back বাটনে আগের পেজে ফেরা যায় (রিফ্রেশ লাগবে না)
-  const show = (k, arg) => { setPage(k); ls.set("lofz_page", k); setMore(false); if (k === "orders") setPreset(arg ?? null); if (k === "risk") setPhone(arg ?? ""); window.scrollTo(0, 0); };
+  const [pq, setPq] = useState("inv"); const [shoePng, setShoePng] = useState(false);
+  const show = (k, arg) => { setPage(k); ls.set("lofz_page", k); setMore(false); if (k === "orders") setPreset(arg ?? null); if (k === "risk") setPhone(arg ?? ""); if (k === "printq" && arg) setPq(arg); window.scrollTo(0, 0); };
   const go = (k, arg) => { show(k, arg); try { window.history.pushState({ page: k, arg: arg ?? null }, ""); } catch {} };
   useEffect(() => {
     try { window.history.replaceState({ page, arg: null }, ""); } catch {}
@@ -169,9 +170,10 @@ function Shell({ profile, prefs }) {
   const [pc, setPc] = useState(null); // প্রিন্ট বাকির সংখ্যা (মেনুতে দেখায়)
   useEffect(() => { const f = () => printCounts().then(setPc).catch(() => {}); f(); const i = setInterval(f, 60e3); return () => clearInterval(i); }, [page, printIds, shoeIds]);
   if (printIds) return <PrintView ids={printIds} onClose={() => setPrintIds(null)} />;
-  if (shoeIds) return <ShoeSheet ids={shoeIds} onClose={() => setShoeIds(null)} />;
+  if (shoeIds) return <ShoeSheet ids={shoeIds} png={shoePng} onClose={() => setShoeIds(null)} />;
+  const openShoes = (ids, png) => { setShoePng(!!png); setShoeIds(ids); };
   const NavBtn = ([k, ic]) => <button key={k} className={"nav" + (cur === k ? " on" : "")} onClick={() => go(k)}><span>{ic}</span>{t(k)}
-    {k === "printq" && pc && <span className="navcnt"><i title="ইনভয়েস বাকি">🧾 {pc.inv}</i><i title="কারিগর শিট বাকি">👟 {pc.sheet}</i></span>}</button>;
+    {k === "printq" && pc && <span className="navcnt"><i title="ইনভয়েস প্রিন্ট বাকি">🧾{pc.inv}</i><i title="কারিগর শিট বাকি">👟{pc.sheet}</i><i title="PNG শিট বাকি">🖼️{pc.png}</i></span>}</button>;
   const search = (e) => { e.preventDefault(); const v = q.trim(); if (!v) return; if (v.replace(/\D/g, "").length >= 10 && /^[\d\s+-]+$/.test(v)) go("risk", v); else go("orders", { mode: "all", q: v }); setQ(""); };
   return (
     <div className="shell">
@@ -193,16 +195,16 @@ function Shell({ profile, prefs }) {
           <div className="row"><Bell go={go} /><Toggles prefs={prefs} /><button className="chip" onClick={() => sb.auth.signOut()}>{t("logout")}</button></div>
         </header>
         {HELP[cur] && cur !== "dashboard" && <div className="help">💡 {HELP[cur]}</div>}
-        {cur === "dashboard" && <Dashboard isOwner={isOwner} t={t} go={go} />}
+        {cur === "dashboard" && <Dashboard isOwner={isOwner} t={t} go={go} pc={pc} />}
         {cur === "team" && isOwner && <Team me={profile} />}
         {cur === "invoice" && <NewOrder onCreated={(id) => setPrintIds([id])} />}
         {cur === "addparcel" && <NewOrder book onCreated={(id) => setPrintIds([id])} />}
-        {cur === "orders" && <Orders key={JSON.stringify(preset)} preset={preset} isOwner={isOwner} onPrint={setPrintIds} onShoes={setShoeIds} goRisk={(p) => go("risk", p)} />}
+        {cur === "orders" && <Orders key={JSON.stringify(preset)} preset={preset} isOwner={isOwner} onPrint={setPrintIds} onShoes={openShoes} goRisk={(p) => go("risk", p)} />}
         {cur === "expenses" && <Expenses isOwner={isOwner} />}
         {cur === "finance" && isOwner && <Finance />}
         {cur === "ai" && isOwner && <AI />}
         {cur === "trash" && isOwner && <Trash />}
-        {cur === "printq" && <PrintQueue onPrint={setPrintIds} onShoes={setShoeIds} go={go} />}
+        {cur === "printq" && <PrintQueue key={pq} mode={pq} setMode={(m) => go("printq", m)} onPrint={setPrintIds} onShoes={openShoes} go={go} />}
         {["parcels_pending", "consignments", "risk", "returns"].includes(cur) && <Parcels tab={cur} phone={phone} isOwner={isOwner} go={go} />}
       </main>
       <nav className="bottom">
@@ -243,7 +245,7 @@ function Bell({ go }) {
   );
 }
 
-function Dashboard({ isOwner, t, go }) {
+function Dashboard({ isOwner, t, go, pc }) {
   const [d, setD] = useState(null);
   const [late, setLate] = useState(null);
   const [eye, setEye] = useState(false); // টাকার ঘর লুকানো থাকে, 👁️ চাপলে দেখা যায়
@@ -318,10 +320,16 @@ function Dashboard({ isOwner, t, go }) {
   return (
     <>
       {dateBar}
+      <div className="dsec"><span>🖨️ প্রিন্টের কাজ</span><small>Confirmed হলেই অর্ডার তিনটা ঘরেই বসে · কাজ শেষ হলে ঘর থেকে সরে যায়</small></div>
+      <QueueCards counts={pc} open={(m) => go("printq", m)} />
+      <div className="dsec"><span>🧾 অর্ডার</span></div>
       <div className="grid">
         <S k="today_orders" l={isToday ? undefined : "অর্ডার"} v={d.n} accent to={O({})} /><S k="today_sales" l={isToday ? undefined : "সেল"} v={tk(d.sales)} accent to={O({ revenue: true })} />
         <S k="website" v={d.web} to={O({ source: "website" })} /><S k="facebook" v={d.fb} to={O({ source: "facebook" })} />
         <S k="pending" v={d.pending} to={() => go("orders", { mode: "inbox" })} /><S k="confirmed" l={isToday ? "আজ Confirmed" : "Confirmed"} v={d.confirmed} to={O({ status: "confirmed" })} />
+      </div>
+      <div className="dsec"><span>🚚 ডেলিভারি ও হিসাব</span></div>
+      <div className="grid">
         <S k="delivered" l={one ? `${bn(rg.to, { month: "long" })} মাসে Delivered` : "Delivered"} v={d.delivered} to={() => go("orders", { mode: "all", status: "delivered", from: "", to: "" })} /><S k="returned" l={one ? `${bn(rg.to, { month: "long" })} মাসে Return` : "Return"} v={d.returned} to={() => go("orders", { mode: "all", status: "returned", from: "", to: "" })} />
         <S k="cancelled" l={isToday ? "আজ Cancel" : "Cancel"} v={d.cancelled} to={O({ status: "cancelled" })} />
         {isOwner && <S k="expense_month" secret v={tk(d.exp)} to={() => go("expenses")} />}
