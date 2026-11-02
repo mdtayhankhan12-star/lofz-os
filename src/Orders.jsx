@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { sb, tk, fnCall } from "./lib.js";
 import { Ring, statsFor } from "./Parcels.jsx";
+import EditOrder from "./EditOrder.jsx";
 
 export const STATUSES = [
   ["pending", "Pending"], ["confirmed", "Confirmed"], ["delivered", "Delivered"],
@@ -35,6 +36,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
   const [revenue, setRevenue] = useState(!!P.revenue);
   const [inboxN, setInboxN] = useState(0);
   const [ret, setRet] = useState({});
+  const [edit, setEdit] = useState(null);
 
   const load = async () => {
     let q = sb.from("orders")
@@ -149,6 +151,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
                   <div className="row">
                     <a className="chip" href={`tel:${r.phone}`}>📞 কল</a>
                     <a className="chip" href={`https://wa.me/${wa}`} target="_blank" rel="noopener">WhatsApp</a>
+                    <button className="chip" onClick={() => setEdit(r.id)}>✏️ এডিট</button>
                   </div>
                   {r.parcels?.[0] ? <ParcelInfo p={r.parcels[0]} />
                     : r.status === "confirmed" && <button className="chip" onClick={() => book(r)}>🚚 Steadfast-এ পাঠান</button>}
@@ -208,6 +211,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
                 <ParcelInfo p={r.parcels?.[0]} />
                 <div className="row">
                   {!r.parcels?.[0] && r.status === "confirmed" && <button className="chip" onClick={() => book(r)}>🚚 Steadfast-এ পাঠান</button>}
+                  <button className="chip" onClick={() => setEdit(r.id)}>✏️ এডিট</button>
                   <button className="chip" onClick={() => onPrint([r.id])}>ইনভয়েস</button>
                   {isOwner && <button className="chip" onClick={() => del(r.id)}>মুছুন</button>}
                 </div>
@@ -217,6 +221,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
         </div>
       )}
       </>}
+      {edit && <EditOrder id={edit} onClose={() => setEdit(null)} onSaved={() => { setMsg("অর্ডার আপডেট হয়েছে ✓"); mode === "all" ? load() : loadInbox(); }} />}
     </div>
   );
 }
