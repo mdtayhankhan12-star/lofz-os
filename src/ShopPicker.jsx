@@ -17,7 +17,9 @@ export default function ShopPicker({ onPick }) {
       <summary>🛍️ ওয়েবসাইট থেকে জুতা বাছুন (ছবি ও সাইজসহ)</summary>
       {err && <p className="err small">{err}</p>}
       {!list && !err && <p className="muted small">লোড হচ্ছে...</p>}
+      {list && !list.length && <p className="err small">lofzz দোকানে কোনো Active প্রোডাক্ট পাওয়া যায়নি। Shopify-তে জুতাগুলো Active (Published) আছে কি না দেখুন।</p>}
       {list && <>
+        {!!list.length && <p className="muted small">মোট {list.length}টা প্রোডাক্ট পাওয়া গেছে</p>}
         <input className="shopq" placeholder="জুতার নাম লিখে খুঁজুন" value={q} onChange={(e) => setQ(e.target.value)} />
         <div className="shopgrid">
           {shown.slice(0, 60).map((p) => (
