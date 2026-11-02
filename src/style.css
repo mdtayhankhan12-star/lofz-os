@@ -343,3 +343,12 @@ img{content-visibility:auto}
 .paster{border:1px dashed var(--acc);border-radius:14px;padding:10px 12px;margin-bottom:12px;background:#9B1B3F08}
 .paster summary{cursor:pointer;font-weight:800;color:var(--acc)}
 .paster textarea{width:100%;margin:8px 0;border-radius:12px;border:1.5px solid var(--line);padding:10px;font:inherit;background:var(--card);color:var(--fg)}
+.shoppick{border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-bottom:12px}
+.shoppick summary{cursor:pointer;font-weight:800;color:var(--acc)}
+.shopq{width:100%;margin:10px 0}
+.shopgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;max-height:340px;overflow:auto;padding:2px}
+.shopcard{border:1.5px solid var(--line);background:var(--card);border-radius:12px;padding:6px;display:flex;flex-direction:column;gap:4px;cursor:pointer;text-align:left;color:var(--fg)}
+.shopcard img,.shopcard .ph{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:8px;background:var(--line)}
+.shopcard small{font-size:12px;font-weight:700;line-height:1.3}
+.shopcard.on{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc) inset}
+.shopvar{margin-top:12px;padding:12px;border-radius:12px;background:#9B1B3F08;border:1px solid var(--line)}

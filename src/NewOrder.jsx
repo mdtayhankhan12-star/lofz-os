@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { sb, tk, fnCall } from "./lib.js";
+import ShopPicker from "./ShopPicker.jsx";
 import { Ring, statsFor } from "./Parcels.jsx";
 
 // ছবি ছোট করে (WebP, ৮০০px) আপলোড — ফ্রি স্টোরেজ বাঁচাতে
@@ -96,6 +97,11 @@ export default function NewOrder({ onCreated, book }) {
     <form className="stack" onSubmit={submit}>
       <div className="card">
         <h2>নতুন Facebook অর্ডার</h2>
+        <ShopPicker onPick={(p) => setItems((xs) => {
+          const empty = xs.findIndex((i) => !i.product_name && !i.image_url);
+          const row = { ...blankItem(), product_name: p.title + (p.color ? ` (${p.color})` : ""), size: p.size, price: p.price, image_url: p.image || "", quantity: 1 };
+          return empty >= 0 ? xs.map((x, k) => (k === empty ? row : x)) : [...xs, row];
+        })} />
         <details className="paster" open>
           <summary>🪄 অর্ডারের লেখা পেস্ট করে নিজে ভরুন</summary>
           <textarea rows={4} placeholder={"যেমন:\nDipu\nNobinbag, Gopalgonj sadar, Gopalgonj.\n01883110781\nSize-36, colour -black\nBill:150 taka"} value={paste} onChange={(e) => setPaste(e.target.value)} />
