@@ -339,5 +339,4 @@ html,body{-webkit-tap-highlight-color:transparent}
 body::before{background-size:100% 100%}
 .card,.stat,.aipanel,.gsearch,.help,.bellp{will-change:auto}
 img{content-visibility:auto}
-.olist .orow img,.thumbs img{loading:lazy}
 @media (max-width:760px){body::before{height:30vh}}
