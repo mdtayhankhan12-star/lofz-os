@@ -12,6 +12,7 @@ import Trash from "./Trash.jsx";
 import Backup from "./Backup.jsx";
 import PrintQueue, { printCounts, QueueCards } from "./PrintQueue.jsx";
 import DateRange from "./DateRange.jsx";
+import { DayBars, SpendBars } from "./DashCharts.jsx";
 import { bnTime } from "./Orders.jsx";
 
 const ls = {
@@ -248,6 +249,7 @@ function Bell({ go }) {
 function Dashboard({ isOwner, t, go, pc }) {
   const [d, setD] = useState(null);
   const [late, setLate] = useState(null);
+  const [ser, setSer] = useState(null); const [spend, setSpend] = useState(null); // গ্রাফের ডাটা
   const [eye, setEye] = useState(false); // টাকার ঘর লুকানো থাকে, 👁️ চাপলে দেখা যায়
   const dhaka = () => new Date(Date.now() + 6 * 3600e3).toISOString().slice(0, 10);
   const addD = (d0, n) => { const x = new Date(d0 + "T12:00:00Z"); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
@@ -291,6 +293,17 @@ function Dashboard({ isOwner, t, go, pc }) {
       const { data: ld } = await sb.from("orders").select("id,order_no,source,status,order_date,customer_name,phone,order_items(product_name,size,quantity,image_url),parcels(id)")
         .in("status", ["pending", "confirmed"]).lt("order_date", lim).order("order_date").limit(200);
       setLate((ld ?? []).filter((r) => !r.parcels?.length));
+      // গ্রাফ: একদিন বাছলে শেষ ১৪ দিন, নইলে বাছাই করা সময় (সর্বোচ্চ ৬২ দিন)
+      const cf = one ? addD(rg.to, -13) : (rg.from < addD(rg.to, -61) ? addD(rg.to, -61) : rg.from);
+      const { data: sr } = await sb.rpc("dash_series", { p_from: cf, p_to: rg.to }); setSer(sr ?? []);
+      if (isOwner) {
+        const ms = rg.to.slice(0, 8) + "01";
+        const { data: ex } = await sb.from("expenses").select("note,amount_bdt").eq("category", "production").gte("expense_date", ms).lte("expense_date", rg.to).limit(5000);
+        const g = {}; for (const r of ex ?? []) { const k = (r.note ?? "").trim() || "(নাম নেই)"; const kk = k.toLowerCase(); g[kk] ??= { name: k, v: 0 }; g[kk].v += Number(r.amount_bdt); }
+        const all = Object.values(g).sort((a, b) => b.v - a.v);
+        const top = all.slice(0, 8), rest = all.slice(8).reduce((a, r) => a + r.v, 0);
+        setSpend(rest ? [...top, { name: "অন্যান্য", v: rest }] : top);
+      }
     })();
   }, [isOwner, rg.from, rg.to]);
   const td = dhaka(), isToday = one && rg.from === td;
@@ -320,22 +333,33 @@ function Dashboard({ isOwner, t, go, pc }) {
   return (
     <>
       {dateBar}
-      <div className="dsec"><span>🖨️ প্রিন্টের কাজ</span><small>Confirmed হলেই অর্ডার তিনটা ঘরেই বসে · কাজ শেষ হলে ঘর থেকে সরে যায়</small></div>
-      <QueueCards counts={pc} open={(m) => go("printq", m)} />
-      <div className="dsec"><span>🧾 অর্ডার</span></div>
-      <div className="grid">
+      <div className="dsec big"><span>১ · অর্ডার</span><small>{label}</small></div>
+      <div className="grid gbig">
         <S k="today_orders" l={isToday ? undefined : "অর্ডার"} v={d.n} accent to={O({})} /><S k="today_sales" l={isToday ? undefined : "সেল"} v={tk(d.sales)} accent to={O({ revenue: true })} />
         <S k="website" v={d.web} to={O({ source: "website" })} /><S k="facebook" v={d.fb} to={O({ source: "facebook" })} />
         <S k="pending" v={d.pending} to={() => go("orders", { mode: "inbox" })} /><S k="confirmed" l={isToday ? "আজ Confirmed" : "Confirmed"} v={d.confirmed} to={O({ status: "confirmed" })} />
       </div>
-      <div className="dsec"><span>🚚 ডেলিভারি ও হিসাব</span></div>
-      <div className="grid">
+      {ser && <DayBars data={ser} title={one ? "শেষ ১৪ দিনের অর্ডার" : "দিনে দিনে অর্ডার"} series={[{ key: "web", label: "Website", color: "#9B2C4A" }, { key: "fb", label: "Facebook", color: "#2F6FD0" }]} />}
+
+      <div className="dsec big"><span>২ · প্রিন্টের কাজ</span><small>Confirmed হলেই অর্ডার তিনটা ঘরেই বসে · কাজ শেষ হলে ঘর থেকে সরে যায়</small></div>
+      <QueueCards counts={pc} open={(m) => go("printq", m)} />
+
+      <div className="dsec big"><span>৩ · ডেলিভারি</span><small>Steadfast থেকে আসা হিসাব</small></div>
+      <div className="grid gbig">
         <S k="delivered" l={one ? `${bn(rg.to, { month: "long" })} মাসে Delivered` : "Delivered"} v={d.delivered} to={() => go("orders", { mode: "all", status: "delivered", from: "", to: "" })} /><S k="returned" l={one ? `${bn(rg.to, { month: "long" })} মাসে Return` : "Return"} v={d.returned} to={() => go("orders", { mode: "all", status: "returned", from: "", to: "" })} />
         <S k="cancelled" l={isToday ? "আজ Cancel" : "Cancel"} v={d.cancelled} to={O({ status: "cancelled" })} />
-        {isOwner && <S k="expense_month" secret v={tk(d.exp)} to={() => go("expenses")} />}
-        {isOwner && <S k="profit_month" secret v={tk(d.profit)} to={() => go("finance")} />}
-        {isOwner && <S k="sf_balance" secret w2 v={d.sf == null ? "..." : tk(d.sf)} to={() => go("parcels_pending")} />}
       </div>
+      {ser && <DayBars data={ser} title={one ? "শেষ ১৪ দিনের ডেলিভারি" : "দিনে দিনে ডেলিভারি"} empty="এই সময়ে কোনো Delivered / Return / Cancel হয়নি" series={[{ key: "delivered", label: "Delivered", color: "#1E9E6E" }, { key: "returned", label: "Return", color: "#7A4FD6" }, { key: "cancelled", label: "Cancel", color: "#C9661A" }]} />}
+
+      {isOwner && <>
+        <div className="dsec big gap"><span>৪ · খরচ ও হিসাব</span><small>{bn(rg.to, { month: "long" })} মাস</small></div>
+        <div className="grid gbig">
+          <S k="expense_month" secret v={tk(d.exp)} to={() => go("expenses")} />
+          <S k="profit_month" secret v={tk(d.profit)} to={() => go("finance")} />
+          <S k="sf_balance" secret w2 v={d.sf == null ? "..." : tk(d.sf)} to={() => go("parcels_pending")} />
+        </div>
+        {spend && <SpendBars rows={spend} fmt={tk} title={`কোন খাতে খরচ বেশি — ${bn(rg.to, { month: "long" })}`} />}
+      </>}
       <p className="note"><i>i</i><span>Delivered = আজ কাস্টমার পার্সেল নিয়েছে · Return = আজ পার্সেল ফেরত এসেছে (আংশিক ডেলিভারিও Return) · Cancel = কল করে আপনারা বাতিল করেছেন। এই মাসের লাভ = Delivered জুতার দাম + Partial-এ রাখা জুতা − Cancel/Return-এর গড় চার্জ − COD চার্জ − কারখানা − Ads। পুরো হিসাব লাভ-ক্ষতি পেজে।</span></p>
       {late && <div className="card pconly late">
         <div className="row" style={{ justifyContent: "space-between" }}><h2>⏰ ৫ দিনের বেশি পড়ে আছে ({late.length})</h2><span className="muted small">Cancel বা Steadfast-এ না পাঠানো পর্যন্ত এখানে থাকবে</span></div>
