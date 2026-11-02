@@ -17,6 +17,13 @@ function ParcelInfo({ p }) {
     </small>
   );
 }
+// ইনভয়েস/কারিগর শিট প্রিন্ট হয়েছে কি না
+export const PrintBadges = ({ r }) => (
+  <span className="row" style={{ gap: 6, margin: "4px 0", display: "inline-flex", flexWrap: "wrap" }}>
+    <span className={"badge " + (r.invoice_printed_at ? "good" : "warn")}>{r.invoice_printed_at ? "🖨️ ইনভয়েস ✓ " + bnTime(r.invoice_printed_at) : "ইনভয়েস বাকি"}</span>
+    <span className={"badge " + (r.sheet_printed_at ? "good" : "warn")}>{r.sheet_printed_at ? "👟 শিট ✓ " + bnTime(r.sheet_printed_at) : "শিট বাকি"}</span>
+  </span>
+);
 const today = () => new Date().toISOString().slice(0, 10);
 const BN = (n) => String(n).replace(/\d/g, (d) => "০১২৩৪৫৬৭৮৯"[d]);
 const MON = ["জানুয়ারি", "ফেব্রুয়ারি", "মার্চ", "এপ্রিল", "মে", "জুন", "জুলাই", "আগস্ট", "সেপ্টেম্বর", "অক্টোবর", "নভেম্বর", "ডিসেম্বর"];
@@ -44,7 +51,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
 
   const load = async () => {
     let q = sb.from("orders")
-      .select("id,order_no,source,order_date,customer_name,phone,total,status,possible_duplicate,order_items(product_name,image_url,size,quantity),parcels(consignment_id,tracking_code,delivery_status)")
+      .select("id,order_no,source,order_date,customer_name,phone,total,status,possible_duplicate,invoice_printed_at,sheet_printed_at,order_items(product_name,image_url,size,quantity),parcels(consignment_id,tracking_code,delivery_status)")
       .order("order_date", { ascending: false }).limit(300);
     if (f.source) q = q.eq("source", f.source);
     if (f.status) q = q.eq("status", f.status);
@@ -165,10 +172,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
                     {r.possible_duplicate && <span className="badge bad">সম্ভাব্য ডুপ্লিকেট</span>}
                   </div>
                   <div><b>{r.customer_name}</b> · {r.phone}</div>
-                  {mode === "confirmed" && <div className="row" style={{ margin: "4px 0" }}>
-                    <span className={"badge " + (r.invoice_printed_at ? "good" : "warn")}>{r.invoice_printed_at ? "ইনভয়েস ✓ " + bnTime(r.invoice_printed_at) : "ইনভয়েস বাকি"}</span>
-                    <span className={"badge " + (r.sheet_printed_at ? "good" : "warn")}>{r.sheet_printed_at ? "শিট ✓ " + bnTime(r.sheet_printed_at) : "শিট বাকি"}</span>
-                  </div>}
+                  {mode === "confirmed" && <div><PrintBadges r={r} /></div>}
                   <small className="muted">{r.address}</small><br />
                   <small>{(r.order_items ?? []).map((i) => `${i.product_name} · সাইজ ${i.size ?? "-"}${i.color ? " · " + i.color : ""} ×${i.quantity}`).join(" | ")}</small><br />
                   <small className="muted">{bnTime(r.order_date)}</small>
@@ -229,6 +233,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
                   {r.possible_duplicate && <span className="badge bad">সম্ভাব্য ডুপ্লিকেট</span>}
                 </div>
                 <div>{r.customer_name} · {r.phone}</div>
+                {["confirmed", "delivered", "received", "returned"].includes(r.status) && <div><PrintBadges r={r} /></div>}
                 <small className="muted">{(r.order_items ?? []).map((i) => `${i.product_name} (${i.size}) ×${i.quantity}`).join(", ")} · {bnTime(r.order_date)}</small>
                 <div className="ringw" onClick={() => goRisk?.(r.phone)}><Ring s={ret[r.phone]} small /></div>
               </div>
