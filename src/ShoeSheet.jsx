@@ -32,7 +32,12 @@ export default function ShoeSheet({ ids, onClose }) {
         {skipped > 0 && <span className="err small">{skipped}টা অর্ডার Confirmed না হওয়ায় বাদ গেছে · </span>}<span className="muted small">Website {cells.website.length} জোড়া · Facebook {cells.facebook.length} জোড়া · {pages.length} পাতা</span>
       </div>
       {pages.map((pg, k) => (
-        <div className="sheet shoes" key={k} ref={(el) => (refs.current[k] = el)}>
+        <React.Fragment key={k}>
+        <div className="row noprint" style={{ width: "210mm", maxWidth: "100%", justifyContent: "space-between" }}>
+          <b className="small">পাতা {k + 1} · {pg.src === "website" ? "Website" : "Facebook"} · {pg.items.length} জোড়া</b>
+          <button className="chip" onClick={async () => { try { await downloadPng([refs.current[k]], `LOFZ-karigor-${pg.src}-${new Date().toISOString().slice(0, 10)}-p${k + 1}`, setBusy); markPrinted(ids, "sheet_printed_at"); setBusy(`✓ পাতা ${k + 1} নামানো হয়েছে`); } catch (e) { setBusy("সমস্যা: " + e.message); } }}>⬇️ এই পাতার PNG</button>
+        </div>
+        <div className="sheet shoes" ref={(el) => (refs.current[k] = el)}>
           <div className="shd"><b>{pg.src === "website" ? "WEBSITE ORDERS" : "FACEBOOK ORDERS"}</b><span>{date}</span></div>
           <div className="sgrid">
             {pg.items.map((c, j) => (
@@ -46,6 +51,7 @@ export default function ShoeSheet({ ids, onClose }) {
             ))}
           </div>
         </div>
+        </React.Fragment>
       ))}
     </div>
   );
