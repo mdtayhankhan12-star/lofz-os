@@ -23,13 +23,14 @@ const blankItem = () => ({ product_name: "", size: "", quantity: 1, price: "", i
 
 // অর্ডারের লেখা থেকে ফর্ম ভরে দেয় (বাংলা/ইংরেজি লেবেল চেনে: Name/নাম, Address/ঠিকানা, Phone/মোবাইল, Size/সাইজ, Bill/বিল, Colour/রং)।
 // সেভ হয় না — আপনি দেখে নিয়ে সেভ করবেন।
+const lbl = (words) => new RegExp(`^(?:${words})(?=[\\s:：\\-–=]|$)[^\\S\\n]*[:：\\-–=]*\\s*`, "i");
 const LBL = {
-  name: /^(?:customer\s*)?(?:name|nam|নাম|কাস্টমারের নাম)\s*[:：\-–=]*\s*/i,
-  address: /^(?:address|addr|thikana|ঠিকানা|ঠিকানাঃ)\s*[:：\-–=]*\s*/i,
-  phone: /^(?:phone|mobile|mob|number|num|contact|ফোন|মোবাইল|নাম্বার|নম্বর)[^:：\d]*[:：\-–=]*\s*/i,
-  size: /^(?:size|সাইজ|সাইজঃ)\s*[:：\-–=]*\s*/i,
-  bill: /^(?:bill|bil|বিল|price|দাম|total|টাকা)\s*[:：\-–=]*\s*/i,
-  colour: /^(?:colou?r|কালার|রং|রঙ)\s*[:：\-–=]*\s*/i,
+  name: lbl("customer\\s*name|name|nam|নাম|কাস্টমারের নাম"),
+  address: lbl("address|addr|thikana|ঠিকানা|ঠিকানাঃ"),
+  phone: lbl("phone|mobile|mob|number|contact|ফোন|মোবাইল নাম্বার|মোবাইল|নাম্বার|নম্বর"),
+  size: lbl("size|সাইজ|সাইজঃ"),
+  bill: lbl("bill|bil|বিল|price|দাম|total"),
+  colour: lbl("colou?r|কালার|রং|রঙ"),
 };
 // ঠিকানার ভেতরে অন্য তথ্য ঢুকে গেলে সেখান থেকে কেটে ফেলা
 const CUT = /[,،;।.\s]*(?:মোবাইল|mobile|phone|ফোন|নাম্বার|নম্বর|number|bill|bil|বিল|size|সাইজ|colou?r|কালার|রং|price|দাম)(?=\s|[:：\-–=]|$).*$/i;
