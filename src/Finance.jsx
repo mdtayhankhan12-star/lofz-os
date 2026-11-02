@@ -30,7 +30,7 @@ export default function Finance() {
     const { data: x } = await sb.from("expenses").select("*").gte("expense_date", from.slice(0, 8) + "01").lte("expense_date", to).order("expense_date", { ascending: false });
     setOrders(o ?? []); setExps(x ?? []);
     const { data: p } = await sb.rpc("pnl", { p_from: from, p_to: to }); setPl(p);
-    if (!rates) setRates(p?.rates ?? { dhaka: 80, outside: 150, return_pct: 100, cod_pct: 1 });
+    if (!rates) setRates(p?.rates ?? { avg_charge: 115, cod_pct: 1 });
   };
   useEffect(() => { load(); }, [from, to]);
   const pick = (k) => { setKind(k); const r = range(k); if (r) setRange(r); };
@@ -105,14 +105,12 @@ export default function Finance() {
           <div>
             <h3>➕ আয়</h3>
             <div className="lrow"><span>জুতা বিক্রি ({pl.n_delivered}টা Delivered)</span><b>{tk(pl.shoe_sales)}</b></div>
-            <div className="lrow"><span>কাস্টমারের দেওয়া ডেলিভারি চার্জ</span><b>{tk(pl.delivery_income)}</b></div>
-            <div className="lrow"><span>Partial থেকে পাওয়া টাকা ({pl.n_partial}টা)</span><b>{tk(pl.partial_income)}</b></div>
+            <div className="lrow"><span>Partial-এ রাখা জুতার দাম ({pl.n_partial}টা)</span><b>{tk(pl.partial_income)}</b></div>
             <div className="lrow tot"><span>মোট আয়</span><b>{tk(pl.income)}</b></div>
           </div>
           <div>
             <h3>➖ খরচ</h3>
-            <div className="lrow"><span>Steadfast ডেলিভারি চার্জ</span><b>{tk(pl.courier_charge)}</b></div>
-            <div className="lrow"><span>Return চার্জ ({pl.n_returned}টা Return)</span><b>{tk(pl.return_charge)}</b></div>
+            <div className="lrow"><span>Cancel/Return চার্জ ({pl.n_returned}টা × গড় {tk(rates?.avg_charge ?? 115)})</span><b>{tk(pl.return_charge)}</b></div>
             <div className="lrow"><span>COD চার্জ ({rates?.cod_pct ?? 1}%)</span><b>{tk(Math.round(pl.cod_charge))}</b></div>
             <div className="lrow"><span>কারখানার খরচ</span><b>{tk(pl.factory)}</b></div>
             <div className="lrow"><span>Facebook Ads</span><b>{tk(Math.round(pl.ads))}</b></div>
@@ -122,7 +120,7 @@ export default function Finance() {
         <div className="lnote">
           <span>📦 মোট অর্ডার {pl.total_orders} · ⏳ এখনো পথে/বানানো বাকি {pl.n_open}টা ({tk(pl.open_value)}, লাভে যোগ হয়নি) · ❌ Cancel {pl.n_cancelled}টা (লাভ-ক্ষতিতে নেই)</span>
           {pl.partial_missing > 0 && <span className="err">⚠️ {pl.partial_missing}টা Partial অর্ডারে কাস্টমার কত টাকা দিয়েছে লেখা নেই। অর্ডারের 👁️ দেখুন থেকে লিখে দিন।</span>}
-          <span className="muted">Steadfast চার্জ: Webhook থেকে আসল চার্জ এলে সেটা, না এলে নিচের রেট দিয়ে আন্দাজ।</span>
+          <span className="muted">Delivered আর Partial-এর ডেলিভারি চার্জ কাস্টমার দেয়, তাই খরচে ধরা হয়নি। শুধু কাস্টমার যেগুলো নেয়নি (Cancel/পুরো Return) সেগুলোর চার্জ গড় হিসেবে খরচ।</span>
         </div>
       </div>}
 
@@ -130,13 +128,11 @@ export default function Finance() {
           const v = Object.fromEntries(Object.entries(rates).map(([k, x]) => [k, Number(x)]));
           const { error } = await sb.from("app_settings").upsert({ key: "courier_rates", value: v, updated_at: new Date().toISOString() });
           setRmsg(error ? error.message : "সেভ হয়েছে ✓"); load(); }}>
-        <h2>🚚 Steadfast চার্জের রেট</h2>
-        <p className="muted small">Steadfast আপনার কাছ থেকে যা কাটে সেটা লিখুন। আসল চার্জ Webhook থেকে এলে সেটাই ধরা হবে, না এলে এই রেট।</p>
+        <h2>🚚 Return চার্জের হিসাব</h2>
+        <p className="muted small">কাস্টমার পার্সেল না নিলে (Cancel/পুরো Return) Steadfast গড়ে কত চার্জ কাটে সেটা লিখুন। প্রতিটা Return-এ এই টাকা খরচ ধরা হবে।</p>
         <div className="form3">
-          <label>ঢাকার ভিতরে (প্রতি পার্সেল ৳)<input type="number" min={0} value={rates.dhaka} onChange={(e) => setRates({ ...rates, dhaka: e.target.value })} /></label>
-          <label>ঢাকার বাইরে (প্রতি পার্সেল ৳)<input type="number" min={0} value={rates.outside} onChange={(e) => setRates({ ...rates, outside: e.target.value })} /></label>
-          <label>Return হলে চার্জ (ডেলিভারি চার্জের %)<input type="number" min={0} value={rates.return_pct} onChange={(e) => setRates({ ...rates, return_pct: e.target.value })} /></label>
-          <label>COD চার্জ (%)<input type="number" min={0} step="0.1" value={rates.cod_pct} onChange={(e) => setRates({ ...rates, cod_pct: e.target.value })} /></label>
+          <label>প্রতি Return-এ গড় চার্জ (৳)<input type="number" min={0} value={rates.avg_charge ?? 115} onChange={(e) => setRates({ ...rates, avg_charge: e.target.value })} /></label>
+          <label>COD চার্জ (%)<input type="number" min={0} step="0.1" value={rates.cod_pct ?? 1} onChange={(e) => setRates({ ...rates, cod_pct: e.target.value })} /></label>
         </div>
         <button className="btn">রেট সেভ করুন</button> {rmsg && <span className="ok small">{rmsg}</span>}
       </form>}

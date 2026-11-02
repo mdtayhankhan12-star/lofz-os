@@ -273,7 +273,7 @@ function Dashboard({ isOwner, t, go }) {
         {isOwner && <S k="profit_month" v={tk(d.profit)} to={() => go("finance")} />}
         {isOwner && <S k="sf_balance" w2 v={d.sf == null ? "..." : tk(d.sf)} to={() => go("parcels_pending")} />}
       </div>
-      <p className="note"><i>i</i><span>Delivered = আজ কাস্টমার পার্সেল নিয়েছে · Return = আজ পার্সেল ফেরত এসেছে (আংশিক ডেলিভারিও Return) · Cancel = কল করে আপনারা বাতিল করেছেন। এই মাসের লাভ = আয় (Delivered + Partial + ডেলিভারি চার্জ) − Steadfast চার্জ − Return চার্জ − কারখানা − Ads। পুরো হিসাব লাভ-ক্ষতি পেজে।</span></p>
+      <p className="note"><i>i</i><span>Delivered = আজ কাস্টমার পার্সেল নিয়েছে · Return = আজ পার্সেল ফেরত এসেছে (আংশিক ডেলিভারিও Return) · Cancel = কল করে আপনারা বাতিল করেছেন। এই মাসের লাভ = Delivered জুতার দাম + Partial-এ রাখা জুতা − Cancel/Return-এর গড় চার্জ − COD চার্জ − কারখানা − Ads। পুরো হিসাব লাভ-ক্ষতি পেজে।</span></p>
       {late && <div className="card pconly late">
         <div className="row" style={{ justifyContent: "space-between" }}><h2>⏰ ৫ দিনের বেশি পড়ে আছে ({late.length})</h2><span className="muted small">Cancel বা Steadfast-এ না পাঠানো পর্যন্ত এখানে থাকবে</span></div>
         {!late.length ? <p className="muted">🎉 কোনো অর্ডার ৫ দিনের বেশি আটকে নেই।</p> : <div className="ltab">

@@ -54,7 +54,7 @@ export default function ViewOrder({ id, onClose, onEdit, onPrint }) {
             : <p className="muted">এখনো Steadfast-এ পাঠানো হয়নি।</p>}
           {p?.delivery_status === "partial_delivered" && <div className="partialbox">
             <b>🔁 Partial: কাস্টমার কিছু জুতা রেখেছে, কিছু ফেরত দিয়েছে</b>
-            <span className="muted small">রাইডার কাস্টমারের কাছ থেকে কত টাকা নিয়েছে (ডেলিভারি চার্জসহ) লিখুন। এটাই লাভ-ক্ষতিতে আয় হিসেবে যোগ হবে।</span>
+            <span className="muted small">রাইডার কাস্টমারের কাছ থেকে কত টাকা নিয়েছে (ডেলিভারি চার্জসহ) লিখুন। এখান থেকে ডেলিভারি চার্জ বাদ দিয়ে বাকিটা বিক্রি হিসেবে যোগ হবে।</span>
             <div className="row"><input type="number" min={0} placeholder="যেমন 1280" value={amt} onChange={(e) => setAmt(e.target.value)} style={{ width: 160 }} />
               <button className="btn" onClick={async () => { const { error } = await sb.from("orders").update({ collected_amount: amt === "" ? null : Number(amt) }).eq("id", o.id); setAmsg(error ? error.message : "সেভ হয়েছে ✓"); }}>সেভ</button>
               {amsg && <span className="ok small">{amsg}</span>}</div>
