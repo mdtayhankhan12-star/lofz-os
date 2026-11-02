@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { sb, tk, fnCall } from "./lib.js";
 import { Ring, statsFor } from "./Parcels.jsx";
 
@@ -18,10 +18,6 @@ export async function upload(file) {
   if (error) throw error;
   return sb.storage.from("products").getPublicUrl(path).data.publicUrl;
 }
-
-// lofzz.com-এর জুতা একবার এনে রাখা (পেজ বদলালেও আবার আনতে হয় না)
-let SHOP_CACHE = null;
-const norm = (x) => String(x || "").toLowerCase().replace(/\s+/g, " ").trim();
 
 const blankItem = () => ({ product_name: "", size: "", quantity: 1, price: "", image_url: "", up: false });
 
@@ -51,13 +47,24 @@ export default function NewOrder({ onCreated, book }) {
   const [err, setErr] = useState(""); const [busy, setBusy] = useState(false);
   const [hist, setHist] = useState(null);
   const [paste, setPaste] = useState("");
-  const [shop, setShop] = useState(SHOP_CACHE);
-  const [shopErr, setShopErr] = useState("");
-  useEffect(() => {
-    if (SHOP_CACHE) return;
-    fnCall("shop-products", {}).then((j) => { SHOP_CACHE = j.products ?? []; setShop(SHOP_CACHE); }).catch((x) => setShopErr(x.message));
-  }, []);
-  const [photoFor, setPhotoFor] = useState(null); const [pq, setPq] = useState("");
+  // ওয়েবসাইট থেকে কপি করা ছবি পেস্ট: ছবি ফাইল হলে আপলোড, ছবির লিংক হলে সরাসরি বসে
+  const pasteImg = (k, e) => {
+    const f = [...(e.clipboardData?.files ?? [])].find((x) => x.type.startsWith("image/"));
+    if (f) { e.preventDefault(); return pick(k, f); }
+    const html = e.clipboardData?.getData("text/html") || "";
+    const txt = (e.clipboardData?.getData("text/plain") || "").trim();
+    const src = (html.match(/<img[^>]+src=["']([^"']+)["']/i) || [])[1] || txt;
+    if (/^https?:\/\/\S+/i.test(src)) { e.preventDefault(); setItem(k, { image_url: src.replace(/^http:/, "https:") }); }
+    else { e.preventDefault(); setErr("পেস্ট করা জিনিসটা ছবি না। ওয়েবসাইটে ছবির উপর রাইট-ক্লিক করে Copy image চাপুন।"); }
+  };
+  const dropImg = (k, e) => {
+    e.preventDefault();
+    const f = [...(e.dataTransfer?.files ?? [])].find((x) => x.type.startsWith("image/"));
+    if (f) return pick(k, f);
+    const html = e.dataTransfer?.getData("text/html") || "";
+    const url = (html.match(/<img[^>]+src=["']([^"']+)["']/i) || [])[1] || e.dataTransfer?.getData("text/uri-list") || "";
+    if (/^https?:/i.test(url)) setItem(k, { image_url: url });
+  };
 
   const [pmsg, setPmsg] = useState("");
   const fillFromText = async () => {
@@ -124,11 +131,12 @@ export default function NewOrder({ onCreated, book }) {
       {items.map((it, k) => (
         <div className="card item" key={k}>
           <div className="imgcol">
-          <label className="imgpick">
+          <label className="imgpick" onDragOver={(e) => e.preventDefault()} onDrop={(e) => dropImg(k, e)}>
             {it.image_url ? <img src={it.image_url} alt="" /> : <span>{it.up ? "আপলোড হচ্ছে..." : "📷 জুতার ছবি"}</span>}
             <input type="file" accept="image/*" hidden onChange={(e) => pick(k, e.target.files?.[0])} />
           </label>
-          <button type="button" className="chip" onClick={() => { setPhotoFor(k); setPq(""); }}>🛍️ ওয়েবসাইট থেকে ছবি</button>
+          <textarea className="pastebox" rows={2} value="" readOnly={false} onChange={() => {}} placeholder="📋 ছবি কপি করে এখানে পেস্ট করুন (Ctrl+V)"
+            onPaste={(e) => pasteImg(k, e)} />
           </div>
           <div className="itemf">
             <label>প্রোডাক্টের নাম<input required value={it.product_name} onChange={(e) => setItem(k, { product_name: e.target.value })} /></label>
@@ -141,18 +149,6 @@ export default function NewOrder({ onCreated, book }) {
           {items.length > 1 && <button type="button" className="chip x" onClick={() => setItems((xs) => xs.filter((_, i) => i !== k))}>✕</button>}
         </div>
       ))}
-      {photoFor !== null && <div className="photomodal" onClick={() => setPhotoFor(null)}>
-        <div className="card" onClick={(e) => e.stopPropagation()}>
-          <div className="row" style={{ justifyContent: "space-between" }}><b>🛍️ ওয়েবসাইটের জুতার ছবি বাছুন</b><button type="button" className="chip" onClick={() => setPhotoFor(null)}>✕ বন্ধ</button></div>
-          <input placeholder="জুতার নাম লিখে খুঁজুন" value={pq} onChange={(e) => setPq(e.target.value)} style={{ margin: "10px 0", width: "100%" }} />
-          {!shop ? <p className="muted">{shopErr || "লোড হচ্ছে..."}</p> : <div className="shopgrid">
-            {shop.flatMap((p) => [...new Set([p.image, ...p.variants.map((v) => v.image)].filter(Boolean))].map((img) => ({ img, t: p.title })))
-              .filter((x) => !pq.trim() || norm(x.t).includes(norm(pq)))
-              .map((x) => <button type="button" key={x.img} className="shopcard" onClick={() => { setItem(photoFor, { image_url: x.img }); setPhotoFor(null); }}>
-                <img src={x.img} alt="" loading="lazy" /><small>{x.t}</small></button>)}
-          </div>}
-        </div>
-      </div>}
       <button type="button" className="chip" onClick={() => setItems((xs) => [...xs, blankItem()])}>+ আরেকটা জুতা</button>
 
       <div className="card">
