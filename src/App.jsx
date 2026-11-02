@@ -220,6 +220,7 @@ function Bell({ go }) {
 function Dashboard({ isOwner, t, go }) {
   const [d, setD] = useState(null);
   const [late, setLate] = useState(null);
+  const [eye, setEye] = useState(false); // টাকার ঘর লুকানো থাকে, 👁️ চাপলে দেখা যায়
   useEffect(() => {
     (async () => {
       const start = new Date(); start.setHours(0, 0, 0, 0);
@@ -260,7 +261,8 @@ function Dashboard({ isOwner, t, go }) {
     cancelled: ["✕", "#fde7ec", "#d0284f"], expense_month: ["👜", "#fde7ec"], profit_month: ["📈", "#fde7ec", "#d0284f"], sf_balance: ["★", "#fff3d6", "#e8a93b"] };
   const day = new Date(Date.now() + 6 * 3600e3).toISOString().slice(0, 10);
   const today = { mode: "all", from: day, to: day };
-  const S = ({ k, v, accent, w2, to }) => { const [i, bg, c] = IC[k] ?? ["•", "#eee"]; return <button type="button" className={"stat click" + (accent ? " accent" : "") + (w2 ? " w2" : "")} onClick={to}><span className="si" style={{ background: bg, color: c }}>{i}</span><small>{t(k)}</small><b>{v}</b><em>দেখুন →</em></button>; };
+  const S = ({ k, v, accent, w2, to, secret }) => { const [i, bg, c] = IC[k] ?? ["•", "#eee"]; return <button type="button" className={"stat click" + (accent ? " accent" : "") + (w2 ? " w2" : "")} onClick={to}><span className="si" style={{ background: bg, color: c }}>{i}</span><small>{t(k)}</small>
+    <b>{secret && !eye ? "৳ ••••" : v}{secret && <span className="eye" role="button" title={eye ? "লুকান" : "দেখুন"} onClick={(e) => { e.stopPropagation(); setEye(!eye); }}>{eye ? "🙈" : "👁️"}</span>}</b><em>দেখুন →</em></button>; };
   const O = (x) => () => go("orders", { ...today, ...x });
   return (
     <>
@@ -270,9 +272,9 @@ function Dashboard({ isOwner, t, go }) {
         <S k="pending" v={d.pending} to={O({ status: "pending" })} /><S k="confirmed" v={d.confirmed} to={O({ status: "confirmed" })} />
         <S k="delivered" v={d.delivered} to={() => go("orders", { mode: "all", status: "delivered", from: "", to: "" })} /><S k="returned" v={d.returned} to={() => go("orders", { mode: "all", status: "returned", from: "", to: "" })} />
         <S k="cancelled" v={d.cancelled} to={O({ status: "cancelled" })} />
-        {isOwner && <S k="expense_month" v={tk(d.exp)} to={() => go("expenses")} />}
-        {isOwner && <S k="profit_month" v={tk(d.profit)} to={() => go("finance")} />}
-        {isOwner && <S k="sf_balance" w2 v={d.sf == null ? "..." : tk(d.sf)} to={() => go("parcels_pending")} />}
+        {isOwner && <S k="expense_month" secret v={tk(d.exp)} to={() => go("expenses")} />}
+        {isOwner && <S k="profit_month" secret v={tk(d.profit)} to={() => go("finance")} />}
+        {isOwner && <S k="sf_balance" secret w2 v={d.sf == null ? "..." : tk(d.sf)} to={() => go("parcels_pending")} />}
       </div>
       <p className="note"><i>i</i><span>Delivered = আজ কাস্টমার পার্সেল নিয়েছে · Return = আজ পার্সেল ফেরত এসেছে (আংশিক ডেলিভারিও Return) · Cancel = কল করে আপনারা বাতিল করেছেন। এই মাসের লাভ = Delivered জুতার দাম + Partial-এ রাখা জুতা − Cancel/Return-এর গড় চার্জ − COD চার্জ − কারখানা − Ads। পুরো হিসাব লাভ-ক্ষতি পেজে।</span></p>
       {late && <div className="card pconly late">
