@@ -321,3 +321,6 @@ button.stat:hover{transform:translateY(-3px);box-shadow:0 22px 40px -20px #8E1F3
   .stp{font-size:11px}
 }
 .allc{display:flex;align-items:center;gap:14px;flex-wrap:wrap;border-left:6px solid #1877f2}
+.sugg{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.aians{border-left:6px solid var(--acc)}
+.aitxt{white-space:pre-wrap;font-size:15.5px;line-height:1.75}

@@ -7,6 +7,7 @@ import ShoeSheet from "./ShoeSheet.jsx";
 import Expenses from "./Expenses.jsx";
 import Finance from "./Finance.jsx";
 import Parcels, { ST_BN } from "./Parcels.jsx";
+import AI from "./AI.jsx";
 import { bnTime } from "./Orders.jsx";
 
 const ls = {
@@ -115,7 +116,7 @@ function Login({ prefs }) {
 
 const NAV = [
   ["dashboard", "📊"], ["orders", "🧾"], ["invoice", "➕"], ["expenses", "💸"],
-  ["finance", "💰", "owner"], ["team", "👥", "owner"],
+  ["finance", "💰", "owner"], ["ai", "🤖", "owner"], ["team", "👥", "owner"],
   ["addparcel", "📦", null, "parcel"], ["parcels_pending", "⏳", null, "parcel"], ["consignments", "🗂️", null, "parcel"], ["risk", "🛡️", null, "parcel"],
 ];
 // প্রতিটা পেজ কী কাজ করে — উপরে ছোট করে লেখা থাকে, যাতে স্টাফ সহজে বোঝে
@@ -129,6 +130,7 @@ const HELP = {
   team: "স্টাফের অ্যাকাউন্ট খোলা, বন্ধ করা আর পাসওয়ার্ড বদলানো।",
   parcels_pending: "Steadfast-এ যে পার্সেলগুলো এখনো ডেলিভারি হয়নি (পথে / Hold / Review)।",
   consignments: "Steadfast-এ পাঠানো সব পার্সেল, স্ট্যাটাস আর ট্র্যাকিং লিংকসহ।",
+  ai: "গত ৩০ দিনের হিসাব নিয়ে বাংলায় প্রশ্ন করুন। শুধু Owner দেখতে পারবেন।",
   risk: "কাস্টমারের ফোন নম্বর দিয়ে দেখুন আগে কয়টা পার্সেল নিয়েছেন, কয়টা Return করেছেন, Fraud রিপোর্ট আছে কি না।",
 };
 
@@ -172,6 +174,7 @@ function Shell({ profile, prefs }) {
         {cur === "orders" && <Orders key={JSON.stringify(preset)} preset={preset} isOwner={isOwner} onPrint={setPrintIds} onShoes={setShoeIds} goRisk={(p) => go("risk", p)} />}
         {cur === "expenses" && <Expenses isOwner={isOwner} />}
         {cur === "finance" && isOwner && <Finance />}
+        {cur === "ai" && isOwner && <AI />}
         {["parcels_pending", "consignments", "risk"].includes(cur) && <Parcels tab={cur} phone={phone} isOwner={isOwner} go={go} />}
       </main>
       <nav className="bottom">
