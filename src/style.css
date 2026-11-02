@@ -352,3 +352,8 @@ img{content-visibility:auto}
 .shopcard small{font-size:12px;font-weight:700;line-height:1.3}
 .shopcard.on{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc) inset}
 .shopvar{margin-top:12px;padding:12px;border-radius:12px;background:#9B1B3F08;border:1px solid var(--line)}
+.imgcol{display:flex;flex-direction:column;gap:6px;align-items:center}
+.imgcol .chip{font-size:12px;padding:5px 8px;white-space:nowrap}
+.photomodal{position:fixed;inset:0;z-index:90;background:#1a0a10a6;display:flex;align-items:flex-start;justify-content:center;padding:30px 12px;overflow:auto}
+.photomodal .card{width:min(900px,100%);background:var(--card)}
+.photomodal .shopgrid{max-height:65vh}

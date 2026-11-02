@@ -57,24 +57,8 @@ export default function NewOrder({ onCreated, book }) {
     if (SHOP_CACHE) return;
     fnCall("shop-products", {}).then((j) => { SHOP_CACHE = j.products ?? []; setShop(SHOP_CACHE); }).catch((x) => setShopErr(x.message));
   }, []);
-  const findProd = (name) => (shop ?? []).find((p) => norm(p.title) === norm(name));
-  // ওয়েবসাইটের জুতা বাছলে: নাম, ছবি, দাম বসে যায়
-  const choose = (k, title) => {
-    const p = findProd(title);
-    if (!p) return setItem(k, { product_name: title });
-    // পেস্ট থেকে সাইজ/রং আগেই এসে থাকলে সেই অনুযায়ী মিলিয়ে দেয়
-    const cur = items[k] ?? {}; const col = norm((c.note || "").replace(/^colou?r:\s*/i, ""));
-    const v = p.variants?.find((x) => String(x.size) === String(cur.size) && (!col || norm(x.color) === col))
-      ?? p.variants?.find((x) => String(x.size) === String(cur.size));
-    if (v) return setItem(k, { product_name: p.title + (v.color ? ` (${v.color})` : ""), image_url: v.image || p.image || "", price: v.price, size: v.size, vl: `${v.size}${v.color ? " · " + v.color : ""}` });
-    const v0 = p.variants?.[0];
-    setItem(k, { product_name: p.title, image_url: p.image || v0?.image || "", price: v0?.price ?? "", size: "", vl: "" });
-  };
-  const chooseSize = (k, it, val) => {
-    const p = findProd(it.product_name); const v = p?.variants?.find((x) => `${x.size}${x.color ? " · " + x.color : ""}` === val);
-    if (!v) return setItem(k, { size: val });
-    setItem(k, { vl: val, size: v.size, price: v.price, image_url: v.image || it.image_url, product_name: p.title + (v.color ? ` (${v.color})` : "") });
-  };
+  const [photoFor, setPhotoFor] = useState(null); const [pq, setPq] = useState("");
+
   const [pmsg, setPmsg] = useState("");
   const fillFromText = async () => {
     const p = parseOrderText(paste);
@@ -109,7 +93,7 @@ export default function NewOrder({ onCreated, book }) {
     if (items.some((i) => i.up)) return setErr("ছবি আপলোড শেষ হওয়া পর্যন্ত অপেক্ষা করুন");
     setBusy(true);
     const { data, error } = await sb.rpc("create_fb_order", {
-      p: { ...c, items: items.map(({ up, vl, ...i }) => ({ ...i, quantity: Number(i.quantity), price: Number(i.price) })) },
+      p: { ...c, items: items.map(({ up, ...i }) => ({ ...i, quantity: Number(i.quantity), price: Number(i.price) })) },
     });
     if (error) { setBusy(false); return setErr(error.message); }
     if (doBook) {
@@ -139,25 +123,17 @@ export default function NewOrder({ onCreated, book }) {
 
       {items.map((it, k) => (
         <div className="card item" key={k}>
+          <div className="imgcol">
           <label className="imgpick">
             {it.image_url ? <img src={it.image_url} alt="" /> : <span>{it.up ? "আপলোড হচ্ছে..." : "📷 জুতার ছবি"}</span>}
             <input type="file" accept="image/*" hidden onChange={(e) => pick(k, e.target.files?.[0])} />
           </label>
+          <button type="button" className="chip" onClick={() => { setPhotoFor(k); setPq(""); }}>🛍️ ওয়েবসাইট থেকে ছবি</button>
+          </div>
           <div className="itemf">
-            <label>🛍️ ওয়েবসাইটের জুতা বাছুন
-              <select value={findProd(it.product_name.replace(/ \([^)]*\)$/, ""))?.title ?? ""} onChange={(e) => choose(k, e.target.value)}>
-                <option value="">{shop ? `— এখান থেকে বাছুন (${shop.length}টা জুতা) —` : shopErr ? "ওয়েবসাইট থেকে আনা যায়নি" : "লোড হচ্ছে..."}</option>
-                {(shop ?? []).map((p) => <option key={p.title} value={p.title}>{p.title}</option>)}
-              </select>
-            </label>
-            <label>প্রোডাক্টের নাম (লিখলেও মিলে যাবে)<input required list="shop-titles" value={it.product_name} onChange={(e) => { const v = e.target.value; findProd(v) ? choose(k, v) : setItem(k, { product_name: v }); }} /></label>
+            <label>প্রোডাক্টের নাম<input required value={it.product_name} onChange={(e) => setItem(k, { product_name: e.target.value })} /></label>
             <div className="form3 tight">
-              {(() => { const p = findProd(it.product_name.replace(/ \([^)]*\)$/, "")); return p?.variants?.length > 1
-                ? <label>সাইজ / রং<select required value={it.vl ?? ""} onChange={(e) => chooseSize(k, it, e.target.value)}>
-                    <option value="">সাইজ বাছুন</option>
-                    {p.variants.map((v, i) => { const l = `${v.size}${v.color ? " · " + v.color : ""}`; return <option key={i} value={l}>{l} — ৳{v.price}</option>; })}
-                  </select></label>
-                : <label>সাইজ<input required value={it.size} onChange={(e) => setItem(k, { size: e.target.value })} /></label>; })()}
+              <label>সাইজ<input required value={it.size} onChange={(e) => setItem(k, { size: e.target.value })} /></label>
               <label>পরিমাণ<input required type="number" min={1} value={it.quantity} onChange={(e) => setItem(k, { quantity: e.target.value })} /></label>
               <label>দাম (প্রতি জোড়া)<input required type="number" min={0} value={it.price} onChange={(e) => setItem(k, { price: e.target.value })} /></label>
             </div>
@@ -165,7 +141,18 @@ export default function NewOrder({ onCreated, book }) {
           {items.length > 1 && <button type="button" className="chip x" onClick={() => setItems((xs) => xs.filter((_, i) => i !== k))}>✕</button>}
         </div>
       ))}
-      <datalist id="shop-titles">{(shop ?? []).map((p) => <option key={p.title} value={p.title} />)}</datalist>
+      {photoFor !== null && <div className="photomodal" onClick={() => setPhotoFor(null)}>
+        <div className="card" onClick={(e) => e.stopPropagation()}>
+          <div className="row" style={{ justifyContent: "space-between" }}><b>🛍️ ওয়েবসাইটের জুতার ছবি বাছুন</b><button type="button" className="chip" onClick={() => setPhotoFor(null)}>✕ বন্ধ</button></div>
+          <input placeholder="জুতার নাম লিখে খুঁজুন" value={pq} onChange={(e) => setPq(e.target.value)} style={{ margin: "10px 0", width: "100%" }} />
+          {!shop ? <p className="muted">{shopErr || "লোড হচ্ছে..."}</p> : <div className="shopgrid">
+            {shop.flatMap((p) => [...new Set([p.image, ...p.variants.map((v) => v.image)].filter(Boolean))].map((img) => ({ img, t: p.title })))
+              .filter((x) => !pq.trim() || norm(x.t).includes(norm(pq)))
+              .map((x) => <button type="button" key={x.img} className="shopcard" onClick={() => { setItem(photoFor, { image_url: x.img }); setPhotoFor(null); }}>
+                <img src={x.img} alt="" loading="lazy" /><small>{x.t}</small></button>)}
+          </div>}
+        </div>
+      </div>}
       <button type="button" className="chip" onClick={() => setItems((xs) => [...xs, blankItem()])}>+ আরেকটা জুতা</button>
 
       <div className="card">
