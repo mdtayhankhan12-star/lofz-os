@@ -47,7 +47,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
   const [edit, setEdit] = useState(null);
   const [view, setView] = useState(null);
   const [cf, setCf] = useState({ from: "", to: "" }); // Confirmed ট্যাবের তারিখ
-  const [pr, setPr] = useState({ inv: "", sheet: "" }); // ইনভয়েস/শিট প্রিন্ট হয়েছে কি না
+  const [pr, setPr] = useState({ inv: P.inv ?? "", sheet: P.sheet ?? "" }); // ইনভয়েস/শিট প্রিন্ট হয়েছে কি না
 
   const load = async () => {
     let q = sb.from("orders")

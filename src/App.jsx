@@ -228,11 +228,15 @@ function Dashboard({ isOwner, t, go }) {
   const [d, setD] = useState(null);
   const [late, setLate] = useState(null);
   const [eye, setEye] = useState(false); // টাকার ঘর লুকানো থাকে, 👁️ চাপলে দেখা যায়
+  const dhaka = () => new Date(Date.now() + 6 * 3600e3).toISOString().slice(0, 10);
+  const [sel, setSel] = useState(dhaka()); // কোন দিনের হিসাব দেখবেন
+  const shift = (n) => { const x = new Date(sel + "T12:00:00Z"); x.setUTCDate(x.getUTCDate() + n); const v = x.toISOString().slice(0, 10); if (v <= dhaka()) setSel(v); };
   useEffect(() => {
+    setD(null);
     (async () => {
       const start = new Date(); start.setHours(0, 0, 0, 0);
       const m0 = new Date(start.getFullYear(), start.getMonth(), 1);
-      const { data: today } = await sb.from("orders").select("source,status,total").gte("order_date", start.toISOString());
+      const { data: today } = await sb.from("orders").select("source,status,total").gte("order_date", sel + "T00:00:00+06:00").lte("order_date", sel + "T23:59:59+06:00");
       let exp = null, profit = null;
       if (isOwner) {
         const m0s = `${m0.getFullYear()}-${String(m0.getMonth() + 1).padStart(2, "0")}-01`;
@@ -245,15 +249,18 @@ function Dashboard({ isOwner, t, go }) {
       let sf = null;
       if (isOwner) { try { sf = (await fnCall("steadfast", { action: "balance" })).balance ?? null; } catch {} }
       // আজ কয়টা পার্সেল কাস্টমার নিয়েছে / ফেরত এসেছে (অর্ডার যেদিনেরই হোক)
-      const { data: mv } = await sb.rpc("dash_today");
+      const { data: mv } = await sb.rpc("dash_day", { p_day: sel });
+      // কাজ বাকি — তারিখ যাই হোক, রাত ১২টার পরও থাকবে
+      const { data: open } = await sb.from("orders").select("status,invoice_printed_at,sheet_printed_at").in("status", ["pending", "confirmed"]).limit(2000);
+      const op = open ?? [], conf = op.filter((x) => x.status === "confirmed");
       const o = today ?? [];
       const c = (f) => o.filter(f).length;
       setD({
         n: o.length, sales: o.filter((x) => x.status !== "cancelled").reduce((a, x) => a + Number(x.total), 0),
         web: c((x) => x.source === "website"), fb: c((x) => x.source === "facebook"),
-        confirmed: c((x) => x.status === "confirmed"), delivered: mv?.delivered ?? 0,
+        confirmed: conf.length, invLeft: conf.filter((x) => !x.invoice_printed_at).length, sheetLeft: conf.filter((x) => !x.sheet_printed_at).length, delivered: mv?.delivered ?? 0,
         returned: mv?.returned ?? 0, cancelled: c((x) => x.status === "cancelled"),
-        pending: c((x) => x.status === "pending"), exp, profit, sf,
+        pending: op.filter((x) => x.status === "pending").length, exp, profit, sf,
       });
       // ৫ দিনের বেশি পুরনো, এখনো Cancel বা Steadfast-এ পাঠানো হয়নি
       const lim = new Date(Date.now() - 5 * 864e5).toISOString();
@@ -261,22 +268,33 @@ function Dashboard({ isOwner, t, go }) {
         .in("status", ["pending", "confirmed"]).lt("order_date", lim).order("order_date").limit(200);
       setLate((ld ?? []).filter((r) => !r.parcels?.length));
     })();
-  }, [isOwner]);
-  if (!d) return <div className="grid">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="stat skel" />)}</div>;
+  }, [isOwner, sel]);
+  const isToday = sel === dhaka();
+  const dateBar = (
+    <div className="card filters" style={{ marginBottom: 12 }}>
+      <b>📅 {isToday ? "আজকের হিসাব" : new Date(sel + "T12:00:00Z").toLocaleDateString("bn-BD", { day: "numeric", month: "long", year: "numeric", weekday: "long" }) + "-এর হিসাব"}</b>
+      <button className="chip" onClick={() => shift(-1)}>← আগের দিন</button>
+      <input type="date" value={sel} max={dhaka()} onChange={(e) => e.target.value && setSel(e.target.value)} />
+      <button className="chip" disabled={isToday} onClick={() => shift(1)}>পরের দিন →</button>
+      {!isToday && <button className="btn" onClick={() => setSel(dhaka())}>আজ</button>}
+    </div>
+  );
+  if (!d) return <>{dateBar}<div className="grid">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="stat skel" />)}</div></>; <div className="grid">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="stat skel" />)}</div>;
   const IC = { today_orders: ["🛍️", "#fde7ec"], today_sales: ["৳", "#fde7ec"], website: ["🌐", "#fde7ec", "#9B1B3F"], facebook: ["f", "#e3eeff", "#1877f2"],
-    pending: ["⏰", "#fde7ec"], confirmed: ["✓", "#dff6e9", "#16a34a"], delivered: ["🚚", "#e3eeff"], returned: ["↻", "#efe9ff", "#6d4bd8"],
+    pending: ["⏰", "#fde7ec"], inv_left: ["🖨️", "#fff3d6", "#e8a93b"], sheet_left: ["👟", "#fff3d6", "#e8a93b"], confirmed: ["✓", "#dff6e9", "#16a34a"], delivered: ["🚚", "#e3eeff"], returned: ["↻", "#efe9ff", "#6d4bd8"],
     cancelled: ["✕", "#fde7ec", "#d0284f"], expense_month: ["👜", "#fde7ec"], profit_month: ["📈", "#fde7ec", "#d0284f"], sf_balance: ["★", "#fff3d6", "#e8a93b"] };
-  const day = new Date(Date.now() + 6 * 3600e3).toISOString().slice(0, 10);
-  const today = { mode: "all", from: day, to: day };
+  const today = { mode: "all", from: sel, to: sel };
   const S = ({ k, v, accent, w2, to, secret }) => { const [i, bg, c] = IC[k] ?? ["•", "#eee"]; return <button type="button" className={"stat click" + (accent ? " accent" : "") + (w2 ? " w2" : "")} onClick={to}><span className="si" style={{ background: bg, color: c }}>{i}</span><small>{t(k)}</small>
     <b>{secret && !eye ? "৳ ••••" : v}{secret && <span className="eye" role="button" title={eye ? "লুকান" : "দেখুন"} onClick={(e) => { e.stopPropagation(); setEye(!eye); }}>{eye ? "🙈" : "👁️"}</span>}</b><em>দেখুন →</em></button>; };
   const O = (x) => () => go("orders", { ...today, ...x });
   return (
     <>
+      {dateBar}
       <div className="grid">
         <S k="today_orders" v={d.n} accent to={O({})} /><S k="today_sales" v={tk(d.sales)} accent to={O({ revenue: true })} />
         <S k="website" v={d.web} to={O({ source: "website" })} /><S k="facebook" v={d.fb} to={O({ source: "facebook" })} />
-        <S k="pending" v={d.pending} to={O({ status: "pending" })} /><S k="confirmed" v={d.confirmed} to={O({ status: "confirmed" })} />
+        <S k="pending" v={d.pending} to={() => go("orders", { mode: "inbox" })} /><S k="confirmed" v={d.confirmed} to={() => go("orders", { mode: "confirmed" })} />
+        <S k="inv_left" v={d.invLeft} to={() => go("orders", { mode: "confirmed", inv: "no" })} /><S k="sheet_left" v={d.sheetLeft} to={() => go("orders", { mode: "confirmed", sheet: "no" })} />
         <S k="delivered" v={d.delivered} to={() => go("orders", { mode: "all", status: "delivered", from: "", to: "" })} /><S k="returned" v={d.returned} to={() => go("orders", { mode: "all", status: "returned", from: "", to: "" })} />
         <S k="cancelled" v={d.cancelled} to={O({ status: "cancelled" })} />
         {isOwner && <S k="expense_month" secret v={tk(d.exp)} to={() => go("expenses")} />}
