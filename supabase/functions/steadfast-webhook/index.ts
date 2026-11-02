@@ -4,7 +4,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") ?? "{}").default;
 const admin = createClient(Deno.env.get("SUPABASE_URL")!, SERVICE, { auth: { persistSession: false } });
-const FINAL: Record<string, string> = { delivered: "delivered", partial_delivered: "delivered", cancelled: "returned" };
+const FINAL: Record<string, string> = { delivered: "delivered", partial_delivered: "returned", cancelled: "returned" };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { "Content-Type": "application/json" } });
 
 Deno.serve(async (req) => {

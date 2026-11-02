@@ -16,7 +16,7 @@ const sf = (path: string, init: RequestInit = {}) =>
     .then(async (r) => ({ ok: r.ok, body: await r.json().catch(() => ({})) }));
 
 // Steadfast স্ট্যাটাস → অ্যাপের অর্ডার স্ট্যাটাস (শুধু চূড়ান্তগুলো বদলায়, অনুমান নয়)
-const FINAL: Record<string, string> = { delivered: "delivered", partial_delivered: "delivered", cancelled: "returned" };
+const FINAL: Record<string, string> = { delivered: "delivered", partial_delivered: "returned", cancelled: "returned" };
 
 async function caller(req: Request) {
   const t = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");

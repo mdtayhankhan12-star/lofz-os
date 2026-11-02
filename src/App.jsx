@@ -234,13 +234,15 @@ function Dashboard({ isOwner, t, go }) {
       }
       let sf = null;
       if (isOwner) { try { sf = (await fnCall("steadfast", { action: "balance" })).balance ?? null; } catch {} }
+      // আজ কয়টা পার্সেল কাস্টমার নিয়েছে / ফেরত এসেছে (অর্ডার যেদিনেরই হোক)
+      const { data: mv } = await sb.rpc("dash_today");
       const o = today ?? [];
       const c = (f) => o.filter(f).length;
       setD({
         n: o.length, sales: o.filter((x) => x.status !== "cancelled").reduce((a, x) => a + Number(x.total), 0),
         web: c((x) => x.source === "website"), fb: c((x) => x.source === "facebook"),
-        confirmed: c((x) => x.status === "confirmed"), delivered: c((x) => ["delivered", "received"].includes(x.status)),
-        returned: c((x) => x.status === "returned"), cancelled: c((x) => x.status === "cancelled"),
+        confirmed: c((x) => x.status === "confirmed"), delivered: mv?.delivered ?? 0,
+        returned: mv?.returned ?? 0, cancelled: c((x) => x.status === "cancelled"),
         pending: c((x) => x.status === "pending"), exp, profit, sf,
       });
       // ৫ দিনের বেশি পুরনো, এখনো Cancel বা Steadfast-এ পাঠানো হয়নি
@@ -264,13 +266,13 @@ function Dashboard({ isOwner, t, go }) {
         <S k="today_orders" v={d.n} accent to={O({})} /><S k="today_sales" v={tk(d.sales)} accent to={O({ revenue: true })} />
         <S k="website" v={d.web} to={O({ source: "website" })} /><S k="facebook" v={d.fb} to={O({ source: "facebook" })} />
         <S k="pending" v={d.pending} to={O({ status: "pending" })} /><S k="confirmed" v={d.confirmed} to={O({ status: "confirmed" })} />
-        <S k="delivered" v={d.delivered} to={O({ status: "delivered" })} /><S k="returned" v={d.returned} to={O({ status: "returned" })} />
+        <S k="delivered" v={d.delivered} to={() => go("orders", { mode: "all", status: "delivered", from: "", to: "" })} /><S k="returned" v={d.returned} to={() => go("orders", { mode: "all", status: "returned", from: "", to: "" })} />
         <S k="cancelled" v={d.cancelled} to={O({ status: "cancelled" })} />
         {isOwner && <S k="expense_month" v={tk(d.exp)} to={() => go("expenses")} />}
         {isOwner && <S k="profit_month" v={tk(d.profit)} to={() => go("finance")} />}
         {isOwner && <S k="sf_balance" w2 v={d.sf == null ? "..." : tk(d.sf)} to={() => go("parcels_pending")} />}
       </div>
-      <p className="note"><i>i</i><span>লাভ = এই মাসের Delivered/Received অর্ডারের বিক্রি − এই মাসের খরচ। আজকের সেল = আজকের অর্ডারের মোট (Cancel বাদে)।</span></p>
+      <p className="note"><i>i</i><span>Delivered = আজ কাস্টমার পার্সেল নিয়েছে · Return = আজ পার্সেল ফেরত এসেছে (আংশিক ডেলিভারিও Return) · Cancel = কল করে আপনারা বাতিল করেছেন। লাভ গোনা হয় শুধু Delivered/টাকা পাওয়া অর্ডার থেকে; Cancel আর Return লাভে যোগ হয় না।</span></p>
       {late && <div className="card pconly late">
         <div className="row" style={{ justifyContent: "space-between" }}><h2>⏰ ৫ দিনের বেশি পড়ে আছে ({late.length})</h2><span className="muted small">Cancel বা Steadfast-এ না পাঠানো পর্যন্ত এখানে থাকবে</span></div>
         {!late.length ? <p className="muted">🎉 কোনো অর্ডার ৫ দিনের বেশি আটকে নেই।</p> : <div className="ltab">
