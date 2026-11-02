@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { sb, tk, fnCall } from "./lib.js";
 import { Ring, statsFor } from "./Parcels.jsx";
 import EditOrder from "./EditOrder.jsx";
+import ViewOrder from "./ViewOrder.jsx";
 
 export const STATUSES = [
   ["pending", "Pending"], ["confirmed", "Confirmed"], ["delivered", "Delivered"],
@@ -37,6 +38,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
   const [inboxN, setInboxN] = useState(0);
   const [ret, setRet] = useState({});
   const [edit, setEdit] = useState(null);
+  const [view, setView] = useState(null);
 
   const load = async () => {
     let q = sb.from("orders")
@@ -135,7 +137,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
             {rows.map((r) => { const h = ret[r.phone]; const wa = "88" + String(r.phone).replace(/\D/g, "").replace(/^88/, ""); return (
               <div key={r.id} className={"card orow" + (sel.includes(r.id) ? " picked" : "")}>
                 {mode === "confirmed" && <input type="checkbox" className="pick" checked={sel.includes(r.id)} onChange={() => toggle(r.id)} />}
-                <div className="thumbs">{(r.order_items ?? []).slice(0, 3).map((i, k) => i.image_url ? <img key={k} src={i.image_url} alt="" loading="lazy" /> : <div key={k} className="ph" />)}</div>
+                <div className="thumbs clicky" onClick={() => setView(r.id)}>{(r.order_items ?? []).slice(0, 3).map((i, k) => i.image_url ? <img key={k} src={i.image_url} alt="" loading="lazy" /> : <div key={k} className="ph" />)}</div>
                 <div className="grow">
                   <div className="row"><b>{r.order_no}</b>
                     {r.possible_duplicate && <span className="badge bad">সম্ভাব্য ডুপ্লিকেট</span>}
@@ -151,6 +153,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
                   <div className="row">
                     <a className="chip" href={`tel:${r.phone}`}>📞 কল</a>
                     <a className="chip" href={`https://wa.me/${wa}`} target="_blank" rel="noopener">WhatsApp</a>
+                    <button className="chip" onClick={() => setView(r.id)}>👁️ দেখুন</button>
                     <button className="chip" onClick={() => setEdit(r.id)}>✏️ এডিট</button>
                   </div>
                   {r.parcels?.[0] ? <ParcelInfo p={r.parcels[0]} />
@@ -193,7 +196,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
           {rows.map((r) => (
             <div key={r.id} className="card orow">
               <input type="checkbox" checked={sel.includes(r.id)} onChange={() => toggle(r.id)} />
-              <div className="thumbs">{(r.order_items ?? []).slice(0, 3).map((i, k) => i.image_url ? <img key={k} src={i.image_url} alt="" loading="lazy" /> : <div key={k} className="ph" />)}</div>
+              <div className="thumbs clicky" onClick={() => setView(r.id)}>{(r.order_items ?? []).slice(0, 3).map((i, k) => i.image_url ? <img key={k} src={i.image_url} alt="" loading="lazy" /> : <div key={k} className="ph" />)}</div>
               <div className="grow">
                 <div className="row"><b>{r.order_no}</b>
                   <span className={"badge " + (r.source === "facebook" ? "fb" : "web")}>{r.source === "facebook" ? "Facebook" : "Website"}</span>
@@ -211,6 +214,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
                 <ParcelInfo p={r.parcels?.[0]} />
                 <div className="row">
                   {!r.parcels?.[0] && r.status === "confirmed" && <button className="chip" onClick={() => book(r)}>🚚 Steadfast-এ পাঠান</button>}
+                  <button className="chip" onClick={() => setView(r.id)}>👁️ দেখুন</button>
                   <button className="chip" onClick={() => setEdit(r.id)}>✏️ এডিট</button>
                   <button className="chip" onClick={() => onPrint([r.id])}>ইনভয়েস</button>
                   {isOwner && <button className="chip" onClick={() => del(r.id)}>মুছুন</button>}
@@ -221,6 +225,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
         </div>
       )}
       </>}
+      {view && <ViewOrder id={view} onClose={() => setView(null)} onEdit={(id) => { setView(null); setEdit(id); }} onPrint={onPrint} />}
       {edit && <EditOrder id={edit} onClose={() => setEdit(null)} onSaved={() => { setMsg("অর্ডার আপডেট হয়েছে ✓"); mode === "all" ? load() : loadInbox(); }} />}
     </div>
   );
