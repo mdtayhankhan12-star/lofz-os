@@ -161,6 +161,7 @@ function Shell({ profile, prefs }) {
     <div className="shell">
       <aside className="side">
         <div className="brand"><img src="/logo.png" alt="LOFZ" className="logo-side" /><small>Business OS</small></div>
+        <div className="muted small" style={{ opacity: .55, fontSize: 10.5, margin: "-6px 0 8px 4px" }} title="অ্যাপের ভার্সন — নতুন আপডেট এসেছে কি না এখানে দেখুন">ভার্সন {__BUILD__}</div>
         {items.filter((x) => !x[3]).map(NavBtn)}
         <div className="navsec">PARCEL DATA</div>
         {items.filter((x) => x[3] === "parcel").map(NavBtn)}
