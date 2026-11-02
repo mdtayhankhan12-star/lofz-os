@@ -419,3 +419,8 @@ img{content-visibility:auto}
   .drp-pre button{padding:7px 11px;font-size:12.5px;background:var(--card);border:1px solid var(--line)}
   .drp-cal{width:auto}.drp-d{height:42px}
 }
+
+.helpbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-top:8px;padding-bottom:8px}
+.helpbar>span{flex:1;min-width:220px}.helpbar .hbl{color:var(--acc)}
+.helpbar .drp{flex:none}
+@media (max-width:760px){.helpbar .drp{width:100%}}

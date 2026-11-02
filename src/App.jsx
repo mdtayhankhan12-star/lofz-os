@@ -176,7 +176,7 @@ function Shell({ profile, prefs }) {
           <form className="gsearch" onSubmit={search}><span>🔍</span><input placeholder="ফোন নম্বর / অর্ডার নম্বর / নাম খুঁজুন" value={q} onChange={(e) => setQ(e.target.value)} /></form>
           <div className="row"><Bell go={go} /><Toggles prefs={prefs} /><button className="chip" onClick={() => sb.auth.signOut()}>{t("logout")}</button></div>
         </header>
-        {HELP[cur] && <div className="help">💡 {HELP[cur]}</div>}
+        {HELP[cur] && cur !== "dashboard" && <div className="help">💡 {HELP[cur]}</div>}
         {cur === "dashboard" && <Dashboard isOwner={isOwner} t={t} go={go} />}
         {cur === "team" && isOwner && <Team me={profile} />}
         {cur === "invoice" && <NewOrder onCreated={(id) => setPrintIds([id])} />}
@@ -283,12 +283,11 @@ function Dashboard({ isOwner, t, go }) {
     ["এই মাস", mStart(td), td], ["গত মাস", mStart(lastM), lastM],
   ];
   const label = isToday ? "আজকের হিসাব" : one ? bn(rg.from, { day: "numeric", month: "long", year: "numeric", weekday: "long" }) : `${bn(rg.from)} থেকে ${bn(rg.to)}`;
+  // উপরের সাহায্য লাইনের ডান পাশেই তারিখ বাছাই
   const dateBar = (
-    <div className="card datebar">
-      <div className="row" style={{ justifyContent: "space-between", width: "100%", alignItems: "center" }}>
-        <div><small className="muted">কোন দিনের হিসাব দেখবেন</small><h2 style={{ margin: "2px 0 0" }}>📅 {label}</h2></div>
-        <DateRange value={rg} onChange={setRg} />
-      </div>
+    <div className="help helpbar">
+      <span>💡 {HELP.dashboard} <b className="hbl">· {label}</b></span>
+      <DateRange value={rg} onChange={setRg} />
     </div>
   );
   if (!d) return <>{dateBar}<div className="grid">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="stat skel" />)}</div></>;
