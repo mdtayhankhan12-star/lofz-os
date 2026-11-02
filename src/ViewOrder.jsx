@@ -7,10 +7,10 @@ const SB = { pending: "Confirm বাকি", confirmed: "Confirmed", delivered:
 
 // একটা অর্ডারের পুরো তথ্য বড় করে দেখা; এখান থেকেই এডিট, ইনভয়েস, পার্সেল
 export default function ViewOrder({ id, onClose, onEdit, onPrint }) {
-  const [o, setO] = useState(null); const [pv, setPv] = useState(false); const [big, setBig] = useState(null);
+  const [o, setO] = useState(null); const [amt, setAmt] = useState(""); const [amsg, setAmsg] = useState(""); const [pv, setPv] = useState(false); const [big, setBig] = useState(null);
   useEffect(() => {
-    sb.from("orders").select("id,order_no,source,status,order_date,customer_name,phone,address,subtotal,delivery_charge,discount,total,note,order_items(product_name,image_url,size,color,quantity,price),parcels(consignment_id,tracking_code,delivery_status,cod_amount,booking_date,updated_at)")
-      .eq("id", id).single().then(({ data }) => setO(data));
+    sb.from("orders").select("id,order_no,source,status,order_date,customer_name,phone,address,subtotal,delivery_charge,discount,total,note,collected_amount,order_items(product_name,image_url,size,color,quantity,price),parcels(consignment_id,tracking_code,delivery_status,cod_amount,booking_date,updated_at)")
+      .eq("id", id).single().then(({ data }) => { setO(data); setAmt(data?.collected_amount ?? ""); });
     document.body.style.overflow = "hidden"; return () => { document.body.style.overflow = ""; };
   }, [id]);
   if (!o) return <div className="pview"><div className="pvin"><div className="card">লোড হচ্ছে...</div></div></div>;
@@ -52,6 +52,13 @@ export default function ViewOrder({ id, onClose, onEdit, onPrint }) {
             {p.tracking_code && <a className="chip" href={trackUrl(p.tracking_code)} target="_blank" rel="noopener">ট্র্যাক</a>}
             <button className="chip" onClick={() => setPv(true)}>পার্সেলের পুরো তথ্য</button></div>
             : <p className="muted">এখনো Steadfast-এ পাঠানো হয়নি।</p>}
+          {p?.delivery_status === "partial_delivered" && <div className="partialbox">
+            <b>🔁 Partial: কাস্টমার কিছু জুতা রেখেছে, কিছু ফেরত দিয়েছে</b>
+            <span className="muted small">রাইডার কাস্টমারের কাছ থেকে কত টাকা নিয়েছে (ডেলিভারি চার্জসহ) লিখুন। এটাই লাভ-ক্ষতিতে আয় হিসেবে যোগ হবে।</span>
+            <div className="row"><input type="number" min={0} placeholder="যেমন 1280" value={amt} onChange={(e) => setAmt(e.target.value)} style={{ width: 160 }} />
+              <button className="btn" onClick={async () => { const { error } = await sb.from("orders").update({ collected_amount: amt === "" ? null : Number(amt) }).eq("id", o.id); setAmsg(error ? error.message : "সেভ হয়েছে ✓"); }}>সেভ</button>
+              {amsg && <span className="ok small">{amsg}</span>}</div>
+          </div>}
         </div>
       </div>
       {pv && <ParcelView o={{ ...o, items: o.order_items, parcel: p }} onClose={() => setPv(false)} />}

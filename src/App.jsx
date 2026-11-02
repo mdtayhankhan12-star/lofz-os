@@ -229,8 +229,9 @@ function Dashboard({ isOwner, t, go }) {
         const m0s = `${m0.getFullYear()}-${String(m0.getMonth() + 1).padStart(2, "0")}-01`;
         const { data: e } = await sb.from("expenses").select("amount_bdt").gte("expense_date", m0s);
         exp = (e ?? []).reduce((a, r) => a + Number(r.amount_bdt), 0);
-        const { data: mo } = await sb.from("orders").select("subtotal,discount").in("status", ["delivered", "received"]).gte("order_date", m0s + "T00:00:00+06:00");
-        profit = (mo ?? []).reduce((a, r) => a + Number(r.subtotal) - Number(r.discount), 0) - exp;
+        const todayD = new Date(Date.now() + 6 * 3600e3).toISOString().slice(0, 10);
+        const { data: pl } = await sb.rpc("pnl", { p_from: m0s, p_to: todayD });
+        profit = pl ? Math.round(pl.profit) : null; exp = pl ? Math.round(pl.costs) : exp;
       }
       let sf = null;
       if (isOwner) { try { sf = (await fnCall("steadfast", { action: "balance" })).balance ?? null; } catch {} }
@@ -272,7 +273,7 @@ function Dashboard({ isOwner, t, go }) {
         {isOwner && <S k="profit_month" v={tk(d.profit)} to={() => go("finance")} />}
         {isOwner && <S k="sf_balance" w2 v={d.sf == null ? "..." : tk(d.sf)} to={() => go("parcels_pending")} />}
       </div>
-      <p className="note"><i>i</i><span>Delivered = আজ কাস্টমার পার্সেল নিয়েছে · Return = আজ পার্সেল ফেরত এসেছে (আংশিক ডেলিভারিও Return) · Cancel = কল করে আপনারা বাতিল করেছেন। লাভ গোনা হয় শুধু Delivered/টাকা পাওয়া অর্ডার থেকে; Cancel আর Return লাভে যোগ হয় না।</span></p>
+      <p className="note"><i>i</i><span>Delivered = আজ কাস্টমার পার্সেল নিয়েছে · Return = আজ পার্সেল ফেরত এসেছে (আংশিক ডেলিভারিও Return) · Cancel = কল করে আপনারা বাতিল করেছেন। এই মাসের লাভ = আয় (Delivered + Partial + ডেলিভারি চার্জ) − Steadfast চার্জ − Return চার্জ − কারখানা − Ads। পুরো হিসাব লাভ-ক্ষতি পেজে।</span></p>
       {late && <div className="card pconly late">
         <div className="row" style={{ justifyContent: "space-between" }}><h2>⏰ ৫ দিনের বেশি পড়ে আছে ({late.length})</h2><span className="muted small">Cancel বা Steadfast-এ না পাঠানো পর্যন্ত এখানে থাকবে</span></div>
         {!late.length ? <p className="muted">🎉 কোনো অর্ডার ৫ দিনের বেশি আটকে নেই।</p> : <div className="ltab">

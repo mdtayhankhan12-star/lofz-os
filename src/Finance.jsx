@@ -21,12 +21,16 @@ export default function Finance() {
   const [orders, setOrders] = useState(null); const [exps, setExps] = useState([]);
   const [e, setE] = useState({ month: iso(new Date()).slice(0, 7), platform: "facebook", amount_usd: "", usd_rate: "", amount_bdt: "" });
   const [err, setErr] = useState("");
+  const [pl, setPl] = useState(null);
+  const [rates, setRates] = useState(null); const [rmsg, setRmsg] = useState("");
 
   const load = async () => {
     const { data: o } = await sb.from("orders").select("source,status,subtotal,discount,total,order_date")
       .gte("order_date", from + "T00:00:00+06:00").lte("order_date", to + "T23:59:59+06:00");
     const { data: x } = await sb.from("expenses").select("*").gte("expense_date", from.slice(0, 8) + "01").lte("expense_date", to).order("expense_date", { ascending: false });
     setOrders(o ?? []); setExps(x ?? []);
+    const { data: p } = await sb.rpc("pnl", { p_from: from, p_to: to }); setPl(p);
+    if (!rates) setRates(p?.rates ?? { dhaka: 80, outside: 150, return_pct: 100, cod_pct: 1 });
   };
   useEffect(() => { load(); }, [from, to]);
   const pick = (k) => { setKind(k); const r = range(k); if (r) setRange(r); };
@@ -94,15 +98,52 @@ export default function Finance() {
         <button className="chip" onClick={() => window.print()}>🖨️ PDF</button>
       </div>
 
+      {pl && <div className="card ledger">
+        <div className="row" style={{ justifyContent: "space-between" }}><h2>📒 লাভ-ক্ষতির পুরো হিসাব</h2><span className="muted small">{from} থেকে {to}</span></div>
+        <div className={"lnet " + (pl.profit >= 0 ? "good" : "bad")}><span>{pl.profit >= 0 ? "নিট লাভ" : "নিট লস"}</span><b>{tk(pl.profit)}</b></div>
+        <div className="lgrid">
+          <div>
+            <h3>➕ আয়</h3>
+            <div className="lrow"><span>জুতা বিক্রি ({pl.n_delivered}টা Delivered)</span><b>{tk(pl.shoe_sales)}</b></div>
+            <div className="lrow"><span>কাস্টমারের দেওয়া ডেলিভারি চার্জ</span><b>{tk(pl.delivery_income)}</b></div>
+            <div className="lrow"><span>Partial থেকে পাওয়া টাকা ({pl.n_partial}টা)</span><b>{tk(pl.partial_income)}</b></div>
+            <div className="lrow tot"><span>মোট আয়</span><b>{tk(pl.income)}</b></div>
+          </div>
+          <div>
+            <h3>➖ খরচ</h3>
+            <div className="lrow"><span>Steadfast ডেলিভারি চার্জ</span><b>{tk(pl.courier_charge)}</b></div>
+            <div className="lrow"><span>Return চার্জ ({pl.n_returned}টা Return)</span><b>{tk(pl.return_charge)}</b></div>
+            <div className="lrow"><span>COD চার্জ ({rates?.cod_pct ?? 1}%)</span><b>{tk(Math.round(pl.cod_charge))}</b></div>
+            <div className="lrow"><span>কারখানার খরচ</span><b>{tk(pl.factory)}</b></div>
+            <div className="lrow"><span>Facebook Ads</span><b>{tk(Math.round(pl.ads))}</b></div>
+            <div className="lrow tot"><span>মোট খরচ</span><b>{tk(Math.round(pl.costs))}</b></div>
+          </div>
+        </div>
+        <div className="lnote">
+          <span>📦 মোট অর্ডার {pl.total_orders} · ⏳ এখনো পথে/বানানো বাকি {pl.n_open}টা ({tk(pl.open_value)}, লাভে যোগ হয়নি) · ❌ Cancel {pl.n_cancelled}টা (লাভ-ক্ষতিতে নেই)</span>
+          {pl.partial_missing > 0 && <span className="err">⚠️ {pl.partial_missing}টা Partial অর্ডারে কাস্টমার কত টাকা দিয়েছে লেখা নেই। অর্ডারের 👁️ দেখুন থেকে লিখে দিন।</span>}
+          <span className="muted">Steadfast চার্জ: Webhook থেকে আসল চার্জ এলে সেটা, না এলে নিচের রেট দিয়ে আন্দাজ।</span>
+        </div>
+      </div>}
+
+      {rates && <form className="card noprint" onSubmit={async (ev) => { ev.preventDefault(); setRmsg("");
+          const v = Object.fromEntries(Object.entries(rates).map(([k, x]) => [k, Number(x)]));
+          const { error } = await sb.from("app_settings").upsert({ key: "courier_rates", value: v, updated_at: new Date().toISOString() });
+          setRmsg(error ? error.message : "সেভ হয়েছে ✓"); load(); }}>
+        <h2>🚚 Steadfast চার্জের রেট</h2>
+        <p className="muted small">Steadfast আপনার কাছ থেকে যা কাটে সেটা লিখুন। আসল চার্জ Webhook থেকে এলে সেটাই ধরা হবে, না এলে এই রেট।</p>
+        <div className="form3">
+          <label>ঢাকার ভিতরে (প্রতি পার্সেল ৳)<input type="number" min={0} value={rates.dhaka} onChange={(e) => setRates({ ...rates, dhaka: e.target.value })} /></label>
+          <label>ঢাকার বাইরে (প্রতি পার্সেল ৳)<input type="number" min={0} value={rates.outside} onChange={(e) => setRates({ ...rates, outside: e.target.value })} /></label>
+          <label>Return হলে চার্জ (ডেলিভারি চার্জের %)<input type="number" min={0} value={rates.return_pct} onChange={(e) => setRates({ ...rates, return_pct: e.target.value })} /></label>
+          <label>COD চার্জ (%)<input type="number" min={0} step="0.1" value={rates.cod_pct} onChange={(e) => setRates({ ...rates, cod_pct: e.target.value })} /></label>
+        </div>
+        <button className="btn">রেট সেভ করুন</button> {rmsg && <span className="ok small">{rmsg}</span>}
+      </form>}
+
       <div className="grid">
-        <S l="Net Profit / Loss" v={tk(net)} cls={net >= 0 ? "accent" : "loss"} />
-        <S l="বিক্রি (Delivered + Received)" v={tk(all.sales)} />
-        <S l="মোট খরচ" v={tk(totalExp)} />
-        <S l="পথে থাকা সম্ভাব্য বিক্রি" v={tk(all.pending)} />
         <S l="মোট অর্ডার" v={all.orders} /><S l="টাকা হাতে (Received)" v={all.received} />
         <S l="Return" v={all.returned} /><S l="Cancel" v={all.cancelled} />
-        {Object.entries(CATS).map(([k, l]) => <S key={k} l={l} v={tk(byCat[k])} />)}
-        {byCat.artisan + byCat.other > 0 && <S l="অন্যান্য (পুরনো এন্ট্রি)" v={tk(byCat.artisan + byCat.other)} />}
       </div>
 
       <div className="card">

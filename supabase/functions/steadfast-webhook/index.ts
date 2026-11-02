@@ -29,8 +29,14 @@ Deno.serve(async (req) => {
     orderId = o?.id ?? null;
   }
   if (st && orderId) {
-    if (parcel) await admin.from("parcels").update({ delivery_status: st, updated_at: new Date().toISOString() }).eq("id", parcel.id);
-    else await admin.from("parcels").insert({ order_id: orderId, consignment_id: cid, delivery_status: st, raw: b });
+    // Steadfast-এর আসল চার্জ আর কাস্টমারের দেওয়া টাকা (COD) — লাভ-ক্ষতির জন্য
+    const charge = b.delivery_charge != null && !isNaN(Number(b.delivery_charge)) ? Number(b.delivery_charge) : undefined;
+    const prow: Record<string, unknown> = { delivery_status: st, updated_at: new Date().toISOString() };
+    if (charge !== undefined) prow.sf_charge = charge;
+    if (parcel) await admin.from("parcels").update(prow).eq("id", parcel.id);
+    else await admin.from("parcels").insert({ order_id: orderId, consignment_id: cid, raw: b, ...prow });
+    if (["delivered", "partial_delivered"].includes(st) && b.cod_amount != null && !isNaN(Number(b.cod_amount)))
+      await admin.from("orders").update({ collected_amount: Number(b.cod_amount) }).eq("id", orderId);
     const ns = FINAL[st];
     if (ns) {
       const { data: o } = await admin.from("orders").select("status").eq("id", orderId).single();
