@@ -211,12 +211,18 @@ export default function Expenses({ isOwner }) {
               );
             })}
           </div>
-          <div className="xsum">
-            <span>💵 নগদ খরচ <b>{tk(cashExp)}</b></span>
-            <span>📝 বাকিতে আনা <b>{tk(credit)}</b></span>
-            <span className="g">− পরিশোধ <b>{tk(paid)}</b></span>
-            <span className="t">মোট খরচ (লাভ-ক্ষতিতে যাবে) <b>{tk(cashExp + credit)}</b></span>
-            <span className="t">ক্যাশ থেকে গেছে <b>{tk(cashExp + paid)}</b></span>
+          <div className="xtot2">
+            <div className="xbig">
+              <small>{vIsToday ? "আজকের মোট খরচ" : "মোট খরচ"}</small>
+              <b>{tk(cashExp + credit)}</b>
+              <em>নগদ + বাকিতে আনা · লাভ-ক্ষতিতে এটাই যাবে</em>
+            </div>
+            <div className="xminis">
+              <div className="xmini"><span>💵</span><small>নগদ খরচ</small><b>{tk(cashExp)}</b></div>
+              <div className="xmini due"><span>📝</span><small>বাকিতে আনা</small><b>{tk(credit)}</b></div>
+              <div className="xmini pay"><span>↩</span><small>বাকি পরিশোধ</small><b>− {tk(paid)}</b></div>
+              <div className="xmini cash"><span>👛</span><small>ক্যাশ থেকে গেছে</small><b>{tk(cashExp + paid)}</b></div>
+            </div>
           </div>
         </>}
       </div>

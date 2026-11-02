@@ -507,3 +507,13 @@ img{content-visibility:auto}
 :root[data-theme="dark"] .xrow.xpay{background:#0f2a22}:root[data-theme="dark"] .cf.in{background:#0f2a22;color:#7fe0bc}:root[data-theme="dark"] .cf.out{background:#3a1520;color:#f5a3b6}
 :root[data-theme="dark"] .duecard.has{background:#2a1419}
 @media (max-width:760px){.cashtop{grid-template-columns:1fr 1fr}.cbal b{font-size:22px}.cbal{padding:14px}}
+
+.xtot2{display:grid;grid-template-columns:minmax(220px,1fr) 2fr;gap:14px;margin-top:14px;align-items:stretch}
+.xbig{border-radius:20px;padding:18px 20px;color:#fff;background:linear-gradient(135deg,#8E2C3F,#c9566c);box-shadow:0 16px 30px -18px #8E2C3F;display:flex;flex-direction:column;justify-content:center;gap:2px}
+.xbig small{font-weight:700;opacity:.9;font-size:14px}.xbig b{font-size:38px;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.1}.xbig em{font-style:normal;font-size:12px;opacity:.85}
+.xminis{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.xmini{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:10px;align-items:center;padding:10px 14px;border-radius:16px;border:1px solid var(--line);background:var(--card)}
+.xmini span{grid-row:span 2;width:36px;height:36px;border-radius:11px;display:grid;place-items:center;font-size:17px;background:var(--bg)}
+.xmini small{color:var(--muted);font-weight:700;font-size:12.5px}.xmini b{font-size:19px;font-variant-numeric:tabular-nums}
+.xmini.due b{color:#d0284f}.xmini.pay b{color:#178a5c}.xmini.cash span{background:#fff3d6}
+@media (max-width:760px){.xtot2{grid-template-columns:1fr}.xbig b{font-size:32px}}
