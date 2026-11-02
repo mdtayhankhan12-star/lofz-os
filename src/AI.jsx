@@ -4,7 +4,7 @@ import { SUPABASE_URL, SUPABASE_KEY, sb } from "./lib.js";
 // শুধু Owner দেখবে। প্রশ্ন ও মোট সংখ্যা Edge Function দিয়ে Gemini-তে যায়; কাস্টমারের নাম/ফোন যায় না।
 const SUGG = ["এই মাসে কোন জুতা সবচেয়ে বেশি বিক্রি হলো?", "কোন জিনিসে সবচেয়ে বেশি খরচ হচ্ছে, কী করে কমানো যায়?", "Website আর Facebook-এর মধ্যে কোনটা ভালো করছে?", "Delivery সাকসেস রেট কেমন, কী উন্নতি করা যায়?"];
 
-export default function AI() {
+export default function AI({ compact }) {
   const [q, setQ] = useState(""); const [a, setA] = useState(""); const [busy, setBusy] = useState(false); const [err, setErr] = useState("");
   const ask = async (text) => {
     const question = (text ?? q).trim(); if (!question) return;
@@ -21,9 +21,9 @@ export default function AI() {
   };
   return (
     <div className="stack">
-      <div className="card">
-        <h2>🤖 AI সহকারী</h2>
-        <p className="muted small">গত ৩০ দিনের মোট হিসাব (অর্ডার, খরচ, সাকসেস রেট) দেখে বাংলায় উত্তর দেবে। কাস্টমারের নাম বা ফোন নম্বর পাঠানো হয় না।</p>
+      <div className={compact ? "" : "card"}>
+        {!compact && <h2>🤖 AI সহকারী</h2>}
+        {!compact && <p className="muted small">গত ৩০ দিনের মোট হিসাব (অর্ডার, খরচ, সাকসেস রেট) দেখে বাংলায় উত্তর দেবে। কাস্টমারের নাম বা ফোন নম্বর পাঠানো হয় না।</p>}
         <div className="sugg">{SUGG.map((s) => <button key={s} className="chip" disabled={busy} onClick={() => { setQ(s); ask(s); }}>{s}</button>)}</div>
         <form className="row" style={{ marginTop: 12 }} onSubmit={(e) => { e.preventDefault(); ask(); }}>
           <input className="grow" placeholder="নিজের প্রশ্ন লিখুন..." value={q} onChange={(e) => setQ(e.target.value)} />
@@ -31,7 +31,7 @@ export default function AI() {
         </form>
         {err && <p className="err" style={{ marginTop: 10 }}>{err}</p>}
       </div>
-      {a && <div className="card aians"><div className="aitxt">{a}</div></div>}
+      {a && <div className={compact ? "aians" : "card aians"}><div className="aitxt">{a}</div></div>}
     </div>
   );
 }

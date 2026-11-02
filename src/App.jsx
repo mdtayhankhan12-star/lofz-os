@@ -141,6 +141,7 @@ function Shell({ profile, prefs }) {
   const [preset, setPreset] = useState(null);
   const [phone, setPhone] = useState("");
   const [more, setMore] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
   const go = (k, arg) => { setPage(k); ls.set("lofz_page", k); setMore(false); if (k === "orders") setPreset(arg ?? null); if (k === "risk") setPhone(arg ?? ""); window.scrollTo(0, 0); };
   const cur = items.find(([k]) => k === page) ? page : "dashboard";
   const t = (k) => tr(prefs.lang, k);
@@ -183,6 +184,10 @@ function Shell({ profile, prefs }) {
         ))}
         <button className={items.slice(4).some(([k]) => k === cur) ? "on" : ""} onClick={() => setMore(!more)}><span>☰</span><small>আরো</small></button>
       </nav>
+      {isOwner && <>
+        <button className="aifab" onClick={() => setAiOpen(!aiOpen)} title="AI সহকারী">{aiOpen ? "✕" : "🤖"}</button>
+        {aiOpen && <div className="aipanel"><div className="aiphd"><b>🤖 AI সহকারী</b><button className="chip" onClick={() => setAiOpen(false)}>বন্ধ</button></div><div className="aibody"><AI compact /></div></div>}
+      </>}
       {more && <div className="moresheet" onClick={() => setMore(false)}><div className="card" onClick={(e) => e.stopPropagation()}>
         {items.slice(4).map(([k, ic]) => <button key={k} className={"mitem" + (cur === k ? " on" : "")} onClick={() => go(k)}><span>{ic}</span>{t(k)}</button>)}
       </div></div>}

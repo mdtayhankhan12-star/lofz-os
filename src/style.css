@@ -324,3 +324,12 @@ button.stat:hover{transform:translateY(-3px);box-shadow:0 22px 40px -20px #8E1F3
 .sugg{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
 .aians{border-left:6px solid var(--acc)}
 .aitxt{white-space:pre-wrap;font-size:15.5px;line-height:1.75}
+/* ===== ভাসমান AI বাটন (ফোন ও পিসি) ===== */
+.aifab{position:fixed;right:20px;bottom:24px;z-index:70;width:58px;height:58px;border-radius:50%;border:0;font-size:26px;color:#fff;background:linear-gradient(135deg,var(--acc),var(--acc-d));box-shadow:0 14px 30px -8px var(--acc);cursor:pointer;display:grid;place-items:center}
+.aipanel{position:fixed;right:20px;bottom:96px;z-index:70;width:min(420px,calc(100vw - 40px));max-height:70vh;display:flex;flex-direction:column;background:var(--card);backdrop-filter:blur(20px);border:1px solid #ffffffc0;border-radius:22px;box-shadow:0 30px 60px -20px #8E1F3D;overflow:hidden}
+.aiphd{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line)}
+.aibody{overflow:auto;padding:14px}
+.aibody .sugg .chip{font-size:12.5px;padding:6px 10px}
+.aibody .aians{margin-top:12px;padding:12px;box-shadow:none;border-radius:14px}
+.aibody .aitxt{font-size:14.5px}
+@media (max-width:760px){.aifab{bottom:96px;right:14px;width:54px;height:54px}.aipanel{right:10px;left:10px;width:auto;bottom:160px;max-height:62vh}}
