@@ -21,12 +21,41 @@ export async function upload(file) {
 
 const blankItem = () => ({ product_name: "", size: "", quantity: 1, price: "", image_url: "", up: false });
 
+// অর্ডারের লেখা (যেমন: নাম, ঠিকানা, ফোন, Size, colour, Bill) থেকে ফর্ম ভরে দেয়। সেভ হয় না, আপনি দেখে নিয়ে সেভ করবেন।
+export function parseOrderText(text) {
+  const raw = String(text || "");
+  const lines = raw.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  const bn = (x) => x.replace(/[০-৯]/g, (d) => "০১২৩৪৫৬৭৮৯".indexOf(d));
+  const t = bn(raw);
+  const phoneM = t.replace(/[\s-]/g, "").match(/(?:\+?88)?(01[3-9]\d{8})/);
+  const phone = phoneM ? phoneM[1] : "";
+  const size = (t.match(/size\s*[-:=]?\s*([0-9A-Za-z]+)/i) || [])[1] || "";
+  const colour = ((t.match(/colou?r\s*[-:=]?\s*([^\n,;]+)/i) || [])[1] || "").trim();
+  const bill = Number((t.match(/bill\s*[-:=]?\s*(\d+)/i) || [])[1] || 0);
+  const isOther = (l) => /size|colou?r|bill|total|price/i.test(l) || l.replace(/[\s+-]/g, "").match(/^(?:88)?01\d{9}$/);
+  const rest = lines.filter((l) => !isOther(l));
+  const name = (rest[0] || "").slice(0, 80);
+  const address = rest.slice(1).join(", ").replace(/,\s*,/g, ",").replace(/[,\s]+$/, "");
+  const dhaka = /ঢাকা|dhaka/i.test(address + " " + name) && !/ঢাকার বাইরে/i.test(address);
+  return { phone, name, address, size, colour, price: bill, delivery: dhaka ? 80 : 150 };
+}
+
 export default function NewOrder({ onCreated, book }) {
   const [doBook, setDoBook] = useState(!!book);
   const [c, setC] = useState({ name: "", phone: "", address: "", delivery_charge: 80, discount: 0, note: "" });
   const [items, setItems] = useState([blankItem()]);
   const [err, setErr] = useState(""); const [busy, setBusy] = useState(false);
   const [hist, setHist] = useState(null);
+  const [paste, setPaste] = useState("");
+  const [pmsg, setPmsg] = useState("");
+  const fillFromText = async () => {
+    const p = parseOrderText(paste);
+    if (!p.phone && !p.name) return setPmsg("লেখা থেকে ফোন বা নাম খুঁজে পাইনি। আরেকটু পরিষ্কার করে পেস্ট করুন।");
+    setC((x) => ({ ...x, phone: p.phone || x.phone, name: p.name || x.name, address: p.address || x.address, delivery_charge: p.delivery, note: p.colour ? `Colour: ${p.colour}` : x.note }));
+    setItems((xs) => [{ ...xs[0], size: p.size || xs[0].size, price: p.price || xs[0].price, quantity: 1 }, ...xs.slice(1)]);
+    setPmsg(`ভরা হয়েছে: ${[p.phone && "ফোন", p.name && "নাম", p.address && "ঠিকানা", p.size && "সাইজ", p.colour && "রং", p.price && "দাম"].filter(Boolean).join(", ")}। জুতার নাম ও ছবি নিজে যোগ করুন, তারপর সেভ করুন।`);
+    if (p.phone) checkPhone();
+  };
 
   const setItem = (k, v) => setItems((xs) => xs.map((x, i) => (i === k ? { ...x, ...v } : x)));
   const sub = items.reduce((a, i) => a + Number(i.quantity || 0) * Number(i.price || 0), 0);
@@ -67,6 +96,11 @@ export default function NewOrder({ onCreated, book }) {
     <form className="stack" onSubmit={submit}>
       <div className="card">
         <h2>নতুন Facebook অর্ডার</h2>
+        <details className="paster" open>
+          <summary>🪄 অর্ডারের লেখা পেস্ট করে নিজে ভরুন</summary>
+          <textarea rows={4} placeholder={"যেমন:\nDipu\nNobinbag, Gopalgonj sadar, Gopalgonj.\n01883110781\nSize-36, colour -black\nBill:150 taka"} value={paste} onChange={(e) => setPaste(e.target.value)} />
+          <div className="row"><button type="button" className="btn" disabled={!paste.trim()} onClick={fillFromText}>ফর্মে বসান</button>{pmsg && <span className="ok small">{pmsg}</span>}</div>
+        </details>
         <div className="form3">
           <label>ফোন নম্বর<input required inputMode="tel" value={c.phone} onBlur={checkPhone} onChange={(e) => setC({ ...c, phone: e.target.value })} /></label>
           <label>কাস্টমারের নাম<input required value={c.name} onChange={(e) => setC({ ...c, name: e.target.value })} /></label>

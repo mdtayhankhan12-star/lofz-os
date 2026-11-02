@@ -340,3 +340,6 @@ body::before{background-size:100% 100%}
 .card,.stat,.aipanel,.gsearch,.help,.bellp{will-change:auto}
 img{content-visibility:auto}
 @media (max-width:760px){body::before{height:30vh}}
+.paster{border:1px dashed var(--acc);border-radius:14px;padding:10px 12px;margin-bottom:12px;background:#9B1B3F08}
+.paster summary{cursor:pointer;font-weight:800;color:var(--acc)}
+.paster textarea{width:100%;margin:8px 0;border-radius:12px;border:1.5px solid var(--line);padding:10px;font:inherit;background:var(--card);color:var(--fg)}
