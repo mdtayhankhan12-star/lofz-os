@@ -36,7 +36,77 @@ export async function statsFor(phones) {
 
 export default function Parcels({ tab, phone, isOwner, go }) {
   if (tab === "risk") return <Risk key={phone} initial={phone} />;
+  if (tab === "returns") return <ReturnList />;
   return <ParcelList pendingOnly={tab === "parcels_pending"} isOwner={isOwner} go={go} />;
+}
+
+// Steadfast থেকে ফেরত আসা জুতার তালিকা: ছবি, সাইজ, রং, কয়টা — স্টক মেলানোর জন্য
+const RET = ["cancelled", "cancelled_approval_pending", "partial_delivered", "partial_delivered_approval_pending"];
+export function ReturnList() {
+  const [rows, setRows] = useState(null); const [f, setF] = useState("");
+  useEffect(() => {
+    sb.from("parcels").select("id,consignment_id,tracking_code,delivery_status,updated_at,orders(id,order_no,customer_name,phone,source,order_items(product_name,size,color,quantity,image_url))")
+      .in("delivery_status", RET).order("updated_at", { ascending: false }).limit(500)
+      .then(({ data }) => setRows(data ?? []));
+  }, []);
+  const full = (r) => r.delivery_status.startsWith("cancelled");
+  const list = (rows ?? []).filter((r) => r.orders && (!f || (f === "full" ? full(r) : !full(r))));
+  const sum = {};
+  for (const r of list) for (const i of r.orders.order_items ?? []) {
+    const k = [i.product_name, i.size, i.color].join("|");
+    sum[k] ??= { name: i.product_name, size: i.size, color: i.color, img: i.image_url, n: 0 };
+    sum[k].n += Number(i.quantity || 1);
+  }
+  const groups = Object.values(sum).sort((a, b) => b.n - a.n);
+  const pieces = groups.reduce((a, g) => a + g.n, 0);
+  return (
+    <div className="stack">
+      <div className="card filters">
+        <button className={"chip" + (!f ? " sel" : "")} onClick={() => setF("")}>সব ({rows?.length ?? 0})</button>
+        <button className={"chip" + (f === "full" ? " sel" : "")} onClick={() => setF("full")}>পুরো Return</button>
+        <button className={"chip" + (f === "partial" ? " sel" : "")} onClick={() => setF("partial")}>Partial</button>
+      </div>
+      <p className="note"><i>i</i><span>Steadfast-এ Return/Cancel হওয়া পার্সেলের জুতা। নিচের ঘরে মোট কয়টা জোড়া আসছে তা সাইজ ও রংসহ দেখুন। Partial-এ কোন জোড়া ফেরত আসছে তা Steadfast-এ যাচাই করে নিন, কারণ অ্যাপে কাস্টমার কী রেখেছেন তা আলাদা করে লেখা থাকে না।</span></p>
+      {!rows ? <div className="card">লোড হচ্ছে...</div> : !list.length ? <div className="card muted">এখন কোনো Return পার্সেল নেই।</div> : (
+        <>
+          <div className="card">
+            <h2>স্টক মেলানোর তালিকা — মোট {pieces} জোড়া</h2>
+            <div className="sgrid" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(130px,1fr))", gap: 10, marginTop: 10 }}>
+              {groups.map((g) => (
+                <div key={g.name + g.size + g.color} className="scell">
+                  {g.img ? <img src={g.img} alt="" style={{ width: "100%", borderRadius: 8 }} /> : <div className="sph">ছবি নেই</div>}
+                  <div className="sname">{g.name}</div>
+                  <div className="ssize">Size: {g.size ?? "—"}{g.color ? ` · ${g.color}` : ""}</div>
+                  <b>{g.n} জোড়া</b>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="olist">
+            {list.map((r) => { const o = r.orders; return (
+              <div key={r.id} className="card orow">
+                <div className="grow">
+                  <div className="row"><b>{o.order_no}</b>{r.consignment_id && <span className="badge">Parcel #{r.consignment_id}</span>}
+                    <span className={"badge " + (o.source === "facebook" ? "fb" : "web")}>{o.source === "facebook" ? "Facebook" : "Website"}</span>
+                    <span className={"badge " + (full(r) ? "bad" : "warn")}>{full(r) ? "পুরো Return" : "Partial"}</span></div>
+                  <div><b>{o.customer_name}</b> · {o.phone}</div>
+                  {(o.order_items ?? []).map((i, k) => (
+                    <div key={k} className="row" style={{ marginTop: 6 }}>
+                      {i.image_url ? <img src={i.image_url} alt="" style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 8 }} /> : <div className="pbox">👟</div>}
+                      <div className="grow"><b>{i.product_name}</b><div className="small">Size: {i.size ?? "—"}{i.color ? ` · ${i.color}` : ""} · {i.quantity} জোড়া</div></div>
+                    </div>
+                  ))}
+                </div>
+                <div className="oright">
+                  <span className={"badge " + stCls(r.delivery_status)}>{ST_BN[r.delivery_status] ?? r.delivery_status}</span>
+                  {r.tracking_code && <a className="chip" href={trackUrl(r.tracking_code)} target="_blank" rel="noopener">ট্র্যাক</a>}
+                </div>
+              </div>); })}
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 function ParcelList({ pendingOnly, isOwner, go }) {

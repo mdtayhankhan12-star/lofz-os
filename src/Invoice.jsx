@@ -10,6 +10,13 @@ export async function loadOrders(ids) {
   return ids.map((i) => byId[i]).filter(Boolean);
 }
 
+// প্রিন্ট বাটনে ক্লিক করলে কোন অর্ডারের ইনভয়েস/শিট বের হলো তা সেভ থাকে
+export async function markPrinted(ids, col) {
+  if (!ids?.length) return;
+  const { error } = await sb.from("orders").update({ [col]: new Date().toISOString() }).in("id", ids);
+  return error;
+}
+
 const d2 = (s) => { const d = new Date(s); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`; };
 
 export function InvoiceSheet({ o }) {
@@ -73,7 +80,7 @@ export function PrintView({ ids, onClose }) {
   return (
     <div className="printwrap">
       <div className="row noprint">
-        <button className="btn" onClick={() => window.print()}>🖨️ Print / PDF</button>
+        <button className="btn" onClick={() => { markPrinted(ids, "invoice_printed_at"); window.print(); }}>🖨️ Print / PDF</button>
         <button className="chip" onClick={onClose}>← ফিরে যান</button>
         <span className="muted small">{list.length}টা ইনভয়েস · {pages.length} পাতা · PDF চাইলে প্রিন্টারে “Save as PDF” বাছুন</span>
       </div>

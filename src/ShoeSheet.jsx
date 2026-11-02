@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { loadOrders } from "./Invoice.jsx";
+import { loadOrders, markPrinted } from "./Invoice.jsx";
 
 // কারিগরের A4 শিট: প্রতি পাতায় ১২টা জুতা (৩ কলাম × ৪ সারি)।
 // প্রতি জোড়া আলাদা ঘর; Website আর Facebook কখনো এক পাতায় মেশে না।
@@ -22,7 +22,7 @@ export default function ShoeSheet({ ids, onClose }) {
   return (
     <div className="printwrap">
       <div className="row noprint">
-        <button className="btn" onClick={() => window.print()}>🖨️ Print / PDF</button>
+        <button className="btn" onClick={() => { markPrinted(ids, "sheet_printed_at"); window.print(); }}>🖨️ Print / PDF</button>
         <button className="chip" onClick={onClose}>← ফিরে যান</button>
         {skipped > 0 && <span className="err small">{skipped}টা অর্ডার Confirmed না হওয়ায় বাদ গেছে · </span>}<span className="muted small">Website {cells.website.length} জোড়া · Facebook {cells.facebook.length} জোড়া · {pages.length} পাতা</span>
       </div>

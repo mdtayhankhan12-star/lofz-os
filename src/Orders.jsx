@@ -39,6 +39,8 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
   const [ret, setRet] = useState({});
   const [edit, setEdit] = useState(null);
   const [view, setView] = useState(null);
+  const [cf, setCf] = useState({ from: "", to: "" }); // Confirmed ট্যাবের তারিখ
+  const [pr, setPr] = useState({ inv: "", sheet: "" }); // ইনভয়েস/শিট প্রিন্ট হয়েছে কি না
 
   const load = async () => {
     let q = sb.from("orders")
@@ -57,14 +59,23 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
     setRows(list); setSel([]); setRet(await statsFor(list.map((r) => r.phone)));
   };
   const loadInbox = async () => {
-    const { data } = await sb.from("orders")
-      .select("id,order_no,source,order_date,customer_name,phone,address,total,status,possible_duplicate,order_items(product_name,image_url,size,color,quantity),parcels(consignment_id,tracking_code,delivery_status)")
-      .match(mode === "confirmed" ? { status: "confirmed" } : { source: "website", status: "pending" })
-      .order("order_date", { ascending: false }).limit(300);
-    setRows(data ?? []); if (mode === "inbox") setInboxN((data ?? []).length); setSel([]);
-    setRet(await statsFor((data ?? []).map((r) => r.phone)));
+    let q = sb.from("orders")
+      .select("id,order_no,source,order_date,customer_name,phone,address,total,status,possible_duplicate,invoice_printed_at,sheet_printed_at,order_items(product_name,image_url,size,color,quantity),parcels(consignment_id,tracking_code,delivery_status)")
+      .match(mode === "confirmed" ? { status: "confirmed" } : { source: "website", status: "pending" });
+    if (mode === "confirmed") {
+      if (cf.from) q = q.gte("order_date", cf.from + "T00:00:00+06:00");
+      if (cf.to) q = q.lte("order_date", cf.to + "T23:59:59+06:00");
+    }
+    const { data } = await q.order("order_date", { ascending: false }).limit(300);
+    let list = data ?? [];
+    if (mode === "confirmed") {
+      if (pr.inv) list = list.filter((r) => (pr.inv === "yes") === !!r.invoice_printed_at);
+      if (pr.sheet) list = list.filter((r) => (pr.sheet === "yes") === !!r.sheet_printed_at);
+    }
+    setRows(list); if (mode === "inbox") setInboxN(list.length); setSel([]);
+    setRet(await statsFor(list.map((r) => r.phone)));
   };
-  useEffect(() => { mode === "all" ? load() : loadInbox(); }, [mode, f.source, f.status, f.from, f.to, revenue]);
+  useEffect(() => { mode === "all" ? load() : loadInbox(); }, [mode, f.source, f.status, f.from, f.to, revenue, cf.from, cf.to, pr.inv, pr.sheet]);
   useEffect(() => { sb.from("orders").select("id", { count: "exact", head: true }).eq("source", "website").eq("status", "pending").then(({ count }) => setInboxN(count ?? 0)); }, []);
   const decide = async (r, status) => {
     if (status === "cancelled" && r.status === "confirmed" && !confirm(`${r.order_no} — ${r.customer_name}: Confirmed অর্ডার Cancel করবেন?`)) return;
@@ -121,6 +132,17 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
         <button className={"tab" + (mode === "confirmed" ? " on" : "")} onClick={() => setMode("confirmed")}>✅ Confirmed (বানানো/পাঠানো বাকি)</button>
         <button className={"tab" + (mode === "all" ? " on" : "")} onClick={() => setMode("all")}>📋 সব অর্ডার</button>
       </div>
+      {mode === "confirmed" && <div className="card filters">
+        <input type="date" value={cf.from} onChange={(e) => setCf({ ...cf, from: e.target.value })} title="কোন তারিখ থেকে" />
+        <input type="date" value={cf.to} onChange={(e) => setCf({ ...cf, to: e.target.value })} title="কোন তারিখ পর্যন্ত" />
+        <select value={pr.inv} onChange={(e) => setPr({ ...pr, inv: e.target.value })}>
+          <option value="">ইনভয়েস: সব</option><option value="no">ইনভয়েস বাকি</option><option value="yes">ইনভয়েস হয়ে গেছে</option>
+        </select>
+        <select value={pr.sheet} onChange={(e) => setPr({ ...pr, sheet: e.target.value })}>
+          <option value="">কারিগর শিট: সব</option><option value="no">শিট বাকি</option><option value="yes">শিট হয়ে গেছে</option>
+        </select>
+        <button className="chip" onClick={() => { setCf({ from: "", to: "" }); setPr({ inv: "", sheet: "" }); }}>সব দেখান</button>
+      </div>}
       {mode !== "all" ? <>
         <div className="row">
           <span className="muted small">কাস্টমারের সাথে কথা বলে Confirm বা Cancel করুন। শুধু Confirmed অর্ডার কারিগর শিট ও ইনভয়েসে যায়।</span>
@@ -143,6 +165,10 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
                     {r.possible_duplicate && <span className="badge bad">সম্ভাব্য ডুপ্লিকেট</span>}
                   </div>
                   <div><b>{r.customer_name}</b> · {r.phone}</div>
+                  {mode === "confirmed" && <div className="row" style={{ margin: "4px 0" }}>
+                    <span className={"badge " + (r.invoice_printed_at ? "good" : "warn")}>{r.invoice_printed_at ? "ইনভয়েস ✓ " + bnTime(r.invoice_printed_at) : "ইনভয়েস বাকি"}</span>
+                    <span className={"badge " + (r.sheet_printed_at ? "good" : "warn")}>{r.sheet_printed_at ? "শিট ✓ " + bnTime(r.sheet_printed_at) : "শিট বাকি"}</span>
+                  </div>}
                   <small className="muted">{r.address}</small><br />
                   <small>{(r.order_items ?? []).map((i) => `${i.product_name} · সাইজ ${i.size ?? "-"}${i.color ? " · " + i.color : ""} ×${i.quantity}`).join(" | ")}</small><br />
                   <small className="muted">{bnTime(r.order_date)}</small>
