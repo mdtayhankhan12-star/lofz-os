@@ -148,7 +148,15 @@ function Shell({ profile, prefs }) {
   const [phone, setPhone] = useState("");
   const [more, setMore] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
-  const go = (k, arg) => { setPage(k); ls.set("lofz_page", k); setMore(false); if (k === "orders") setPreset(arg ?? null); if (k === "risk") setPhone(arg ?? ""); window.scrollTo(0, 0); };
+  // পেজ বদলালে ব্রাউজারের ইতিহাসে রাখি, যাতে Back বাটনে আগের পেজে ফেরা যায় (রিফ্রেশ লাগবে না)
+  const show = (k, arg) => { setPage(k); ls.set("lofz_page", k); setMore(false); if (k === "orders") setPreset(arg ?? null); if (k === "risk") setPhone(arg ?? ""); window.scrollTo(0, 0); };
+  const go = (k, arg) => { show(k, arg); try { window.history.pushState({ page: k, arg: arg ?? null }, ""); } catch {} };
+  useEffect(() => {
+    try { window.history.replaceState({ page, arg: null }, ""); } catch {}
+    const back = (e) => { setPrintIds(null); setShoeIds(null); show(e.state?.page ?? "dashboard", e.state?.arg ?? undefined); };
+    window.addEventListener("popstate", back);
+    return () => window.removeEventListener("popstate", back);
+  }, []);
   const cur = items.find(([k]) => k === page) ? page : "dashboard";
   const t = (k) => tr(prefs.lang, k);
   const [printIds, setPrintIds] = useState(null);
@@ -162,7 +170,7 @@ function Shell({ profile, prefs }) {
   return (
     <div className="shell">
       <aside className="side">
-        <div className="brand"><img src="/logo.png" alt="LOFZ" className="logo-side" /><small>Business OS</small></div>
+        <div className="brand clicky" role="button" title="মূল পেজে (ড্যাশবোর্ড) যান" onClick={() => go("dashboard")}><img src="/logo.png" alt="LOFZ" className="logo-side" /><small>Business OS</small></div>
         <div className="muted small" style={{ opacity: .55, fontSize: 10.5, margin: "-6px 0 8px 4px" }} title="অ্যাপের ভার্সন — নতুন আপডেট এসেছে কি না এখানে দেখুন">ভার্সন {__BUILD__}</div>
         {items.filter((x) => !x[3]).map(NavBtn)}
         <div className="navsec">PARCEL DATA</div>
@@ -172,7 +180,7 @@ function Shell({ profile, prefs }) {
       </aside>
       <main className="main">
         <header className="top">
-          <div className="ptitle"><span className="pic">{items.find(([k]) => k === cur)?.[1]}</span><div><h1>{t(cur)}</h1><small>{profile.full_name || profile.username}<span className="own">{isOwner ? "Owner" : "Employee"}</span></small></div></div>
+          <div className="ptitle"><span className="pic clicky" title="মূল পেজে যান" onClick={() => go("dashboard")}>{items.find(([k]) => k === cur)?.[1]}</span><div><h1>{t(cur)}</h1><small>{profile.full_name || profile.username}<span className="own">{isOwner ? "Owner" : "Employee"}</span></small></div></div>
           <form className="gsearch" onSubmit={search}><span>🔍</span><input placeholder="ফোন নম্বর / অর্ডার নম্বর / নাম খুঁজুন" value={q} onChange={(e) => setQ(e.target.value)} /></form>
           <div className="row"><Bell go={go} /><Toggles prefs={prefs} /><button className="chip" onClick={() => sb.auth.signOut()}>{t("logout")}</button></div>
         </header>
