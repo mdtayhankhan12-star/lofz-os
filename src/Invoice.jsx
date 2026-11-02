@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { sb, tk } from "./lib.js";
+import { downloadPng } from "./sheetImage.js";
 
 // আপনার অনুমোদিত ডিজাইন: এক A4-এ ২টা ইনভয়েস, M ID লাল, নিচে Thank you
 export async function loadOrders(ids) {
@@ -68,6 +69,7 @@ export function InvoiceSheet({ o }) {
 
 export function PrintView({ ids, onClose }) {
   const [list, setList] = useState(null);
+  const refs = React.useRef([]); const [busy, setBusy] = useState("");
   useEffect(() => { loadOrders(ids).then(setList); }, [ids]);
   if (!list) return <div className="card">লোড হচ্ছে...</div>;
   // সবসময় এক পাতায় ২টা; শুধু ৬টার বেশি জুতা হলে আলাদা পাতা
@@ -81,11 +83,13 @@ export function PrintView({ ids, onClose }) {
     <div className="printwrap">
       <div className="row noprint">
         <button className="btn" onClick={() => { markPrinted(ids, "invoice_printed_at"); window.print(); }}>🖨️ Print / PDF</button>
+        <button className="btn alt" disabled={!!busy && !busy.startsWith("✓")} onClick={async () => { try { const n = await downloadPng(refs.current.slice(0, pages.length), `LOFZ-invoice-${new Date().toISOString().slice(0, 10)}`, setBusy); setBusy(`✓ ${n}টা PNG ছবি নামানো হয়েছে`); } catch (e) { setBusy("সমস্যা: " + e.message); } }}>🖼️ PNG ছবি</button>
+        {busy && <span className="small" style={{ fontWeight: 700 }}>{busy}</span>}
         <button className="chip" onClick={onClose}>← ফিরে যান</button>
         <span className="muted small">{list.length}টা ইনভয়েস · {pages.length} পাতা · PDF চাইলে প্রিন্টারে “Save as PDF” বাছুন</span>
       </div>
       {pages.map((pg, k) => (
-        <div className="sheet" key={k}>
+        <div className="sheet" key={k} ref={(el) => (refs.current[k] = el)}>
           <InvoiceSheet o={pg[0]} />
           {pg[1] && <><div className="icut" /><InvoiceSheet o={pg[1]} /></>}
         </div>

@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { downloadPng, sharePng, canShare } from "./sheetImage.js";
 import { loadOrders, markPrinted } from "./Invoice.jsx";
 
 // কারিগরের A4 শিট: প্রতি পাতায় ১২টা জুতা (৩ কলাম × ৪ সারি)।
 // প্রতি জোড়া আলাদা ঘর; Website আর Facebook কখনো এক পাতায় মেশে না।
 export default function ShoeSheet({ ids, onClose }) {
   const [list, setList] = useState(null);
+  const refs = useRef([]); const [busy, setBusy] = useState("");
   useEffect(() => { loadOrders(ids).then(setList); }, [ids]);
   if (!list) return <div className="card">লোড হচ্ছে...</div>;
 
@@ -23,11 +25,14 @@ export default function ShoeSheet({ ids, onClose }) {
     <div className="printwrap">
       <div className="row noprint">
         <button className="btn" onClick={() => { markPrinted(ids, "sheet_printed_at"); window.print(); }}>🖨️ Print / PDF</button>
+        <button className="btn alt" disabled={!!busy && !busy.startsWith("✓")} onClick={async () => { try { const n = await downloadPng(refs.current.slice(0, pages.length), `LOFZ-karigor-sheet-${new Date().toISOString().slice(0, 10)}`, setBusy); markPrinted(ids, "sheet_printed_at"); setBusy(`✓ ${n}টা PNG ছবি নামানো হয়েছে`); } catch (e) { setBusy("সমস্যা: " + e.message); } }}>🖼️ PNG ছবি ডাউনলোড</button>
+        {canShare() && <button className="btn dark" disabled={!!busy && !busy.startsWith("✓")} onClick={async () => { try { await sharePng(refs.current.slice(0, pages.length), "LOFZ কারিগর শিট", setBusy); markPrinted(ids, "sheet_printed_at"); setBusy("✓ শেয়ার হয়েছে"); } catch (e) { setBusy(e.message); } }}>📤 WhatsApp-এ পাঠান</button>}
+        {busy && <span className="small" style={{ fontWeight: 700 }}>{busy}</span>}
         <button className="chip" onClick={onClose}>← ফিরে যান</button>
         {skipped > 0 && <span className="err small">{skipped}টা অর্ডার Confirmed না হওয়ায় বাদ গেছে · </span>}<span className="muted small">Website {cells.website.length} জোড়া · Facebook {cells.facebook.length} জোড়া · {pages.length} পাতা</span>
       </div>
       {pages.map((pg, k) => (
-        <div className="sheet shoes" key={k}>
+        <div className="sheet shoes" key={k} ref={(el) => (refs.current[k] = el)}>
           <div className="shd"><b>{pg.src === "website" ? "WEBSITE ORDERS" : "FACEBOOK ORDERS"}</b><span>{date}</span></div>
           <div className="sgrid">
             {pg.items.map((c, j) => (
