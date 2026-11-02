@@ -378,3 +378,5 @@ img{content-visibility:auto}
 @media (max-width:760px){.lgrid{grid-template-columns:1fr}}
 .partialbox{margin-top:12px;padding:12px;border-radius:14px;border:1.5px dashed #e8a93b;background:#e8a93b14;display:flex;flex-direction:column;gap:6px}
 .stat .eye{display:inline-grid;place-items:center;margin-left:8px;width:30px;height:30px;border-radius:50%;font-size:15px;vertical-align:middle;background:#ffffff1a;cursor:pointer;transition:.15s}.stat .eye:hover{background:#ffffff33;transform:scale(1.08)}
+
+.btn.minus{background:linear-gradient(135deg,#178a5c,#0f6b47);color:#fff}

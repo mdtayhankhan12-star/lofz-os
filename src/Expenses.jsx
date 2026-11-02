@@ -91,10 +91,10 @@ export default function Expenses({ isOwner }) {
       });
   }, [month]);
 
-  const add = async (e) => {
+  const add = async (e, pay = false) => {
     e.preventDefault(); setErr("");
     const raw = String(f.amount_bdt).replace(/\s/g, "");
-    const isPay = raw.startsWith("-") || f.note.trim().startsWith("-");
+    const isPay = pay || raw.startsWith("-") || f.note.trim().startsWith("-");
     const amt = Math.abs(Number(raw));
     const note = f.note.trim().replace(/^-\s*/, "");
     if (!(amt > 0)) return setErr("টাকার পরিমাণ দিন");
@@ -123,7 +123,8 @@ export default function Expenses({ isOwner }) {
         <div className="row exp-add">
           <input className="grow" list="exp-names" placeholder="কী বাবদ? (যেমন: চামড়া, আঠা, রিকশা ভাড়া)" required value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} />
           <input type="text" inputMode="decimal" placeholder="টাকা (দিলে -)" title="মাল আনলে শুধু টাকা লিখুন। কাউকে বাকি শোধ দিলে টাকার আগে মাইনাস দিন, যেমন -3000" required style={{ width: 120 }} value={f.amount_bdt} onChange={(e) => setF({ ...f, amount_bdt: e.target.value })} />
-          <button className="btn" disabled={busy}>+ যোগ</button>
+          <button className="btn" disabled={busy} title="জিনিস কিনলাম — খরচে যোগ হবে">+ যোগ</button>
+          <button type="button" className="btn minus" disabled={busy} title="সাপ্লায়ারকে টাকা দিলাম — খরচে যোগ হবে না, শুধু বাকি কমবে" onClick={(e) => { if (e.currentTarget.form.reportValidity()) add(e, true); }}>− দিলাম</button>
         </div>
         <datalist id="exp-names">{[...new Set([...SUPPLIERS, ...names])].map((n) => <option key={n} value={n} />)}</datalist>
         <p className="muted small">💡 Raju Vai / Rubel Vai-কে টাকা দিলে একই নাম লিখে টাকার আগে <b>মাইনাস (-)</b> দিন, যেমন <b>-3000</b>। এটা খরচে যোগ হবে না, শুধু তার বাকি কমবে।</p>
