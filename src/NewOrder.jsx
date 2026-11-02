@@ -1,6 +1,5 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { sb, tk, fnCall } from "./lib.js";
-import ShopPicker from "./ShopPicker.jsx";
 import { Ring, statsFor } from "./Parcels.jsx";
 
 // ছবি ছোট করে (WebP, ৮০০px) আপলোড — ফ্রি স্টোরেজ বাঁচাতে
@@ -19,6 +18,10 @@ export async function upload(file) {
   if (error) throw error;
   return sb.storage.from("products").getPublicUrl(path).data.publicUrl;
 }
+
+// lofzz.com-এর জুতা একবার এনে রাখা (পেজ বদলালেও আবার আনতে হয় না)
+let SHOP_CACHE = null;
+const norm = (x) => String(x || "").toLowerCase().replace(/\s+/g, " ").trim();
 
 const blankItem = () => ({ product_name: "", size: "", quantity: 1, price: "", image_url: "", up: false });
 
@@ -48,6 +51,30 @@ export default function NewOrder({ onCreated, book }) {
   const [err, setErr] = useState(""); const [busy, setBusy] = useState(false);
   const [hist, setHist] = useState(null);
   const [paste, setPaste] = useState("");
+  const [shop, setShop] = useState(SHOP_CACHE);
+  const [shopErr, setShopErr] = useState("");
+  useEffect(() => {
+    if (SHOP_CACHE) return;
+    fnCall("shop-products", {}).then((j) => { SHOP_CACHE = j.products ?? []; setShop(SHOP_CACHE); }).catch((x) => setShopErr(x.message));
+  }, []);
+  const findProd = (name) => (shop ?? []).find((p) => norm(p.title) === norm(name));
+  // ওয়েবসাইটের জুতা বাছলে: নাম, ছবি, দাম বসে যায়
+  const choose = (k, title) => {
+    const p = findProd(title);
+    if (!p) return setItem(k, { product_name: title });
+    // পেস্ট থেকে সাইজ/রং আগেই এসে থাকলে সেই অনুযায়ী মিলিয়ে দেয়
+    const cur = items[k] ?? {}; const col = norm((c.note || "").replace(/^colou?r:\s*/i, ""));
+    const v = p.variants?.find((x) => String(x.size) === String(cur.size) && (!col || norm(x.color) === col))
+      ?? p.variants?.find((x) => String(x.size) === String(cur.size));
+    if (v) return setItem(k, { product_name: p.title + (v.color ? ` (${v.color})` : ""), image_url: v.image || p.image || "", price: v.price, size: v.size, vl: `${v.size}${v.color ? " · " + v.color : ""}` });
+    const v0 = p.variants?.[0];
+    setItem(k, { product_name: p.title, image_url: p.image || v0?.image || "", price: v0?.price ?? "", size: "", vl: "" });
+  };
+  const chooseSize = (k, it, val) => {
+    const p = findProd(it.product_name); const v = p?.variants?.find((x) => `${x.size}${x.color ? " · " + x.color : ""}` === val);
+    if (!v) return setItem(k, { size: val });
+    setItem(k, { vl: val, size: v.size, price: v.price, image_url: v.image || it.image_url, product_name: p.title + (v.color ? ` (${v.color})` : "") });
+  };
   const [pmsg, setPmsg] = useState("");
   const fillFromText = async () => {
     const p = parseOrderText(paste);
@@ -82,7 +109,7 @@ export default function NewOrder({ onCreated, book }) {
     if (items.some((i) => i.up)) return setErr("ছবি আপলোড শেষ হওয়া পর্যন্ত অপেক্ষা করুন");
     setBusy(true);
     const { data, error } = await sb.rpc("create_fb_order", {
-      p: { ...c, items: items.map(({ up, ...i }) => ({ ...i, quantity: Number(i.quantity), price: Number(i.price) })) },
+      p: { ...c, items: items.map(({ up, vl, ...i }) => ({ ...i, quantity: Number(i.quantity), price: Number(i.price) })) },
     });
     if (error) { setBusy(false); return setErr(error.message); }
     if (doBook) {
@@ -97,11 +124,6 @@ export default function NewOrder({ onCreated, book }) {
     <form className="stack" onSubmit={submit}>
       <div className="card">
         <h2>নতুন Facebook অর্ডার</h2>
-        <ShopPicker onPick={(p) => setItems((xs) => {
-          const empty = xs.findIndex((i) => !i.product_name && !i.image_url);
-          const row = { ...blankItem(), product_name: p.title + (p.color ? ` (${p.color})` : ""), size: p.size, price: p.price, image_url: p.image || "", quantity: 1 };
-          return empty >= 0 ? xs.map((x, k) => (k === empty ? row : x)) : [...xs, row];
-        })} />
         <details className="paster" open>
           <summary>🪄 অর্ডারের লেখা পেস্ট করে নিজে ভরুন</summary>
           <textarea rows={4} placeholder={"যেমন:\nDipu\nNobinbag, Gopalgonj sadar, Gopalgonj.\n01883110781\nSize-36, colour -black\nBill:150 taka"} value={paste} onChange={(e) => setPaste(e.target.value)} />
@@ -122,9 +144,20 @@ export default function NewOrder({ onCreated, book }) {
             <input type="file" accept="image/*" hidden onChange={(e) => pick(k, e.target.files?.[0])} />
           </label>
           <div className="itemf">
-            <label>প্রোডাক্টের নাম<input required value={it.product_name} onChange={(e) => setItem(k, { product_name: e.target.value })} /></label>
+            <label>🛍️ ওয়েবসাইটের জুতা বাছুন
+              <select value={findProd(it.product_name.replace(/ \([^)]*\)$/, ""))?.title ?? ""} onChange={(e) => choose(k, e.target.value)}>
+                <option value="">{shop ? `— এখান থেকে বাছুন (${shop.length}টা জুতা) —` : shopErr ? "ওয়েবসাইট থেকে আনা যায়নি" : "লোড হচ্ছে..."}</option>
+                {(shop ?? []).map((p) => <option key={p.title} value={p.title}>{p.title}</option>)}
+              </select>
+            </label>
+            <label>প্রোডাক্টের নাম (লিখলেও মিলে যাবে)<input required list="shop-titles" value={it.product_name} onChange={(e) => { const v = e.target.value; findProd(v) ? choose(k, v) : setItem(k, { product_name: v }); }} /></label>
             <div className="form3 tight">
-              <label>সাইজ<input required value={it.size} onChange={(e) => setItem(k, { size: e.target.value })} /></label>
+              {(() => { const p = findProd(it.product_name.replace(/ \([^)]*\)$/, "")); return p?.variants?.length > 1
+                ? <label>সাইজ / রং<select required value={it.vl ?? ""} onChange={(e) => chooseSize(k, it, e.target.value)}>
+                    <option value="">সাইজ বাছুন</option>
+                    {p.variants.map((v, i) => { const l = `${v.size}${v.color ? " · " + v.color : ""}`; return <option key={i} value={l}>{l} — ৳{v.price}</option>; })}
+                  </select></label>
+                : <label>সাইজ<input required value={it.size} onChange={(e) => setItem(k, { size: e.target.value })} /></label>; })()}
               <label>পরিমাণ<input required type="number" min={1} value={it.quantity} onChange={(e) => setItem(k, { quantity: e.target.value })} /></label>
               <label>দাম (প্রতি জোড়া)<input required type="number" min={0} value={it.price} onChange={(e) => setItem(k, { price: e.target.value })} /></label>
             </div>
@@ -132,6 +165,7 @@ export default function NewOrder({ onCreated, book }) {
           {items.length > 1 && <button type="button" className="chip x" onClick={() => setItems((xs) => xs.filter((_, i) => i !== k))}>✕</button>}
         </div>
       ))}
+      <datalist id="shop-titles">{(shop ?? []).map((p) => <option key={p.title} value={p.title} />)}</datalist>
       <button type="button" className="chip" onClick={() => setItems((xs) => [...xs, blankItem()])}>+ আরেকটা জুতা</button>
 
       <div className="card">

@@ -8,7 +8,7 @@ const admin = createClient(Deno.env.get("SUPABASE_URL")!, SERVICE, { auth: { per
 const CID = Deno.env.get("SHOPIFY_CLIENT_ID") ?? "";
 const CSEC = Deno.env.get("SHOPIFY_CLIENT_SECRET") ?? "";
 
-const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
+const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-cron-key", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const reply = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
 async function token() {
@@ -37,7 +37,9 @@ async function caller(req: Request) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return reply({ ok: true });
-  if (!(await caller(req))) return reply({ error: "লগইন করুন" }, 401);
+  const ck = req.headers.get("x-cron-key") ?? "";
+  const ok = ck ? (await admin.rpc("check_cron_key", { k: ck })).data === true : !!(await caller(req));
+  if (!ok) return reply({ error: "লগইন করুন" }, 401);
   if (!CID || !CSEC) return reply({ error: "Shopify key বসানো নেই" }, 503);
   try {
     const tk = await token();
