@@ -380,3 +380,5 @@ img{content-visibility:auto}
 .stat .eye{display:inline-grid;place-items:center;margin-left:8px;width:30px;height:30px;border-radius:50%;font-size:15px;vertical-align:middle;background:#ffffff1a;cursor:pointer;transition:.15s}.stat .eye:hover{background:#ffffff33;transform:scale(1.08)}
 
 .btn.minus{background:linear-gradient(135deg,#178a5c,#0f6b47);color:#fff}
+
+.datebar{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}.datebar input[type=date]{margin-left:6px}.datebar .chip.sel{background:var(--acc);color:#fff;border-color:var(--acc)}
