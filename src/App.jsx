@@ -174,7 +174,7 @@ function Shell({ profile, prefs }) {
   if (shoeIds) return <ShoeSheet ids={shoeIds} png={shoePng} onClose={() => setShoeIds(null)} />;
   const openShoes = (ids, png) => { setShoePng(!!png); setShoeIds(ids); };
   const NavBtn = ([k, ic]) => <button key={k} className={"nav" + (cur === k ? " on" : "")} onClick={() => go(k)}><span>{ic}</span>{t(k)}
-    {k === "printq" && pc && <span className="navcnt"><i title="ইনভয়েস প্রিন্ট বাকি">🧾{pc.inv}</i><i title="কারিগর শিট বাকি">👟{pc.sheet}</i><i title="PNG শিট বাকি">🖼️{pc.png}</i></span>}</button>;
+    {k === "printq" && pc && <span className="navcnt"><i title="ইনভয়েস প্রিন্ট বাকি">🧾{pc.inv}</i><i title="কারিগর শিট বাকি">👟{pc.sheet}</i><i title="PNG শিট বাকি">🖼️{pc.png}</i><i title="Steadfast বুক বাকি">🚚{pc.book}</i></span>}</button>;
   const search = (e) => { e.preventDefault(); const v = q.trim(); if (!v) return; if (v.replace(/\D/g, "").length >= 10 && /^[\d\s+-]+$/.test(v)) go("risk", v); else go("orders", { mode: "all", q: v }); setQ(""); };
   return (
     <div className="shell">
@@ -341,8 +341,8 @@ function Dashboard({ isOwner, t, go, pc }) {
       </div>
       {ser && <DayBars data={ser} title={one ? "শেষ ১৪ দিনের অর্ডার" : "দিনে দিনে অর্ডার"} series={[{ key: "web", label: "Website", color: "#9B2C4A" }, { key: "fb", label: "Facebook", color: "#2F6FD0" }]} />}
 
-      <div className="dsec big"><span>২ · প্রিন্টের কাজ</span><small>Confirmed হলেই অর্ডার তিনটা ঘরেই বসে · কাজ শেষ হলে ঘর থেকে সরে যায়</small></div>
-      <QueueCards counts={pc} open={(m) => go("printq", m)} />
+      <div className="dsec big"><span>২ · প্রিন্ট ও বুকিং</span><small>Confirmed হলেই অর্ডার চারটা ঘরেই বসে · কাজ শেষ হলে ঘর থেকে সরে যায়</small></div>
+      <QueueCards counts={pc} open={(m) => go("printq", m)} onBook={() => go("orders", { mode: "confirmed", book: "no" })} />
 
       <div className="dsec big"><span>৩ · ডেলিভারি</span><small>Steadfast থেকে আসা হিসাব</small></div>
       <div className="grid gbig">

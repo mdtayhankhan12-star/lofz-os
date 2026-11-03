@@ -10,8 +10,18 @@ export const STATUSES = [
   ["received", "Received (টাকা পেয়েছি)"], ["returned", "Return"], ["cancelled", "Cancel"],
 ];
 export const trackUrl = (t) => `https://steadfast.com.bd/t/${t}`;
-function ParcelInfo({ p }) {
+function ParcelInfo({ p, big }) {
   if (!p) return null;
+  if (big) return (
+    <div className="pbig">
+      <span>📦 Steadfast-এ বুক হয়েছে</span>
+      <b>{p.consignment_id ? `Parcel ID: ${p.consignment_id}` : "Parcel"}</b>
+      {p.tracking_code && <div className="row">
+        <a className="chip" href={trackUrl(p.tracking_code)} target="_blank" rel="noopener">🔎 ট্র্যাক করুন</a>
+        <button className="chip" onClick={(e) => { navigator.clipboard?.writeText(trackUrl(p.tracking_code)); e.currentTarget.textContent = "কপি ✓"; }}>📋 ট্র্যাক লিংক কপি</button>
+      </div>}
+    </div>
+  );
   return (
     <small className="pinfo">🚚 {p.consignment_id ? <b>Parcel #{p.consignment_id}</b> : "Steadfast"} · {p.delivery_status ?? ""}
       {p.tracking_code && <> · <a href={trackUrl(p.tracking_code)} target="_blank" rel="noopener">ট্র্যাক</a> · <a href="#" onClick={(e) => { e.preventDefault(); navigator.clipboard?.writeText(trackUrl(p.tracking_code)); e.target.textContent = "কপি ✓"; }}>লিংক কপি</a></>}
@@ -75,7 +85,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
   const [edit, setEdit] = useState(null);
   const [view, setView] = useState(null);
   const [cf, setCf] = useState({ from: "", to: "" }); // Confirmed ট্যাবের তারিখ
-  const [pr, setPr] = useState({ inv: P.inv ?? "", sheet: P.sheet ?? "" }); // ইনভয়েস/শিট প্রিন্ট হয়েছে কি না
+  const [pr, setPr] = useState({ inv: P.inv ?? "", sheet: P.sheet ?? "", book: P.book ?? "" }); // ইনভয়েস/শিট প্রিন্ট হয়েছে কি না
 
   const load = async () => {
     let q = sb.from("orders")
@@ -106,13 +116,14 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
     if (mode === "confirmed") {
       if (pr.inv) list = list.filter((r) => (pr.inv === "yes") === invDone(r));
       if (pr.sheet) list = list.filter((r) => (pr.sheet === "yes") === sheetDone(r));
+      if (pr.book) list = list.filter((r) => (pr.book === "yes") === !!r.parcels?.[0]);
     }
     // Confirmed: যেগুলোর ইনভয়েস/শিট বাকি সেগুলো উপরে (নতুনগুলো সবার উপরে), শেষ হওয়াগুলো নিচে
     if (mode === "confirmed") list = [...list.filter((r) => !allDone(r)), ...list.filter((r) => allDone(r))];
     setRows(list); if (mode === "inbox") setInboxN(list.length); setSel([]);
     setRet(await statsFor(list.map((r) => r.phone)));
   };
-  useEffect(() => { mode === "all" ? load() : loadInbox(); }, [mode, f.source, f.status, f.from, f.to, revenue, cf.from, cf.to, pr.inv, pr.sheet]);
+  useEffect(() => { mode === "all" ? load() : loadInbox(); }, [mode, f.source, f.status, f.from, f.to, revenue, cf.from, cf.to, pr.inv, pr.sheet, pr.book]);
   useEffect(() => { sb.from("orders").select("id", { count: "exact", head: true }).eq("source", "website").eq("status", "pending").then(({ count }) => setInboxN(count ?? 0)); }, []);
   const decide = async (r, status) => {
     if (status === "cancelled" && r.status === "confirmed" && !confirm(`${r.order_no} — ${r.customer_name}: Confirmed অর্ডার Cancel করবেন?`)) return;
@@ -140,10 +151,21 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
     if (error) return setMsg(error.message);
     setRows((rs) => rs.filter((r) => r.id !== id));
   };
-  const book = async (r) => {
-    if (!confirm(`${r.order_no} — ${r.customer_name}-এর পার্সেল Steadfast-এ বুক করবেন? COD ${tk(r.total)}`)) return;
-    try { const j = await fnCall("steadfast", { action: "book", order_id: r.id }); setMsg("বুক হয়েছে · Tracking: " + j.tracking_code); mode === "all" ? load() : loadInbox(); }
-    catch (x) { setMsg("Steadfast: " + x.message); }
+  const [bk, setBk] = useState({}); // কোনগুলো বুক হচ্ছে
+  const book = async (r, quiet) => {
+    if (!quiet && !confirm(`${r.order_no} — ${r.customer_name}-এর পার্সেল Steadfast-এ বুক করবেন? COD ${tk(r.total)}`)) return false;
+    setBk((x) => ({ ...x, [r.id]: true }));
+    try { const j = await fnCall("steadfast", { action: "book", order_id: r.id }); if (!quiet) { setMsg(`${r.order_no} বুক হয়েছে ✓`); mode === "all" ? load() : loadInbox(); } return j.ok !== false; }
+    catch (x) { setMsg(`${r.order_no} — Steadfast: ` + x.message); return false; }
+    finally { setBk((x) => ({ ...x, [r.id]: false })); }
+  };
+  // বাছাই করা (বা সব) বুক বাকি অর্ডার এক চাপে
+  const bookMany = async (list) => {
+    const todo = list.filter((r) => r.status === "confirmed" && !r.parcels?.[0]);
+    if (!todo.length) return setMsg("বুক করার মতো কোনো অর্ডার বাছাই হয়নি");
+    if (!confirm(`${todo.length}টা পার্সেল Steadfast-এ বুক করবেন? মোট COD ${tk(todo.reduce((a, r) => a + Number(r.total), 0))}`)) return;
+    let ok = 0; for (const r of todo) { setMsg(`বুক হচ্ছে ${ok + 1}/${todo.length}...`); if (await book(r, true)) ok++; }
+    setMsg(`${ok}/${todo.length}টা বুক হয়েছে ✓${ok < todo.length ? " — বাকিগুলোর কারণ উপরে দেখুন বা আবার চেষ্টা করুন" : ""}`); loadInbox();
   };
   const syncNow = async () => {
     setMsg("Steadfast থেকে আপডেট আনা হচ্ছে...");
@@ -185,10 +207,13 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
         <select value={pr.inv} onChange={(e) => setPr({ ...pr, inv: e.target.value })}>
           <option value="">ইনভয়েস: সব</option><option value="no">ইনভয়েস বাকি</option><option value="yes">ইনভয়েস হয়ে গেছে</option>
         </select>
+        <select value={pr.book} onChange={(e) => setPr({ ...pr, book: e.target.value })}>
+          <option value="">Steadfast: সব</option><option value="no">🚚 বুক বাকি</option><option value="yes">📦 বুক হয়ে গেছে</option>
+        </select>
         <select value={pr.sheet} onChange={(e) => setPr({ ...pr, sheet: e.target.value })}>
           <option value="">কারিগর শিট: সব</option><option value="no">শিট বাকি</option><option value="yes">শিট হয়ে গেছে</option>
         </select>
-        <button className="chip" onClick={() => { setCf({ from: "", to: "" }); setPr({ inv: "", sheet: "" }); }}>সব দেখান</button>
+        <button className="chip" onClick={() => { setCf({ from: "", to: "" }); setPr({ inv: "", sheet: "", book: "" }); }}>সব দেখান</button>
       </div>}
       {mode !== "all" ? <>
         <div className="row">
@@ -196,6 +221,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
           {mode === "confirmed" && <button className="btn alt" disabled={!rows?.length} onClick={() => onShoes(rows.map((r) => r.id))}>👟 সব Confirmed-এর কারিগর শিট</button>}
           {mode === "confirmed" && <button className="btn" disabled={!rows?.length} onClick={() => onPrint(rows.map((r) => r.id))}>🖨️ সব ইনভয়েস ({rows?.length ?? 0})</button>}
           {mode === "confirmed" && <button className="btn dark" disabled={!sel.length} onClick={() => onPrint(rows.filter((r) => sel.includes(r.id)).map((r) => r.id))}>☑️ বাছাই করা ইনভয়েস ({sel.length})</button>}
+          {mode === "confirmed" && <button className="btn sfbook" disabled={!sel.length} onClick={() => bookMany(rows.filter((r) => sel.includes(r.id)))}>🚚 বাছাইগুলো Steadfast-এ বুক ({sel.length})</button>}
           {mode === "confirmed" && <button className="btn ok2" disabled={!sel.length} onClick={() => markDone(sel)}>✅ বাছাইগুলো "হয়ে গেছে" ({sel.length})</button>}
           {mode === "confirmed" && <button className="chip" disabled={!sel.length} onClick={() => onShoes(rows.filter((r) => sel.includes(r.id)).map((r) => r.id))}>👟 বাছাই করা শিট ({sel.length})</button>}
           {mode === "confirmed" && <button className="chip" onClick={() => setSel(sel.length === rows?.length ? [] : (rows ?? []).map((r) => r.id))}>{sel.length && sel.length === rows?.length ? "বাছাই মুছুন" : "সব মার্ক"}</button>}
@@ -233,8 +259,8 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
                     <button className="chip" onClick={() => setView(r.id)}>👁️ দেখুন</button>
                     <button className="chip" onClick={() => setEdit(r.id)}>✏️ এডিট</button>
                   </div>
-                  {r.parcels?.[0] ? <ParcelInfo p={r.parcels[0]} />
-                    : r.status === "confirmed" && <button className="chip" onClick={() => book(r)}>🚚 Steadfast-এ পাঠান</button>}
+                  {r.parcels?.[0] ? <ParcelInfo p={r.parcels[0]} big />
+                    : r.status === "confirmed" && <button className="btn sfbook" disabled={bk[r.id]} onClick={() => book(r)}>{bk[r.id] ? "বুক হচ্ছে..." : "🚚 Steadfast-এ বুক করুন"}</button>}
                   <div className="row">
                     {r.status === "pending" ? <button className="btn ok2" onClick={() => decide(r, "confirmed")}>✅ Confirm</button> : <span className="badge good">Confirmed{r.source === "facebook" ? " · FB" : ""}</span>}
                     <button className="chip" onClick={() => decide(r, "cancelled")}>❌ Cancel</button>

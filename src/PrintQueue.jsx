@@ -10,14 +10,14 @@ export const QUEUES = {
 };
 
 export async function printCounts() {
-  const { data } = await sb.from("orders").select(PRINT_COLS).eq("status", "confirmed").limit(3000);
+  const { data } = await sb.from("orders").select(PRINT_COLS + ",parcels(id)").eq("status", "confirmed").limit(3000);
   const r = data ?? [];
-  return { inv: r.filter((x) => !invDone(x)).length, sheet: r.filter((x) => !sheetDone(x)).length, png: r.filter((x) => !pngDone(x)).length };
+  return { inv: r.filter((x) => !invDone(x)).length, sheet: r.filter((x) => !sheetDone(x)).length, png: r.filter((x) => !pngDone(x)).length, book: r.filter((x) => !x.parcels?.length).length };
 }
 
-export function QueueCards({ counts, open, active }) {
+export function QueueCards({ counts, open, active, onBook }) {
   return (
-    <div className="q3">
+    <div className={"q3" + (onBook ? " q4" : "")}>
       {Object.entries(QUEUES).map(([k, q]) => (
         <button key={k} type="button" className={"qcard q-" + k + (active === k ? " on" : "") + (counts?.[k] ? " has" : "")} onClick={() => open(k)}>
           <span className="qic">{q.ic}</span>
@@ -25,6 +25,13 @@ export function QueueCards({ counts, open, active }) {
           <span className="qn">{counts ? counts[k] : "…"}</span>
         </button>
       ))}
+      {onBook && (
+        <button type="button" className={"qcard q-book" + (counts?.book ? " has" : "")} onClick={onBook}>
+          <span className="qic">🚚</span>
+          <span className="qtx"><b>STEADFAST BOOKING</b><small>Steadfast-এ বুক বাকি</small></span>
+          <span className="qn">{counts ? counts.book : "…"}</span>
+        </button>
+      )}
     </div>
   );
 }
