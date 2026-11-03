@@ -276,6 +276,8 @@ function Dashboard({ isOwner, t, go, pc }) {
       if (isOwner) { try { sf = (await fnCall("steadfast", { action: "balance" })).balance ?? null; } catch {} }
       // আজ কয়টা পার্সেল কাস্টমার নিয়েছে / ফেরত এসেছে (অর্ডার যেদিনেরই হোক)
       const { data: mv } = await sb.rpc("dash_range", { p_from: mv0, p_to: rg.to });
+      // Steadfast-এ পথে আছে (এখনো Delivered / Return হয়নি)
+      const { count: sfPending } = await sb.from("parcels").select("id", { count: "exact", head: true }).not("delivery_status", "in", "(delivered,partial_delivered,cancelled)");
       // কাজ বাকি — তারিখ যাই হোক, রাত ১২টার পরও থাকবে
       const { data: open } = await sb.from("orders").select("status,invoice_printed_at,invoice_png_at,sheet_printed_at,sheet_png_at").in("status", ["pending", "confirmed"]).limit(2000);
       const op = open ?? [], conf = op.filter((x) => x.status === "confirmed");
@@ -286,7 +288,7 @@ function Dashboard({ isOwner, t, go, pc }) {
         web: c((x) => x.source === "website"), fb: c((x) => x.source === "facebook"),
         confirmed: c((x) => ["confirmed", "delivered", "received", "returned"].includes(x.status)), invLeft: conf.filter((x) => !(x.invoice_printed_at || x.invoice_png_at)).length, sheetLeft: conf.filter((x) => !(x.sheet_printed_at || x.sheet_png_at)).length, delivered: mv?.delivered ?? 0,
         returned: mv?.returned ?? 0, cancelled: c((x) => x.status === "cancelled"),
-        pending: op.filter((x) => x.status === "pending").length, exp, profit, sf,
+        pending: op.filter((x) => x.status === "pending").length, exp, profit, sf, sfPending,
       });
       // ৫ দিনের বেশি পুরনো, এখনো Cancel বা Steadfast-এ পাঠানো হয়নি
       const lim = new Date(Date.now() - 5 * 864e5).toISOString();
@@ -325,7 +327,7 @@ function Dashboard({ isOwner, t, go, pc }) {
   if (!d) return <>{dateBar}<div className="grid">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="stat skel" />)}</div></>;
   const IC = { today_orders: ["🛍️", "#fde7ec"], today_sales: ["৳", "#fde7ec"], website: ["🌐", "#fde7ec", "#9B1B3F"], facebook: ["f", "#e3eeff", "#1877f2"],
     pending: ["⏰", "#fde7ec"], inv_left: ["🖨️", "#fff3d6", "#e8a93b"], sheet_left: ["👟", "#fff3d6", "#e8a93b"], confirmed: ["✓", "#dff6e9", "#16a34a"], delivered: ["🚚", "#e3eeff"], returned: ["↻", "#efe9ff", "#6d4bd8"],
-    cancelled: ["✕", "#fde7ec", "#d0284f"], expense_month: ["👜", "#fde7ec"], profit_month: ["📈", "#fde7ec", "#d0284f"], sf_balance: ["★", "#fff3d6", "#e8a93b"] };
+    cancelled: ["✕", "#fde7ec", "#d0284f"], sf_pending: ["⏳", "#fff3d6", "#b7791f"], expense_month: ["👜", "#fde7ec"], profit_month: ["📈", "#fde7ec", "#d0284f"], sf_balance: ["★", "#fff3d6", "#e8a93b"] };
   const today = { mode: "all", from: rg.from, to: rg.to };
   const S = ({ k, v, accent, w2, to, secret, l }) => { const [i, bg, c] = IC[k] ?? ["•", "#eee"]; return <button type="button" className={"stat click" + (accent ? " accent" : "") + (w2 ? " w2" : "")} onClick={to}><span className="si" style={{ background: bg, color: c }}>{i}</span><small>{l ?? t(k)}</small>
     <b>{secret && !eye ? "৳ ••••" : v}{secret && <span className="eye" role="button" title={eye ? "লুকান" : "দেখুন"} onClick={(e) => { e.stopPropagation(); setEye(!eye); }}>{eye ? "🙈" : "👁️"}</span>}</b><em>দেখুন →</em></button>; };
@@ -347,6 +349,7 @@ function Dashboard({ isOwner, t, go, pc }) {
       <div className="dsec big"><span>৩ · ডেলিভারি</span><small>Steadfast থেকে আসা হিসাব</small></div>
       <div className="grid gbig">
         <S k="delivered" l={one ? `${bn(rg.to, { month: "long" })} মাসে Delivered` : "Delivered"} v={d.delivered} to={() => go("orders", { mode: "all", status: "delivered", from: "", to: "" })} /><S k="returned" l={one ? `${bn(rg.to, { month: "long" })} মাসে Return` : "Return"} v={d.returned} to={() => go("orders", { mode: "all", status: "returned", from: "", to: "" })} />
+        <S k="sf_pending" l="Steadfast-এ Pending (পথে আছে)" v={d.sfPending ?? 0} to={() => go("parcels_pending")} />
         <S k="cancelled" l={isToday ? "আজ Cancel" : "Cancel"} v={d.cancelled} to={O({ status: "cancelled" })} />
       </div>
       {ser && <DayBars data={ser} title={one ? "শেষ ১৪ দিনের ডেলিভারি" : "দিনে দিনে ডেলিভারি"} empty="এই সময়ে কোনো Delivered / Return / Cancel হয়নি" series={[{ key: "delivered", label: "Delivered", color: "#1E9E6E" }, { key: "returned", label: "Return", color: "#7A4FD6" }, { key: "cancelled", label: "Cancel", color: "#C9661A" }]} />}
