@@ -35,10 +35,10 @@ export async function statsFor(phones) {
   return Object.fromEntries((data ?? []).map((x) => [x.phone, x]));
 }
 
-export default function Parcels({ tab, phone, isOwner, go }) {
+export default function Parcels({ tab, phone, isOwner, go, st0 }) {
   if (tab === "risk") return <Risk key={phone} initial={phone} />;
   if (tab === "returns") return <ReturnList />;
-  return <ParcelList pendingOnly={tab === "parcels_pending"} isOwner={isOwner} go={go} />;
+  return <ParcelList pendingOnly={tab === "parcels_pending"} isOwner={isOwner} go={go} st0={st0} />;
 }
 
 // Steadfast থেকে ফেরত আসা জুতার তালিকা: ছবি, সাইজ, রং, কয়টা — স্টক মেলানোর জন্য
@@ -113,9 +113,9 @@ export function ReturnList() {
   );
 }
 
-function ParcelList({ pendingOnly, isOwner, go }) {
+function ParcelList({ pendingOnly, isOwner, go, st0 }) {
   const [view, setView] = useState(null);
-  const [rows, setRows] = useState(null); const [q, setQ] = useState(""); const [st, setSt] = useState(""); const [rg, setRg] = useState({ from: "", to: "" });
+  const [rows, setRows] = useState(null); const [q, setQ] = useState(""); const [st, setSt] = useState(st0 ?? ""); const [rg, setRg] = useState({ from: "", to: "" });
   useEffect(() => {
     setRows(null);
     let x = sb.from("parcels").select("id,consignment_id,tracking_code,delivery_status,cod_amount,booking_date,updated_at,raw,orders(id,order_no,customer_name,phone,address,total,delivery_charge,source,status,order_date,order_items(product_name,size,quantity,image_url))")

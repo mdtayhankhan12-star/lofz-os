@@ -153,8 +153,8 @@ function Shell({ profile, prefs }) {
   const [more, setMore] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   // পেজ বদলালে ব্রাউজারের ইতিহাসে রাখি, যাতে Back বাটনে আগের পেজে ফেরা যায় (রিফ্রেশ লাগবে না)
-  const [pq, setPq] = useState("inv"); const [shoePng, setShoePng] = useState(false);
-  const show = (k, arg) => { setPage(k); ls.set("lofz_page", k); setMore(false); if (k === "orders") setPreset(arg ?? null); if (k === "risk") setPhone(arg ?? ""); if (k === "printq" && arg) setPq(arg); window.scrollTo(0, 0); };
+  const [pq, setPq] = useState("inv"); const [pst, setPst] = useState(""); const [shoePng, setShoePng] = useState(false);
+  const show = (k, arg) => { setPage(k); ls.set("lofz_page", k); setMore(false); if (k === "orders") setPreset(arg ?? null); if (k === "risk") setPhone(arg ?? ""); if (k === "printq" && arg) setPq(arg); if (k === "parcels_pending") setPst(arg ?? ""); window.scrollTo(0, 0); };
   const go = (k, arg) => { show(k, arg); try { window.history.pushState({ page: k, arg: arg ?? null }, ""); } catch {} };
   useEffect(() => {
     try { window.history.replaceState({ page, arg: null }, ""); } catch {}
@@ -206,7 +206,7 @@ function Shell({ profile, prefs }) {
         {cur === "ai" && isOwner && <AI />}
         {cur === "trash" && isOwner && <Trash />}
         {cur === "printq" && <PrintQueue key={pq} mode={pq} setMode={(m) => go("printq", m)} onPrint={setPrintIds} onShoes={openShoes} go={go} />}
-        {["parcels_pending", "consignments", "risk", "returns"].includes(cur) && <Parcels tab={cur} phone={phone} isOwner={isOwner} go={go} />}
+        {["parcels_pending", "consignments", "risk", "returns"].includes(cur) && <Parcels key={cur + pst} tab={cur} phone={phone} st0={pst} isOwner={isOwner} go={go} />}
       </main>
       <nav className="bottom">
         {items.slice(0, 4).map(([k, ic]) => (
@@ -277,7 +277,7 @@ function Dashboard({ isOwner, t, go, pc }) {
       // আজ কয়টা পার্সেল কাস্টমার নিয়েছে / ফেরত এসেছে (অর্ডার যেদিনেরই হোক)
       const { data: mv } = await sb.rpc("dash_range", { p_from: mv0, p_to: rg.to });
       // Steadfast-এ পথে আছে (এখনো Delivered / Return হয়নি)
-      const { count: sfPending } = await sb.from("parcels").select("id", { count: "exact", head: true }).not("delivery_status", "in", "(delivered,partial_delivered,cancelled)");
+      const { count: sfPending } = await sb.from("parcels").select("id", { count: "exact", head: true }).eq("delivery_status", "pending"); // শুধু কাস্টমারের দিকে যাচ্ছে (In Review বাদ)
       // কাজ বাকি — তারিখ যাই হোক, রাত ১২টার পরও থাকবে
       const { data: open } = await sb.from("orders").select("status,invoice_printed_at,invoice_png_at,sheet_printed_at,sheet_png_at").in("status", ["pending", "confirmed"]).limit(2000);
       const op = open ?? [], conf = op.filter((x) => x.status === "confirmed");
@@ -349,7 +349,7 @@ function Dashboard({ isOwner, t, go, pc }) {
       <div className="dsec big"><span>৩ · ডেলিভারি</span><small>Steadfast থেকে আসা হিসাব</small></div>
       <div className="grid gbig">
         <S k="delivered" l={one ? `${bn(rg.to, { month: "long" })} মাসে Delivered` : "Delivered"} v={d.delivered} to={() => go("orders", { mode: "all", status: "delivered", from: "", to: "" })} /><S k="returned" l={one ? `${bn(rg.to, { month: "long" })} মাসে Return` : "Return"} v={d.returned} to={() => go("orders", { mode: "all", status: "returned", from: "", to: "" })} />
-        <S k="sf_pending" l="Steadfast-এ Pending (পথে আছে)" v={d.sfPending ?? 0} to={() => go("parcels_pending")} />
+        <S k="sf_pending" l="কাস্টমারের কাছে যাচ্ছে (Pending)" v={d.sfPending ?? 0} to={() => go("parcels_pending", "pending")} />
         <S k="cancelled" l={isToday ? "আজ Cancel" : "Cancel"} v={d.cancelled} to={O({ status: "cancelled" })} />
       </div>
       {ser && <DayBars data={ser} title={one ? "শেষ ১৪ দিনের ডেলিভারি" : "দিনে দিনে ডেলিভারি"} empty="এই সময়ে কোনো Delivered / Return / Cancel হয়নি" series={[{ key: "delivered", label: "Delivered", color: "#1E9E6E" }, { key: "returned", label: "Return", color: "#7A4FD6" }, { key: "cancelled", label: "Cancel", color: "#C9661A" }]} />}
