@@ -524,3 +524,11 @@ img{content-visibility:auto}
 .pbig{display:flex;flex-direction:column;gap:4px;padding:10px 12px;border-radius:14px;background:#e3f7ef;border:1.5px solid #22a37f66;color:#0f5a4a}
 .pbig span{font-size:12px;font-weight:700}.pbig b{font-size:16px}
 :root[data-theme="dark"] .pbig{background:#0f2a22;color:#7fe0bc}
+
+.spinfab{position:fixed;right:22px;bottom:96px;z-index:40;width:56px;height:56px;border-radius:50%;border:0;cursor:pointer;background:conic-gradient(#8E2C3F 0 25%,#C9972B 0 50%,#2E6E5A 0 75%,#c9566c 0);box-shadow:0 12px 26px -10px #8E2C3F;display:grid;place-items:center;transition:.2s}
+.spinfab span{width:40px;height:40px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:22px}
+.spinfab:hover span,.spinfab.on span{animation:spinw 1.2s ease-in-out}
+@keyframes spinw{to{transform:rotate(360deg)}}
+.spinfab i{position:absolute;top:-4px;right:-4px;min-width:22px;height:22px;padding:0 5px;border-radius:11px;background:#d0284f;color:#fff;font-style:normal;font-size:12px;font-weight:800;display:grid;place-items:center;border:2px solid #fff}
+@media (max-width:760px){.spinfab{bottom:150px;right:14px;width:50px;height:50px}.spinfab span{width:36px;height:36px}}
+.spinrow{flex-wrap:wrap}.spinprize{display:flex;flex-direction:column;align-items:flex-end;min-width:110px}.spinprize code{font-size:11.5px;color:var(--muted)}

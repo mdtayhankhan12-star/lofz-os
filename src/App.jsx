@@ -10,6 +10,7 @@ import Parcels, { ST_BN } from "./Parcels.jsx";
 import AI from "./AI.jsx";
 import Trash from "./Trash.jsx";
 import Backup from "./Backup.jsx";
+import Spins from "./Spins.jsx";
 import PrintQueue, { printCounts, QueueCards } from "./PrintQueue.jsx";
 import DateRange from "./DateRange.jsx";
 import { DayBars, SpendBars } from "./DashCharts.jsx";
@@ -124,6 +125,7 @@ const NAV = [
   ["finance", "💰", "owner"], ["ai", "🤖", "owner"], ["team", "👥", "owner"],
   ["addparcel", "📦", null, "parcel"], ["parcels_pending", "⏳", null, "parcel"], ["consignments", "🗂️", null, "parcel"], ["risk", "🛡️", null, "parcel"], ["returns", "↩️", null, "parcel"],
   ["printq", "🖨️", null, "print"],
+  ["spins", "🎡", null, "end"],
   ["trash", "🗑️", "owner", "end"],
 ];
 // প্রতিটা পেজ কী কাজ করে — উপরে ছোট করে লেখা থাকে, যাতে স্টাফ সহজে বোঝে
@@ -140,6 +142,7 @@ const HELP = {
   ai: "গত ৩০ দিনের হিসাব নিয়ে বাংলায় প্রশ্ন করুন। শুধু Owner দেখতে পারবেন।",
   risk: "কাস্টমারের ফোন নম্বর দিয়ে দেখুন আগে কয়টা পার্সেল নিয়েছেন, কয়টা Return করেছেন, Fraud রিপোর্ট আছে কি না।",
   printq: "তিনটা ঘর: INVOICE READY PRINT · KARIGOR SHEET READY · PNG SHEET। Confirmed হলেই অর্ডার তিনটাতেই আসে; কাজ শেষ করে \"হ্যাঁ\" দিলে শুধু সেই ঘর থেকে সরে যায়।",
+  spins: "ওয়েবসাইটের Lucky Spin-এ কাস্টমার যে নাম, নম্বর দিয়েছে আর যে কুপন পেয়েছে — দিন ধরে। পরে অর্ডার করেছে কি না সেটাও দেখাবে।",
   trash: "যেকোনো মুছে ফেলা অর্ডার, খরচ, পরিশোধ, এডিটে বাদ দেওয়া জুতা/ছবি আর আগের লেখা এখানে জমা থাকে। Cancel করা অর্ডারও এখানে পাবেন। চাইলে ফেরত আনতে পারবেন।",
   returns: "Steadfast থেকে ফেরত আসা জুতার ছবি, সাইজ, রং আর সংখ্যা। স্টক মিলিয়ে আবার পাঠাতে পারবেন।",
 };
@@ -169,12 +172,14 @@ function Shell({ profile, prefs }) {
   const [q, setQ] = useState("");
   useEffect(() => { document.documentElement.dataset.page = printIds || shoeIds ? "print" : cur; }, [cur, printIds, shoeIds]);
   const [pc, setPc] = useState(null); // প্রিন্ট বাকির সংখ্যা (মেনুতে দেখায়)
+  const [spinN, setSpinN] = useState(0); // আজ কতজন স্পিন করেছে
+  useEffect(() => { const f = () => { const d = new Date(Date.now() + 6 * 3600e3).toISOString().slice(0, 10); sb.from("spin_entries").select("id", { count: "exact", head: true }).gte("spun_at", d + "T00:00:00+06:00").then(({ count }) => setSpinN(count ?? 0)); }; f(); const i = setInterval(f, 60e3); return () => clearInterval(i); }, []);
   useEffect(() => { const f = () => printCounts().then(setPc).catch(() => {}); f(); const i = setInterval(f, 60e3); return () => clearInterval(i); }, [page, printIds, shoeIds]);
   if (printIds) return <PrintView ids={printIds} onClose={() => setPrintIds(null)} />;
   if (shoeIds) return <ShoeSheet ids={shoeIds} png={shoePng} onClose={() => setShoeIds(null)} />;
   const openShoes = (ids, png) => { setShoePng(!!png); setShoeIds(ids); };
   const NavBtn = ([k, ic]) => <button key={k} className={"nav" + (cur === k ? " on" : "")} onClick={() => go(k)}><span>{ic}</span>{t(k)}
-    {k === "printq" && pc && <span className="navcnt"><i title="ইনভয়েস প্রিন্ট বাকি">🧾{pc.inv}</i><i title="কারিগর শিট বাকি">👟{pc.sheet}</i><i title="PNG শিট বাকি">🖼️{pc.png}</i><i title="Steadfast বুক বাকি">🚚{pc.book}</i></span>}</button>;
+    {k === "spins" && spinN > 0 && <span className="navcnt"><i title="আজ স্পিন">আজ {spinN}</i></span>}{k === "printq" && pc && <span className="navcnt"><i title="ইনভয়েস প্রিন্ট বাকি">🧾{pc.inv}</i><i title="কারিগর শিট বাকি">👟{pc.sheet}</i><i title="PNG শিট বাকি">🖼️{pc.png}</i><i title="Steadfast বুক বাকি">🚚{pc.book}</i></span>}</button>;
   const search = (e) => { e.preventDefault(); const v = q.trim(); if (!v) return; if (v.replace(/\D/g, "").length >= 10 && /^[\d\s+-]+$/.test(v)) go("risk", v); else go("orders", { mode: "all", q: v }); setQ(""); };
   return (
     <div className="shell">
@@ -205,6 +210,7 @@ function Shell({ profile, prefs }) {
         {cur === "finance" && isOwner && <Finance />}
         {cur === "ai" && isOwner && <AI />}
         {cur === "trash" && isOwner && <Trash />}
+        {cur === "spins" && <Spins goRisk={(p) => go("risk", p)} />}
         {cur === "printq" && <PrintQueue key={pq} mode={pq} setMode={(m) => go("printq", m)} onPrint={setPrintIds} onShoes={openShoes} go={go} />}
         {["parcels_pending", "consignments", "risk", "returns"].includes(cur) && <Parcels key={cur + pst} tab={cur} phone={phone} st0={pst} isOwner={isOwner} go={go} />}
       </main>
@@ -214,6 +220,7 @@ function Shell({ profile, prefs }) {
         ))}
         <button className={items.slice(4).some(([k]) => k === cur) ? "on" : ""} onClick={() => setMore(!more)}><span>☰</span><small>আরো</small></button>
       </nav>
+      <button className={"spinfab" + (cur === "spins" ? " on" : "")} onClick={() => go("spins")} title="Lucky Spin — কে কবে স্পিন করেছে"><span>🎡</span>{spinN > 0 && <i>{spinN}</i>}</button>
       {isOwner && <>
         <button className="aifab" onClick={() => setAiOpen(!aiOpen)} title="AI সহকারী">{aiOpen ? "✕" : "🤖"}</button>
         {aiOpen && <div className="aipanel"><div className="aiphd"><b>🤖 AI সহকারী</b><button className="chip" onClick={() => setAiOpen(false)}>বন্ধ</button></div><div className="aibody"><AI compact /></div></div>}
