@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { sb, tk } from "./lib.js";
 import DateRange, { rangeLabel } from "./DateRange.jsx";
 import { SpendBars } from "./DashCharts.jsx";
+import Money from "./Money.jsx";
 
 // খরচ পেজ — উপরে ক্যাশ/ব্যাংক, তারপর কোন খাতে খরচ বেশি, তারপর দৈনিক খরচ লেখা, নিচে বাকির খাতা আর ক্যাশ খাতা
 const dhakaToday = () => new Date(Date.now() + 6 * 3600e3).toISOString().slice(0, 10);
@@ -47,7 +48,7 @@ function CashCard({ book, reload }) {
     return (
       <form className="card cashset" onSubmit={saveOpening}>
         <h2>💰 শুরুর ব্যালান্স বসান</h2>
-        <p className="muted small">আজ (বা যেদিন থেকে হিসাব শুরু করবেন) আপনার হাতে কত নগদ টাকা আর ব্যাংকে কত আছে লিখুন। এরপর থেকে Steadfast-এর ডেলিভারি নিজে থেকে ক্যাশে যোগ হবে, আর খরচ / পরিশোধ / ব্যাংকে জমা ক্যাশ থেকে বাদ যাবে।</p>
+        <p className="muted small">আজ (বা যেদিন থেকে হিসাব শুরু করবেন) আপনার হাতে কত নগদ টাকা আর ব্যাংকে কত আছে লিখুন। এরপর থেকে Steadfast-এ Paid হওয়া পেমেন্ট নিজে থেকে ক্যাশে যোগ হবে, আর খরচ / পরিশোধ / ব্যাংকে জমা ক্যাশ থেকে বাদ যাবে।</p>
         <div className="form3">
           <label>হাতে নগদ (ক্যাশ)<input inputMode="decimal" required value={o.cash} onChange={(e) => setOp({ ...o, cash: e.target.value })} placeholder="যেমন 25000" /></label>
           <label>ব্যাংকে<input inputMode="decimal" value={o.bank} onChange={(e) => setOp({ ...o, bank: e.target.value })} placeholder="যেমন 50000" /></label>
@@ -59,8 +60,8 @@ function CashCard({ book, reload }) {
     );
   }
   const flow = today ? [
-    ["Steadfast ডেলিভারি", today.sf_in, `${BN(today.nd)}টা Delivered${today.nr ? `, ${BN(today.nr)}টা Return` : ""}`],
-    ["নগদ খরচ", -today.exp_cash], ["বাকি পরিশোধ", -today.paid], ["ব্যাংকে জমা", -today.to_bank], ["ব্যাংক থেকে তোলা", today.from_bank],
+    ["Steadfast Paid", today.sf_in, `${BN(today.sf_n)}টা পেমেন্ট`],
+    ["দৈনিক মোট খরচ", today.daily_spend != null ? -today.daily_spend : 0], ["নগদ খরচ", today.daily_spend != null ? 0 : -today.exp_cash], ["ব্যাংকে জমা", -today.to_bank], ["ব্যাংক থেকে তোলা", today.from_bank],
     ["অন্য আয়", today.cash_in], ["অন্য খরচ", -today.cash_out],
   ].filter((x) => Number(x[1])) : [];
   return (
@@ -88,7 +89,7 @@ function CashCard({ book, reload }) {
         </form>
       )}
       {err && <p className="err">{err}</p>}
-      <p className="muted small" style={{ margin: "8px 0 0" }}>শুরু: {dBN(opening.date)} · ক্যাশ {tk(opening.cash)} · ব্যাংক {tk(opening.bank)}। Steadfast-এর টাকা ডেলিভারির দিনেই ক্যাশে ধরা হয় (COD − Steadfast চার্জ; Return হলে চার্জ বাদ)। আসল টাকা পরে এলে মিলিয়ে নিতে "ক্যাশ যোগ/খরচ" দিয়ে ঠিক করুন।</p>
+      <p className="muted small" style={{ margin: "8px 0 0" }}>শুরু: {dBN(opening.date)} · ক্যাশ {tk(opening.cash)} · ব্যাংক {tk(opening.bank)}। Steadfast-এর টাকা "Paid" হওয়ার দিনেই ক্যাশে ধরা হয় (চার্জ বাদে)। দৈনিক মোট খরচ দেওয়া দিনে সেটাই বাদ যায়।</p>
     </div>
   );
 }
@@ -171,6 +172,7 @@ export default function Expenses({ isOwner }) {
 
   return (
     <div className="stack">
+      {isOwner && <Money onChange={loadBook} />}
       {isOwner && <CashCard book={book} reload={loadBook} />}
       {isOwner && spend && <SpendBars rows={spend} fmt={tk} title="এই মাসে কোন খাতে খরচ বেশি" />}
 
