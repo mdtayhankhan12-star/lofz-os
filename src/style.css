@@ -532,3 +532,14 @@ img{content-visibility:auto}
 .spinfab i{position:absolute;top:-4px;right:-4px;min-width:22px;height:22px;padding:0 5px;border-radius:11px;background:#d0284f;color:#fff;font-style:normal;font-size:12px;font-weight:800;display:grid;place-items:center;border:2px solid #fff}
 @media (max-width:760px){.spinfab{bottom:150px;right:14px;width:50px;height:50px}.spinfab span{width:36px;height:36px}}
 .spinrow{flex-wrap:wrap}.spinprize{display:flex;flex-direction:column;align-items:flex-end;min-width:110px}.spinprize code{font-size:11.5px;color:var(--muted)}
+
+.spinstats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.spinstat{display:flex;flex-direction:column;gap:2px;padding:16px;border-radius:18px;background:var(--card);border:1px solid var(--line);box-shadow:0 10px 24px -20px #0006}
+.spinstat span{font-size:22px}.spinstat small{color:var(--muted);font-weight:700;font-size:13px}.spinstat b{font-size:30px;font-variant-numeric:tabular-nums;line-height:1.1}.spinstat em{font-style:normal;font-size:12px;color:var(--muted)}
+.spinstat.hot{background:linear-gradient(135deg,#8E2C3F,#c9566c);color:#fff;border:0}.spinstat.hot small,.spinstat.hot em{color:#ffffffd0}
+.spinstat.good b{color:#178a5c}
+.sptable{display:flex;flex-direction:column}.sptable .sh,.sptable .sr{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:8px;padding:9px 8px;text-align:left;font-size:14px}
+.sptable .sh{font-weight:800;color:var(--muted);border-bottom:2px solid var(--line)}
+.sptable .sr{border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer;font-family:inherit;border-radius:10px}
+.sptable .sr:hover,.sptable .sr.on{background:color-mix(in srgb,var(--acc) 9%,transparent)}
+@media (max-width:1100px){.spinstats{grid-template-columns:repeat(3,1fr)}}@media (max-width:760px){.spinstats{grid-template-columns:repeat(2,1fr)}.spinstat b{font-size:24px}}
