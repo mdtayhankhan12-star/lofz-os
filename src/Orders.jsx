@@ -54,6 +54,21 @@ function Mark({ r, m, onChange }) {
     </span>
   );
 }
+// Return আসা জুতা দিয়ে এই অর্ডার মেটানো যাবে কি না
+export async function loadMatches() {
+  const { data } = await sb.rpc("return_matches"); const m = {};
+  for (const x of data ?? []) (m[x.order_id] ??= []).push(x);
+  return m;
+}
+export const StockBadges = ({ list }) => !list?.length ? null : (
+  <span className="row" style={{ gap: 6, margin: "4px 0", display: "inline-flex", flexWrap: "wrap" }}>
+    {list.map((x) => (
+      <span key={x.item_key} className={"badge stockb " + (x.arrived ? "in" : "coming")} title={`Return পার্সেল${x.consignment_id ? " #" + x.consignment_id : ""} থেকে`}>
+        {x.arrived ? "✅ স্টক চলে এসেছে" : "♻️ Return থেকে স্টক আসবে"} · {x.product_name} ({x.size ?? "-"}){x.arrived ? " — বানাতে হবে না, রি-প্যাক করে পাঠান" : ""}
+      </span>
+    ))}
+  </span>
+);
 export const PrintBadges = ({ r }) => {
   const [, re] = useState(0);
   return (
@@ -84,6 +99,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
   const [ret, setRet] = useState({});
   const [edit, setEdit] = useState(null);
   const [view, setView] = useState(null);
+  const [mm, setMm] = useState({}); // Return স্টক মিল (অর্ডার আইডি ধরে)
   const [cf, setCf] = useState({ from: "", to: "" }); // Confirmed ট্যাবের তারিখ
   const [pr, setPr] = useState({ inv: P.inv ?? "", sheet: P.sheet ?? "", book: P.book ?? "" }); // ইনভয়েস/শিট প্রিন্ট হয়েছে কি না
 
@@ -122,6 +138,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
     if (mode === "confirmed") list = [...list.filter((r) => !allDone(r)), ...list.filter((r) => allDone(r))];
     setRows(list); if (mode === "inbox") setInboxN(list.length); setSel([]);
     setRet(await statsFor(list.map((r) => r.phone)));
+    if (mode === "confirmed") setMm(await loadMatches());
   };
   useEffect(() => { mode === "all" ? load() : loadInbox(); }, [mode, f.source, f.status, f.from, f.to, revenue, cf.from, cf.to, pr.inv, pr.sheet, pr.book]);
   useEffect(() => { sb.from("orders").select("id", { count: "exact", head: true }).eq("source", "website").eq("status", "pending").then(({ count }) => setInboxN(count ?? 0)); }, []);
@@ -155,7 +172,10 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
   const book = async (r, quiet) => {
     if (!quiet && !confirm(`${r.order_no} — ${r.customer_name}-এর পার্সেল Steadfast-এ বুক করবেন? COD ${tk(r.total)}`)) return false;
     setBk((x) => ({ ...x, [r.id]: true }));
-    try { const j = await fnCall("steadfast", { action: "book", order_id: r.id }); if (!quiet) { setMsg(`${r.order_no} বুক হয়েছে ✓`); mode === "all" ? load() : loadInbox(); } return j.ok !== false; }
+    try { const j = await fnCall("steadfast", { action: "book", order_id: r.id });
+      // হাতে পাওয়া Return স্টক দিয়ে পাঠানো হলো — সেই স্টক আর অন্য অর্ডারে মিলবে না
+      const used = (mm[r.id] ?? []).filter((x) => x.arrived);
+      if (used.length) await sb.from("return_use").insert(used.map((x) => ({ parcel_id: x.parcel_id, item_key: x.item_key, order_id: r.id }))); if (!quiet) { setMsg(`${r.order_no} বুক হয়েছে ✓`); mode === "all" ? load() : loadInbox(); } return j.ok !== false; }
     catch (x) { setMsg(`${r.order_no} — Steadfast: ` + x.message); return false; }
     finally { setBk((x) => ({ ...x, [r.id]: false })); }
   };
@@ -246,6 +266,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
                   </div>
                   <div><b>{r.customer_name}</b> · {r.phone}</div>
                   {mode === "confirmed" && <div><PrintBadges r={r} /></div>}
+                  {mode === "confirmed" && <div><StockBadges list={mm[r.id]} /></div>}
                   <small className="muted">{r.address}</small><br />
                   <small>{(r.order_items ?? []).map((i) => `${i.product_name} · সাইজ ${i.size ?? "-"}${i.color ? " · " + i.color : ""} ×${i.quantity}`).join(" | ")}</small><br />
                   <small className="muted">{bnTime(r.order_date)}</small>

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { sb, tk } from "./lib.js";
-import { PrintBadges, invDone, sheetDone, pngDone, PRINT_COLS } from "./Orders.jsx";
+import { PrintBadges, invDone, sheetDone, pngDone, PRINT_COLS, StockBadges, loadMatches } from "./Orders.jsx";
 
 // তিনটা আলাদা ঘর — Confirmed হলেই অর্ডার তিনটাতেই বসে; যেটার কাজ শেষ, শুধু সেখান থেকে সরে যায়
 export const QUEUES = {
@@ -37,7 +37,8 @@ export function QueueCards({ counts, open, active, onBook }) {
 }
 
 export default function PrintQueue({ mode = "inv", setMode, onPrint, onShoes, go }) {
-  const [rows, setRows] = useState(null); const [src, setSrc] = useState("");
+  const [rows, setRows] = useState(null); const [src, setSrc] = useState(""); const [mm, setMm] = useState({});
+  useEffect(() => { loadMatches().then(setMm); }, []);
   useEffect(() => {
     sb.from("orders").select("id,order_no,source,order_date,customer_name,phone,total,invoice_printed_at,invoice_png_at,sheet_printed_at,sheet_png_at,order_items(product_name,image_url,size,quantity)")
       .eq("status", "confirmed").order("order_date", { ascending: false }).limit(1000)
@@ -70,6 +71,7 @@ export default function PrintQueue({ mode = "inv", setMode, onPrint, onShoes, go
                 <div>{r.customer_name} · {r.phone}</div>
                 <small className="muted">{(r.order_items ?? []).map((i) => `${i.product_name} (${i.size ?? "-"}) ×${i.quantity}`).join(", ")}</small>
                 <div><PrintBadges r={r} /></div>
+                <div><StockBadges list={mm[r.id]} /></div>
               </div>
               <div className="oright"><b>{tk(r.total)}</b><button className="chip" onClick={() => run([r.id])}>{q.ic} শুধু এটা</button></div>
             </div>

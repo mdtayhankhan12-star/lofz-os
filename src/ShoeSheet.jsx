@@ -1,20 +1,22 @@
 import React, { useEffect, useRef, useState } from "react";
 import { downloadPng, sharePng, canShare } from "./sheetImage.js";
 import { loadOrders, markPrinted, AskPrinted } from "./Invoice.jsx";
+import { loadMatches } from "./Orders.jsx";
 
 // কারিগরের A4 শিট: প্রতি পাতায় ১২টা জুতা (৩ কলাম × ৪ সারি)।
 // প্রতি জোড়া আলাদা ঘর; Website-এর ঘরে অর্ডার নম্বর, Facebook-এর ঘরে ফোন নম্বর।
 export default function ShoeSheet({ ids, onClose, png = false }) {
   const [list, setList] = useState(null);
   const refs = useRef([]); const [busy, setBusy] = useState(""); const [ask, setAsk] = useState(false);
-  useEffect(() => { loadOrders(ids).then(setList); }, [ids]);
+  const [mm, setMm] = useState({});
+  useEffect(() => { loadOrders(ids).then(setList); loadMatches().then(setMm); }, [ids]);
   if (!list) return <div className="card">লোড হচ্ছে...</div>;
 
   const cells = { website: [], facebook: [] };
   const skipped = list.filter((o) => o.status !== "confirmed").length;
   for (const o of list.filter((o) => o.status === "confirmed")) for (const i of o.order_items ?? [])
     for (let q = 0; q < (i.quantity || 1); q++)
-      cells[o.source].push({ id: o.id, src: o.source, img: i.image_url, name: i.product_name, size: i.size, no: o.order_no, phone: o.phone });
+      cells[o.source].push({ stock: (() => { const L = mm[o.id] ?? []; const k = L.findIndex((x) => !x._t && x.product_name === i.product_name && (x.size ?? "") === (i.size ?? "")); if (k < 0) return null; L[k]._t = 1; return L[k].arrived ? "in" : "coming"; })(), id: o.id, src: o.source, img: i.image_url, name: i.product_name, size: i.size, no: o.order_no, phone: o.phone });
 
   const pages = [];
   // Website আর Facebook একসাথে, পাতা ভরে ভরে (আগে Website, তারপর Facebook) — কাগজ বাঁচে
@@ -47,6 +49,7 @@ export default function ShoeSheet({ ids, onClose, png = false }) {
             {pg.items.map((c, j) => (
               <div className="scell" key={j}>
                 {c.img ? <img src={c.img} alt="" /> : <div className="sph">ছবি নেই</div>}
+                {c.stock && <div className={"sstock " + c.stock}>{c.stock === "in" ? "STOCK আছে — বানাবেন না" : "RETURN আসছে"}</div>}
                 <div className="sname">{c.name}</div>
                 <div className="ssize">Size: {c.size}</div>
                 {/* Website = অর্ডার নম্বর, Facebook = ফোন নম্বর */}

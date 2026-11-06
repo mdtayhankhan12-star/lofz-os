@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { sb, tk, SUPABASE_URL, fnCall } from "./lib.js";
 import { bnTime, trackUrl } from "./Orders.jsx";
 import DateRange from "./DateRange.jsx";
+import { loadMatches } from "./Orders.jsx";
 
 const FIN = ["delivered", "partial_delivered", "cancelled"];
 export const ST_BN = {
@@ -45,9 +46,22 @@ export default function Parcels({ tab, phone, isOwner, go, st0 }) {
 const RET = ["cancelled", "cancelled_approval_pending", "partial_delivered", "partial_delivered_approval_pending"];
 export function ReturnList() {
   const [rows, setRows] = useState(null); const [f, setF] = useState(""); const [rg, setRg] = useState({ from: "", to: "" });
+  const [mm, setMm] = useState([]); const [tick, setTick] = useState(0);
+  useEffect(() => { loadMatches().then((m) => setMm(Object.values(m).flat())); }, [tick]);
+  const setStock = async (r, on) => {
+    if (!on && !confirm("এই পার্সেলের \"স্টক পেয়েছি\" চিহ্ন মুছবেন?")) return;
+    const v = on ? new Date().toISOString() : null;
+    const { error } = await sb.from("parcels").update({ stock_received_at: v }).eq("id", r.id);
+    if (!error) { setRows((x) => x.map((y) => (y.id === r.id ? { ...y, stock_received_at: v } : y))); setTick((t) => t + 1); }
+  };
+  const useFor = async (x) => {
+    if (!confirm(`${x.product_name} (${x.size}) — এই জুতা ${x.order_no} অর্ডারে দিয়ে দিলেন?`)) return;
+    const { error } = await sb.from("return_use").insert({ parcel_id: x.parcel_id, item_key: x.item_key, order_id: x.order_id });
+    if (!error) setTick((t) => t + 1);
+  };
   useEffect(() => {
     setRows(null);
-    let x = sb.from("parcels").select("id,consignment_id,tracking_code,delivery_status,updated_at,orders(id,order_no,customer_name,phone,source,order_items(product_name,size,color,quantity,image_url))")
+    let x = sb.from("parcels").select("id,consignment_id,tracking_code,delivery_status,updated_at,stock_received_at,orders(id,order_no,customer_name,phone,source,order_items(product_name,size,color,quantity,image_url))")
       .in("delivery_status", RET).order("updated_at", { ascending: false }).limit(500);
     if (rg.from) x = x.gte("updated_at", rg.from + "T00:00:00+06:00").lte("updated_at", rg.to + "T23:59:59+06:00");
     x.then(({ data }) => setRows(data ?? []));
@@ -100,9 +114,23 @@ export function ReturnList() {
                       <div className="grow"><b>{i.product_name}</b><div className="small">Size: {i.size ?? "—"}{i.color ? ` · ${i.color}` : ""} · {i.quantity} জোড়া</div></div>
                     </div>
                   ))}
+                  {full(r) && (() => { const ms = mm.filter((x) => x.parcel_id === r.id); return ms.length > 0 && (
+                    <div className="matchbox">
+                      <b>🔁 নতুন অর্ডারের সাথে মিলেছে:</b>
+                      {ms.map((x) => (
+                        <div key={x.item_key} className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 4 }}>
+                          <span><b>{x.order_no}</b> · {x.product_name} ({x.size ?? "-"})</span>
+                          {r.stock_received_at && <button className="chip" onClick={() => useFor(x)}>✅ এই অর্ডারে দিয়েছি</button>}
+                        </div>
+                      ))}
+                      {!r.stock_received_at && <small className="muted">জুতা হাতে পেলে ডান পাশের "📦 স্টক হাতে পেয়েছি" চাপুন — অর্ডারে "স্টক চলে এসেছে" দেখাবে।</small>}
+                    </div>); })()}
                 </div>
                 <div className="oright">
                   <span className={"badge " + stCls(r.delivery_status)}>{ST_BN[r.delivery_status] ?? r.delivery_status}</span>
+                  {full(r) && (r.stock_received_at
+                    ? <button className="badge good clicky" title="ভুল হলে চাপুন" onClick={() => setStock(r, false)}>📦 স্টক পেয়েছি ✓ ✕</button>
+                    : <button className="btn sfbook" onClick={() => setStock(r, true)}>📦 স্টক হাতে পেয়েছি</button>)}
                   {r.tracking_code && <a className="chip" href={trackUrl(r.tracking_code)} target="_blank" rel="noopener">ট্র্যাক</a>}
                 </div>
               </div>); })}
