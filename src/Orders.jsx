@@ -326,6 +326,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
                   {r.possible_duplicate && <span className="badge bad">সম্ভাব্য ডুপ্লিকেট</span>}
                 </div>
                 <div>{r.customer_name} · {r.phone}</div>
+                {["pending", "confirmed"].includes(r.status) && (ret[r.phone]?.returned > 0 || ret[r.phone]?.fraud > 0) && <div><span className="badge bad" style={{ cursor: "pointer" }} onClick={() => goRisk?.(r.phone)}>⚠️ সাবধান: আগে {ret[r.phone].returned > 0 ? `${ret[r.phone].returned} বার Return` : ""}{ret[r.phone].returned > 0 && ret[r.phone].fraud > 0 ? " + " : ""}{ret[r.phone].fraud > 0 ? `${ret[r.phone].fraud}টা Fraud রিপোর্ট` : ""} — Confirm করার আগে ফোনে নিশ্চিত হোন</span></div>}
                 {["confirmed", "delivered", "received", "returned"].includes(r.status) && <div><PrintBadges r={r} /></div>}
                 <small className="muted">{(r.order_items ?? []).map((i) => `${i.product_name} (${i.size}) ×${i.quantity}`).join(", ")} · {bnTime(r.order_date)}</small>
                 <div className="ringw" onClick={() => goRisk?.(r.phone)}><Ring s={ret[r.phone]} small /></div>

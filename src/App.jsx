@@ -12,6 +12,25 @@ import Trash from "./Trash.jsx";
 import Backup from "./Backup.jsx";
 import Spins from "./Spins.jsx";
 import Customers from "./Customers.jsx";
+function TodoCard({ go }) {
+  const [c, setC] = useState(null);
+  useEffect(() => { sb.rpc("todo_counts").then(({ data }) => setC(data)); }, []);
+  if (!c) return null;
+  const items = [
+    [c.pending, "ফোন করে Confirm করতে বাকি", () => go("orders", { mode: "inbox" }), c.pending_old ? `${c.pending_old}টা ২ দিনের বেশি পুরনো` : ""],
+    [c.not_booked, "Steadfast-এ বুক করতে বাকি", () => go("orders", { mode: "confirmed", book: "no" })],
+    [c.stuck, "৫ দিনের বেশি Steadfast-এ আটকে (Pending/In review)", () => go("parcels_pending")],
+    [c.risky_pending, "সাবধান: আগে Return/Fraud আছে এমন চলতি অর্ডার", () => go("orders", { mode: "all" })],
+  ];
+  const open = items.filter((x) => x[0] > 0);
+  return (
+    <div className="card todocard">
+      <h2>✅ আজকের কাজ</h2>
+      {!open.length ? <p className="muted">🎉 কিছু বাকি নেই।</p> : <div className="xlist">{open.map(([n, l, f, sub], i) => (
+        <button key={i} type="button" className="xrow todorow" onClick={f}><b className="todon">{n}</b><span className="grow" style={{ textAlign: "left" }}>{l}{sub && <small className="err"> · {sub}</small>}</span><span>দেখুন →</span></button>))}</div>}
+    </div>
+  );
+}
 import PrintQueue, { printCounts, QueueCards } from "./PrintQueue.jsx";
 import DateRange from "./DateRange.jsx";
 import { DayBars, SpendBars } from "./DashCharts.jsx";
@@ -355,6 +374,7 @@ function Dashboard({ isOwner, t, go, pc }) {
       {ser && <DayBars data={ser} title={one ? "শেষ ১৪ দিনের অর্ডার" : "দিনে দিনে অর্ডার"} series={[{ key: "web", label: "Website", color: "#9B2C4A" }, { key: "fb", label: "Facebook", color: "#2F6FD0" }]} />}
 
       <div className="dsec big"><span>২ · প্রিন্ট ও বুকিং</span><small>Confirmed হলেই অর্ডার চারটা ঘরেই বসে · কাজ শেষ হলে ঘর থেকে সরে যায়</small></div>
+      <TodoCard go={go} />
       <QueueCards counts={pc} open={(m) => go("printq", m)} onBook={() => go("orders", { mode: "confirmed", book: "no" })} />
 
       <div className="dsec big"><span>৩ · ডেলিভারি</span><small>Steadfast থেকে আসা হিসাব</small></div>

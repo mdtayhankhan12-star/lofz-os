@@ -549,3 +549,5 @@ img{content-visibility:auto}
 :root[data-theme="dark"] .matchbox{background:#2a2210}:root[data-theme="dark"] .stockb.coming{background:#2a2210;color:#f3c76b}:root[data-theme="dark"] .stockb.in{background:#0f2a22;color:#7fe0bc}
 
 .scell{position:relative}.sstock{position:absolute;top:6px;left:6px;right:6px;text-align:center;font-size:10px;font-weight:900;padding:3px 4px;border-radius:6px;letter-spacing:.02em}.sstock.in{background:#0f6b4f;color:#fff}.sstock.coming{background:#e8a93b;color:#3a2a00}
+.todocard h2{margin:0 0 8px}.todorow{width:100%;border:0;background:transparent;cursor:pointer;display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid #f3dfe5;font:inherit}
+.todon{min-width:34px;text-align:center;background:#fde7ec;color:#d0284f;border-radius:8px;padding:2px 8px}
