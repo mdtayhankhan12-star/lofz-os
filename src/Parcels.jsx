@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { sb, tk, SUPABASE_URL, fnCall } from "./lib.js";
+import { sb, tk, SUPABASE_URL, fnCall, niceName } from "./lib.js";
 import { bnTime, trackUrl } from "./Orders.jsx";
 import DateRange from "./DateRange.jsx";
 import { loadMatches } from "./Orders.jsx";
@@ -141,8 +141,9 @@ export function ReturnList() {
   );
 }
 
+const BNn = (n) => String(n).replace(/\d/g, (d) => "০১২৩৪৫৬৭৮৯"[d]);
 function ParcelList({ pendingOnly, isOwner, go, st0 }) {
-  const [view, setView] = useState(null);
+  const [view, setView] = useState(null); const [note, setNote] = useState({});
   const [rows, setRows] = useState(null); const [q, setQ] = useState(""); const [st, setSt] = useState(st0 ?? ""); const [rg, setRg] = useState({ from: "", to: "" });
   useEffect(() => {
     setRows(null);
@@ -150,8 +151,22 @@ function ParcelList({ pendingOnly, isOwner, go, st0 }) {
       .order("updated_at", { ascending: false }).limit(500);
     if (pendingOnly) x = x.not("delivery_status", "in", `(${FIN.join(",")})`);
     if (rg.from) x = x.gte("booking_date", rg.from + "T00:00:00+06:00").lte("booking_date", rg.to + "T23:59:59+06:00");
-    x.then(({ data }) => setRows(data ?? []));
+    x.then(async ({ data }) => {
+      setRows(data ?? []);
+      const ids = (data ?? []).map((r) => r.consignment_id).filter(Boolean);
+      if (!ids.length) return setNote({});
+      const { data: nt } = await sb.from("sf_notifications").select("consignment_id,message,created_at").in("consignment_id", ids).order("created_at", { ascending: false }).limit(2000);
+      const g = {}; for (const n of nt ?? []) if (n.message && !g[n.consignment_id]) g[n.consignment_id] = n.message;
+      setNote(g);
+    });
   }, [pendingOnly, rg.from, rg.to]);
+  const why = (r) => {
+    const days = Math.floor((Date.now() - new Date(r.booking_date ?? r.updated_at).getTime()) / 864e5), dtxt = days > 0 ? ` · ${BNn(days)} দিন হলো` : "";
+    if (r.delivery_status === "in_review") return ["mid", `Steadfast রিভিউতে — অনুমোদন বাকি${dtxt}`];
+    if (r.delivery_status === "hold") return ["", `Hold — কাস্টমারকে ফোন করে কারণ জানুন${dtxt}`];
+    if (r.delivery_status === "pending") return [days >= 3 ? "" : "mid", `রাইডারের কাছে / পথে${dtxt}`];
+    return null;
+  };
   const list = (rows ?? []).filter((r) => (!st || r.delivery_status === st) && (!q.trim() || JSON.stringify([r.consignment_id, r.tracking_code, r.orders, r.raw?.invoice]).toLowerCase().includes(q.trim().toLowerCase())));
   const cnt = {}; for (const r of rows ?? []) cnt[r.delivery_status] = (cnt[r.delivery_status] ?? 0) + 1;
   const cod = list.reduce((a, r) => a + Number(r.cod_amount ?? r.orders?.total ?? r.raw?.cod_amount ?? 0), 0);
@@ -169,11 +184,14 @@ function ParcelList({ pendingOnly, isOwner, go, st0 }) {
         <div className="olist">
           {list.map((r) => { const o = r.orders; return (
             <div key={r.id} className="card orow clicky" onClick={(e) => { if (!e.target.closest("a,button")) setView({ ...(o ?? { order_no: r.raw?.invoice }), items: o?.order_items, parcel: r }); }}>
-              <div className="pbox">📦</div>
+              <div className="pthumbs">{(o?.order_items ?? []).slice(0, 3).map((i, k) => i.image_url ? <img key={k} src={i.image_url} alt="" loading="lazy" /> : <div key={k} className="ph" />)}{!o?.order_items?.length && <div className="pbox">📦</div>}</div>
               <div className="grow">
                 <div className="row"><b>{o?.order_no ?? r.raw?.invoice ?? "—"}</b>{r.consignment_id && <span className="badge">Parcel #{r.consignment_id}</span>}
                   {o && <span className={"badge " + (o.source === "facebook" ? "fb" : "web")}>{o.source === "facebook" ? "Facebook" : "Website"}</span>}</div>
-                <div>{o ? <><b>{o.customer_name}</b> · {o.phone}</> : <span className="muted">পুরনো অর্ডার (আগের হিসাব থেকে)</span>}</div>
+                <div>{o ? <><span className="pname">{niceName(o.customer_name)}</span> · {o.phone}</> : <span className="muted">পুরনো অর্ডার (আগের হিসাব থেকে)</span>}</div>
+                {o?.order_items?.length > 0 && <div className="psub">{o.order_items.map((i) => `${i.product_name} (${i.size ?? "-"}) ×${i.quantity}`).join(", ")}</div>}
+                {pendingOnly && why(r) && <div className={"pwhy " + why(r)[0]}>⚠️ {why(r)[1]}</div>}
+                {note[r.consignment_id] && <div className="psub">📝 Steadfast: {note[r.consignment_id]}</div>}
                 <small className="muted">আপডেট: {bnTime(r.updated_at ?? r.booking_date)}</small>
               </div>
               <div className="oright">

@@ -6,11 +6,31 @@ const BN = (n) => String(n).replace(/\d/g, (d) => "০১২৩৪৫৬৭৮�
 const dBN = (d) => new Date(d + "T12:00:00Z").toLocaleDateString("bn-BD", { day: "numeric", month: "long", year: "numeric" });
 const mBN = (d) => new Date(d + "T12:00:00Z").toLocaleDateString("bn-BD", { month: "long", year: "numeric" });
 const toB64 = (file) => new Promise((res, rej) => { const img = new Image(), u = URL.createObjectURL(file); img.onload = () => { const m = 1600, k = Math.min(1, m / Math.max(img.width, img.height)); const c = document.createElement("canvas"); c.width = img.width * k; c.height = img.height * k; c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(u); res(c.toDataURL("image/jpeg", 0.8).split(",")[1]); }; img.onerror = () => rej(new Error("ছবি খুলতে পারিনি")); img.src = u; });
+// দিনে দিনে: Steadfast থেকে পাওয়া টাকা (সবুজ) বনাম খরচ (লাল)
+function InOutChart({ days }) {
+  const D = [...(days ?? [])].reverse();
+  const max = Math.max(1000, ...D.map((x) => Math.max(+x.sf_in || 0, +x.spend_out || 0)));
+  const W = 720, H = 190, L = 44, B = 26, T = 10, n = Math.max(1, D.length), slot = (W - L - 6) / n, bw = Math.min(16, slot * 0.36);
+  const y = (v) => T + (H - T - B) * (1 - v / max);
+  const k = (v) => (v >= 100000 ? (v / 100000).toFixed(1) + "L" : v >= 1000 ? Math.round(v / 1000) + "k" : Math.round(v));
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="ioc" role="img" aria-label="দিনে দিনে টাকা আসা আর খরচ">
+      {[0, 0.5, 1].map((f) => <g key={f}><line x1={L} x2={W - 6} y1={y(max * f)} y2={y(max * f)} className="gl" /><text x={L - 6} y={y(max * f) + 3} textAnchor="end" className="ax">{k(max * f)}</text></g>)}
+      {D.map((x, i) => { const cx = L + slot * i + slot / 2; return (
+        <g key={x.d}>
+          <rect x={cx - bw - 1} y={y(+x.sf_in || 0)} width={bw} height={Math.max(0, H - B - y(+x.sf_in || 0))} rx="3" fill="var(--good)"><title>{x.d}: পেয়েছি {tk(x.sf_in)}</title></rect>
+          <rect x={cx + 1} y={y(+x.spend_out || 0)} width={bw} height={Math.max(0, H - B - y(+x.spend_out || 0))} rx="3" fill="var(--bad)"><title>{x.d}: খরচ {tk(x.spend_out)}</title></rect>
+          {(n <= 8 || i % 2 === 0) && <text x={cx} y={H - 8} textAnchor="middle" className="ax">{BN(Number(x.d.slice(8)))}</text>}
+        </g>); })}
+    </svg>
+  );
+}
 const dk = (iso) => new Date(new Date(iso).getTime() + 6 * 3600e3).toISOString().slice(0, 10);
 
 // Steadfast থেকে Paid টাকা + দৈনিক মোট খরচ + মাসের লাভ-ক্ষতি (শুধু Owner)
 export default function Money({ onChange }) {
   const t = dhakaToday();
+  const [bk, setBk] = useState(null);
   const [pl, setPl] = useState(null); const [pays, setPays] = useState(null); const [spends, setSpends] = useState(null);
   const [f, setF] = useState({ day: t, amt: "", note: "" }); const [err, setErr] = useState(""); const [busy, setBusy] = useState("");
   const load = async () => {
@@ -20,6 +40,8 @@ export default function Money({ onChange }) {
       sb.from("daily_spend").select("day,amount,note").order("day", { ascending: false }).limit(10),
     ]);
     setPl(a.data ?? []); setPays(b.data ?? []); setSpends(c.data ?? []);
+    const from = new Date(Date.now() + 6 * 3600e3 - 13 * 864e5).toISOString().slice(0, 10);
+    const { data: bkd } = await sb.rpc("cash_book", { p_from: from, p_to: t }); setBk(bkd ?? { opening: null });
   };
   useEffect(() => { load(); }, []);
   const saveSpend = async (e) => {
@@ -50,8 +72,21 @@ export default function Money({ onChange }) {
     setRd({ text: "", img: null, prev: "", items: null, unclear: [], msg: `✓ ${dBN(f.day)} — মোট ${tk(rdSum)} সেভ হয়েছে`, busy: false }); load(); onChange?.();
   };
   const cur = pl?.[0];
+  const open = bk?.opening;
+  const days14 = bk?.days ?? [];
+  const mon = t.slice(0, 7) + "-01";
+  const got = cur?.received ?? 0, spent = cur?.spend ?? 0;
   return (
     <div className="stack">
+      <div className="sumtiles">
+        <div className="stile"><small>💵 হাতে ক্যাশ</small><b>{open ? tk(Math.round(bk.cash_now)) : "—"}</b></div>
+        <div className="stile"><small>🏦 ব্যাংকে</small><b>{open ? tk(Math.round(bk.bank_now)) : "—"}</b></div>
+        <div className="stile"><small>🚚 এই মাসে Steadfast থেকে পেয়েছি</small><b>{tk(got)}</b></div>
+        <div className="stile"><small>🧾 এই মাসে খরচ</small><b>{cur?.spend_days ? tk(spent) : "—"}</b></div>
+        <div className={"stile " + (cur?.spend_days ? (got - spent >= 0 ? "pos" : "neg") : "")}><small>📊 এই মাসের {cur?.spend_days && got - spent < 0 ? "ক্ষতি" : "লাভ"}</small><b>{cur?.spend_days ? tk(Math.abs(got - spent)) : "খরচ বাকি"}</b></div>
+      </div>
+      {!open && <div className="card"><b>💰 ব্যালেন্স এখনো বসানো হয়নি।</b> <span className="muted small">নিচের "পুরনো বিস্তারিত খাতা" খুলে "শুরুর ব্যালান্স" বসান — তারপর হাতে কত টাকা থাকল সেটা এখানে নিজে থেকে আসবে।</span></div>}
+      {open && <div className="card"><div className="xhead"><h3 style={{ margin: 0 }}>গত ১৪ দিন — <span style={{ color: "var(--good)" }}>■ টাকা এসেছে</span> · <span style={{ color: "var(--bad)" }}>■ খরচ</span></h3></div><InOutChart days={days14} /></div>}
       <div className="card plcard">
         <div className="xhead"><h2>📊 মাসের লাভ-ক্ষতি</h2><button type="button" className="chip" onClick={sync}>🔄 Steadfast পেমেন্ট আনুন</button></div>
         {busy && <p className="small" style={{ fontWeight: 700 }}>{busy}</p>}

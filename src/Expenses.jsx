@@ -170,9 +170,13 @@ export default function Expenses({ isOwner }) {
   const dueOf = (n) => { const x = led?.find((l) => key(l.name) === key(n)); return x ? x.bought - x.paid : null; };
   const ledDays = (book?.days ?? []).filter((d) => d.d >= cr.from && d.d <= cr.to);
 
+  const Old = ({ children }) => isOwner
+    ? <details className="old" key={book?.opening ? "a" : "b"} open={!!book && !book.opening}><summary>🗂️ পুরনো বিস্তারিত খাতা — হাতে খরচ লেখা, বাকির খাতা, ক্যাশ খাতা</summary><div className="stack">{children}</div></details>
+    : <>{children}</>;
   return (
     <div className="stack">
       {isOwner && <Money onChange={loadBook} />}
+      <Old>
       {isOwner && <CashCard book={book} reload={loadBook} />}
       {isOwner && spend && <SpendBars rows={spend} fmt={tk} title="এই মাসে কোন খাতে খরচ বেশি" />}
 
@@ -280,6 +284,7 @@ export default function Expenses({ isOwner }) {
           </>}
         </div>
       )}
+      </Old>
     </div>
   );
 }

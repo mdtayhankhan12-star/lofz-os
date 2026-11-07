@@ -604,3 +604,20 @@ img{content-visibility:auto}
 .tbar{height:12px;background:var(--line);border-radius:99px;overflow:hidden;margin:8px 0 4px}.tbar i{display:block;height:100%;background:var(--acc);border-radius:99px;transition:width .4s}
 .chan{display:grid;grid-template-columns:76px 1fr 38px;gap:10px;align-items:center;margin:8px 0;font-weight:600;font-size:14px}.chan .bar{height:11px;background:var(--line);border-radius:99px;overflow:hidden}.chan .bar i{display:block;height:100%}
 .themesel{border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--fg);padding:5px 8px;font-size:13px}
+
+/* ===== পরিষ্কার ব্যাকগ্রাউন্ড: ঢেউ/বিন্দু সরানো, নিচে ফাঁকা জায়গা ঠিক ===== */
+body::before,body::after{display:none!important}
+:root:not([data-theme]) body,:root[data-theme="light"] body{background:var(--bg)}
+:root{--bg:#faf6f4}
+.main{padding-bottom:110px}
+.pname{font-weight:700;letter-spacing:.005em}
+.pthumbs{display:flex;gap:6px;flex:none}.pthumbs img,.pthumbs .ph{width:58px;height:58px;border-radius:12px;object-fit:cover;background:var(--line);border:1px solid var(--line)}
+.pwhy{display:inline-flex;gap:6px;align-items:flex-start;margin-top:4px;padding:5px 10px;border-radius:10px;font-size:13px;font-weight:600;background:color-mix(in srgb,var(--bad) 12%,transparent);color:var(--bad)}
+.pwhy.mid{background:color-mix(in srgb,#e8a93b 20%,transparent);color:#8a5a00}
+.psub{font-size:13px;color:var(--muted)}
+.sumtiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.stile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}.stile small{display:block;color:var(--muted);font-weight:600}.stile b{font-size:22px}
+.stile.pos b{color:var(--good)}.stile.neg b{color:var(--bad)}
+.ioc{width:100%;height:auto;display:block}.ioc .ax{font-size:10px;fill:var(--muted)}.ioc .gl{stroke:var(--line);stroke-dasharray:3 4}
+details.old>summary{cursor:pointer;font-weight:700;padding:12px 14px;background:var(--card);border:1px solid var(--line);border-radius:14px}
+details.old[open]>summary{margin-bottom:12px}

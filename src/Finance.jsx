@@ -1,3 +1,4 @@
+import { ParcelPnl, AdsPanel } from "./Pnl.jsx";
 import React, { useEffect, useState } from "react";
 import DateRange from "./DateRange.jsx";
 import { sb, tk } from "./lib.js";
@@ -90,6 +91,9 @@ export default function Finance() {
   const S = ({ l, v, cls }) => <div className={"stat " + (cls || "")}><small>{l}</small><b>{v}</b></div>;
   return (
     <div className="stack">
+      <ParcelPnl />
+      <AdsPanel />
+      <details className="old"><summary>🗂️ পুরনো হিসাব (সূত্র ধরে লাভ-ক্ষতি, Ads মাসিক, Return চার্জ)</summary><div className="stack">
       <div className="card filters noprint">
         <DateRange value={{ from, to }} onChange={(v) => { setKind("c"); setRange([v.from, v.to]); }} />
         <button className="chip" onClick={csv}>⬇️ Excel (CSV)</button>
@@ -178,6 +182,7 @@ export default function Finance() {
           </div>
         ))}
       </div>
+      </div></details>
     </div>
   );
 }

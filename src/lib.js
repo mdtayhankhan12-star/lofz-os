@@ -47,3 +47,11 @@ const T = {
   },
 };
 export const tr = (lang, k) => T[lang]?.[k] ?? T.bn[k] ?? k;
+
+// নাম সুন্দর করে: বাড়তি ফাঁকা বাদ; সব ছোট/বড় হাতের ইংরেজি নাম হলে প্রতি শব্দের প্রথম অক্ষর বড়
+export const niceName = (n) => {
+  const s = String(n ?? "").replace(/\s+/g, " ").trim();
+  if (!s || !/[A-Za-z]/.test(s)) return s;
+  if (s !== s.toLowerCase() && s !== s.toUpperCase()) return s;
+  return s.toLowerCase().replace(/(^|[\s.\-'])([a-z])/g, (_, a, b) => a + b.toUpperCase());
+};

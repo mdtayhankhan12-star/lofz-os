@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { sb, tk } from "./lib.js";
+import { sb, tk, niceName } from "./lib.js";
 
 const BN = (n) => String(n).replace(/\d/g, (d) => "০১২৩৪৫৬৭৮৯"[d]);
 const dBN = (iso) => iso ? new Date(iso).toLocaleDateString("bn-BD", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Dhaka" }) : "—";
@@ -34,7 +34,7 @@ export default function Customers({ go }) {
           return (
             <div key={r.k} className="card orow">
               <div className="grow">
-                <div className="row"><b>{r.name}</b>
+                <div className="row"><b className="pname">{niceName(r.name)}</b>
                   {r.web && <span className="badge web">Website</span>}{r.fb && <span className="badge fb">Facebook</span>}
                   {r.fraud > 0 && <span className="badge warn">⚠️ ফ্রড রিপোর্ট</span>}{r.returned > 0 && <span className="badge warn">↩️ {BN(r.returned)} রিটার্ন</span>}{r.spins > 0 && <span className="badge">🎡 স্পিন</span>}</div>
                 <div>{r.phone}</div>
