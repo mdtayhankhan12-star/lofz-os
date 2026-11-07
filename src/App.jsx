@@ -11,6 +11,7 @@ import AI from "./AI.jsx";
 import Trash from "./Trash.jsx";
 import Backup from "./Backup.jsx";
 import Spins from "./Spins.jsx";
+import Customers from "./Customers.jsx";
 import PrintQueue, { printCounts, QueueCards } from "./PrintQueue.jsx";
 import DateRange from "./DateRange.jsx";
 import { DayBars, SpendBars } from "./DashCharts.jsx";
@@ -125,6 +126,7 @@ const NAV = [
   ["finance", "💰", "owner"], ["ai", "🤖", "owner"], ["team", "👥", "owner"],
   ["addparcel", "📦", null, "parcel"], ["parcels_pending", "⏳", null, "parcel"], ["consignments", "🗂️", null, "parcel"], ["risk", "🛡️", null, "parcel"], ["returns", "↩️", null, "parcel"],
   ["printq", "🖨️", null, "print"],
+  ["customers", "👥"],
   ["spins", "🎡", null, "end"],
   ["trash", "🗑️", "owner", "end"],
 ];
@@ -142,6 +144,7 @@ const HELP = {
   ai: "গত ৩০ দিনের হিসাব নিয়ে বাংলায় প্রশ্ন করুন। শুধু Owner দেখতে পারবেন।",
   risk: "কাস্টমারের ফোন নম্বর দিয়ে দেখুন আগে কয়টা পার্সেল নিয়েছেন, কয়টা Return করেছেন, Fraud রিপোর্ট আছে কি না।",
   printq: "তিনটা ঘর: INVOICE READY PRINT · KARIGOR SHEET READY · PNG SHEET। Confirmed হলেই অর্ডার তিনটাতেই আসে; কাজ শেষ করে \"হ্যাঁ\" দিলে শুধু সেই ঘর থেকে সরে যায়।",
+  customers: "সব কাস্টমারের নাম, ফোন, ঠিকানা, কয়টা অর্ডার/ডেলিভারি/রিটার্ন আর মোট কত কিনেছে। নাম বা নম্বর দিয়ে খুঁজুন।",
   spins: "ওয়েবসাইটের Lucky Spin-এ কাস্টমার যে নাম, নম্বর দিয়েছে আর যে কুপন পেয়েছে — দিন ধরে। পরে অর্ডার করেছে কি না সেটাও দেখাবে।",
   trash: "যেকোনো মুছে ফেলা অর্ডার, খরচ, পরিশোধ, এডিটে বাদ দেওয়া জুতা/ছবি আর আগের লেখা এখানে জমা থাকে। Cancel করা অর্ডারও এখানে পাবেন। চাইলে ফেরত আনতে পারবেন।",
   returns: "Steadfast থেকে ফেরত আসা জুতার ছবি, সাইজ, রং আর সংখ্যা। স্টক মিলিয়ে আবার পাঠাতে পারবেন।",
@@ -210,6 +213,7 @@ function Shell({ profile, prefs }) {
         {cur === "finance" && isOwner && <Finance />}
         {cur === "ai" && isOwner && <AI />}
         {cur === "trash" && isOwner && <Trash />}
+        {cur === "customers" && <Customers go={go} />}
         {cur === "spins" && <Spins goRisk={(p) => go("risk", p)} />}
         {cur === "printq" && <PrintQueue key={pq} mode={pq} setMode={(m) => go("printq", m)} onPrint={setPrintIds} onShoes={openShoes} go={go} />}
         {["parcels_pending", "consignments", "risk", "returns"].includes(cur) && <Parcels key={cur + pst} tab={cur} phone={phone} st0={pst} isOwner={isOwner} go={go} />}
