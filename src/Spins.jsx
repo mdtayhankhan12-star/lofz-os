@@ -13,6 +13,12 @@ export default function Spins({ goRisk }) {
   const [all, setAll] = useState(null); // সব সময়ের হিসাব (উপরের স্থির ঘরগুলোর জন্য)
   useEffect(() => { sb.rpc("spin_list", { p_from: "2026-01-01", p_to: t }).then(({ data }) => setAll(data ?? [])); }, []);
   useEffect(() => { setRows(null); sb.rpc("spin_list", { p_from: rg.from || "2026-01-01", p_to: rg.to || t }).then(({ data }) => setRows(data ?? [])); }, [rg.from, rg.to]);
+  const dl = async (type) => {
+    const { data } = await sb.rpc("spin_list", { p_from: "2020-01-01", p_to: t });
+    const rows = (data ?? []).map((r) => ({ "তারিখ": new Date(new Date(r.spun_at).getTime() + 6 * 3600e3).toISOString().slice(0, 16).replace("T", " "), "নাম": r.name, "ফোন": r.phone, "পুরস্কার": r.prize, "কুপন": r.code, "পরে অর্ডার": r.orders, "কুপনে কিনেছে": r.used ? "হ্যাঁ" : "" }));
+    const XLSX = await import("xlsx"); const ws = XLSX.utils.json_to_sheet(rows); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Spin");
+    XLSX.writeFile(wb, `LOFZ-spin-${t}.${type}`, type === "csv" ? { bookType: "csv" } : undefined);
+  };
   const s = q.trim().toLowerCase();
   const list = (rows ?? []).filter((r) => !s || `${r.name} ${r.phone} ${r.code} ${r.prize}`.toLowerCase().includes(s));
   const ordered = list.filter((r) => r.orders > 0).length, used = list.filter((r) => r.used).length;
@@ -53,6 +59,8 @@ export default function Spins({ goRisk }) {
       })()}
       <div className="card filters">
         <DateRange allowAll value={rg} onChange={setRg} />
+        <button type="button" className="chip" onClick={() => dl("xlsx")}>⬇️ Excel</button>
+        <button type="button" className="chip" onClick={() => dl("csv")}>⬇️ CSV</button>
         <input className="grow" placeholder="নাম / ফোন / কুপন খুঁজুন" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
       {!rows ? <div className="card">লোড হচ্ছে...</div> : !list.length ? <div className="card muted">এই সময়ে কেউ স্পিন করেনি। অন্য তারিখ বা "সব সময়" বাছাই করে দেখুন।</div> :
