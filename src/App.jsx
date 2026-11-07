@@ -76,11 +76,14 @@ export default function App() {
 const Splash = () => <Center><img src="/logo.png" alt="LOFZ" className="logo-big pulse" /></Center>;
 const Center = ({ children }) => <div className="center">{children}</div>;
 
+const THEMES = [["light", "☀️ Classic Light"], ["dark", "🌙 Classic Dark"], ["blush", "🌸 Rose Blush"], ["midnight", "🌙 Midnight Pro"], ["mint", "🌿 Mint Fresh"], ["luxe", "👑 Golden Luxe"], ["ocean", "💙 Ocean Sky"]];
 function Toggles({ prefs }) {
   return (
     <div className="toggles">
       <button className="chip" onClick={() => prefs.setLang(prefs.lang === "bn" ? "en" : "bn")}>{prefs.lang === "bn" ? "EN" : "বাং"}</button>
-      <button className="chip" onClick={() => prefs.setTheme(prefs.theme === "dark" ? "light" : "dark")}>{prefs.theme === "dark" ? "☀️" : "🌙"}</button>
+      <select className="themesel" value={prefs.theme} onChange={(e) => prefs.setTheme(e.target.value)} title="থিম বদলান">
+        {THEMES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+      </select>
     </div>
   );
 }
@@ -362,9 +365,22 @@ function Dashboard({ isOwner, t, go, pc }) {
   const S = ({ k, v, accent, w2, to, secret, l }) => { const [i, bg, c] = IC[k] ?? ["•", "#eee"]; return <button type="button" className={"stat click" + (accent ? " accent" : "") + (w2 ? " w2" : "")} onClick={to}><span className="si" style={{ background: bg, color: c }}>{i}</span><small>{l ?? t(k)}</small>
     <b>{secret && !eye ? "৳ ••••" : v}{secret && <span className="eye" role="button" title={eye ? "লুকান" : "দেখুন"} onClick={(e) => { e.stopPropagation(); setEye(!eye); }}>{eye ? "🙈" : "👁️"}</span>}</b><em>দেখুন →</em></button>; };
   const O = (x) => () => go("orders", { ...today, ...x });
+  const hr = Number(new Date().toLocaleString("en-GB", { hour: "numeric", hour12: false, timeZone: "Asia/Dhaka" }));
+  const greet = hr < 12 ? "শুভ সকাল 🌸" : hr < 17 ? "শুভ দুপুর ☀️" : hr < 20 ? "শুভ সন্ধ্যা 🌆" : "শুভ রাত্রি 🌙";
+  const target = Number(ls.get("lofz_target", "60")) || 60;
+  const pct = Math.min(100, Math.round((Number(d.n) / target) * 100));
+  const wt = Number(d.web) || 0, ft = Number(d.fb) || 0, tt = wt + ft || 1;
   return (
     <>
       {dateBar}
+      <div className="hero">
+        <div className="card"><h3>{greet}</h3><p className="muted">{isToday ? "আজ" : label} মোট <b>{d.n}</b>টা অর্ডার · কনফার্ম <b>{d.confirmed}</b> · পেন্ডিং <b>{d.pending}</b></p>
+          <div className="tbar"><i style={{ width: pct + "%" }} /></div>
+          <small className="muted">🎯 টার্গেট {target}টা — {pct}% ({d.n}/{target}) <button type="button" className="chip" onClick={() => { const v = prompt("প্রতিদিনের অর্ডার টার্গেট কত?", String(target)); if (v && Number(v) > 0) { ls.set("lofz_target", String(Number(v))); window.location.reload(); } }}>✏️ বদলান</button></small></div>
+        <div className="card"><h3 style={{ fontSize: 16 }}>📣 কোথা থেকে অর্ডার এলো?</h3>
+          <div className="chan"><span>Facebook</span><div className="bar"><i style={{ width: Math.round(ft / tt * 100) + "%", background: "#1877f2" }} /></div><b>{ft}</b></div>
+          <div className="chan"><span>Website</span><div className="bar"><i style={{ width: Math.round(wt / tt * 100) + "%", background: "var(--acc2)" }} /></div><b>{wt}</b></div></div>
+      </div>
       <div className="dsec big"><span>১ · অর্ডার</span><small>{label}</small></div>
       <div className="grid gbig">
         <S k="today_orders" l={isToday ? undefined : "অর্ডার"} v={d.n} accent to={O({})} /><S k="today_sales" l={isToday ? undefined : "সেল"} v={tk(d.sales)} accent to={O({ revenue: true })} />

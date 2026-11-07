@@ -551,3 +551,56 @@ img{content-visibility:auto}
 .scell{position:relative}.sstock{position:absolute;top:6px;left:6px;right:6px;text-align:center;font-size:10px;font-weight:900;padding:3px 4px;border-radius:6px;letter-spacing:.02em}.sstock.in{background:#0f6b4f;color:#fff}.sstock.coming{background:#e8a93b;color:#3a2a00}
 .todocard h2{margin:0 0 8px}.todorow{width:100%;border:0;background:transparent;cursor:pointer;display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid #f3dfe5;font:inherit}
 .todon{min-width:34px;text-align:center;background:#fde7ec;color:#d0284f;border-radius:8px;padding:2px 8px}
+
+/* ===== ডেমো থিম: Rose Blush / Midnight / Mint / Luxe / Ocean ===== */
+:root[data-theme=blush]{--bg:#FFF7F2;--card:#fff;--fg:#2B1B16;--muted:#7A5F55;--line:#F0D5C6;--acc:#E75480;--acc-d:#B83A62;--acc2:#FF8A65;--good:#178A5B;--bad:#C93A3A;--shadow:0 8px 28px rgba(180,90,60,.10)}
+:root[data-theme=midnight]{--bg:#0B1220;--card:#141F38;--fg:#EEF3FF;--muted:#9AAED1;--line:#263A63;--acc:#5B93FF;--acc-d:#3B6FD6;--acc2:#2DD4BF;--good:#2ED3A3;--bad:#FF7A7A;--shadow:0 12px 30px rgba(0,0,0,.4)}
+:root[data-theme=mint]{--bg:#F1FAF4;--card:#fff;--fg:#14332A;--muted:#557065;--line:#C8E8D4;--acc:#0E9F6E;--acc-d:#0B7C56;--acc2:#E9A820;--good:#0E9F6E;--bad:#C93A3A;--shadow:0 8px 22px rgba(14,159,110,.09)}
+:root[data-theme=luxe]{--bg:#14110C;--card:#201C15;--fg:#F6EEDB;--muted:#BBAE92;--line:#3D3628;--acc:#C9A227;--acc-d:#9C7C14;--acc2:#E8CF7A;--good:#8BC98F;--bad:#E88A8A;--shadow:0 14px 32px rgba(0,0,0,.45)}
+:root[data-theme=ocean]{--bg:#EFF6FF;--card:#fff;--fg:#12263F;--muted:#54708F;--line:#C2DBF6;--acc:#0B6FE0;--acc-d:#0950A8;--acc2:#00A99A;--good:#0E7A55;--bad:#C93A3A;--shadow:0 8px 24px rgba(11,111,224,.09)}
+:root[data-theme=midnight] .logo-big,:root[data-theme=midnight] .logo-side{filter:invert(1)}
+:root[data-theme=luxe] .logo-big,:root[data-theme=luxe] .logo-side{filter:invert(1)}
+:root[data-theme=midnight] .card{border-color:var(--line)}
+:root[data-theme=luxe] .card{border-color:var(--line)}
+:root[data-theme=midnight] .chip{background:#ffffff10}
+:root[data-theme=luxe] .chip{background:#ffffff10}
+:root[data-theme=midnight] input,:root[data-theme=midnight] select{background:#ffffff0d}
+:root[data-theme=luxe] input,:root[data-theme=luxe] select{background:#ffffff0d}
+:root[data-theme=midnight] .stat{border-color:var(--line)}
+:root[data-theme=luxe] .stat{border-color:var(--line)}
+  :root[data-theme=midnight] .bottom{background:#24121ae6;border-color:var(--line)}
+  :root[data-theme=luxe] .bottom{background:#24121ae6;border-color:var(--line)}
+:root[data-theme=midnight] .gsearch{background:#ffffff0d}
+:root[data-theme=luxe] .gsearch{background:#ffffff0d}
+:root[data-theme=midnight] .help{background:#ffffff0a;border-color:var(--line)}
+:root[data-theme=luxe] .help{background:#ffffff0a;border-color:var(--line)}
+:root[data-theme=midnight] .help{color:var(--fg)}
+:root[data-theme=luxe] .help{color:var(--fg)}
+:root[data-theme=midnight] .muted,:root[data-theme=midnight] .stat small{color:var(--muted)}
+:root[data-theme=luxe] .muted,:root[data-theme=luxe] .stat small{color:var(--muted)}
+:root[data-theme=midnight] option{background:#2a111c;color:#fbeef3}
+:root[data-theme=luxe] option{background:#2a111c;color:#fbeef3}
+:root[data-theme=midnight] .badge{color:var(--fg)}
+:root[data-theme=luxe] .badge{color:var(--fg)}
+:root[data-theme=midnight] .nav{color:var(--fg)}
+:root[data-theme=luxe] .nav{color:var(--fg)}
+:root[data-theme=midnight] .xrow.xpay{background:#0f2a22}:root[data-theme=midnight] .cf.in{background:#0f2a22;color:#7fe0bc}:root[data-theme=midnight] .cf.out{background:#3a1520;color:#f5a3b6}
+:root[data-theme=luxe] .xrow.xpay{background:#0f2a22}:root[data-theme=luxe] .cf.in{background:#0f2a22;color:#7fe0bc}:root[data-theme=luxe] .cf.out{background:#3a1520;color:#f5a3b6}
+:root[data-theme=midnight] .duecard.has{background:#2a1419}
+:root[data-theme=luxe] .duecard.has{background:#2a1419}
+:root[data-theme=midnight] .pbig{background:#0f2a22;color:#7fe0bc}
+:root[data-theme=luxe] .pbig{background:#0f2a22;color:#7fe0bc}
+:root[data-theme=midnight] .matchbox{background:#2a2210}:root[data-theme=midnight] .stockb.coming{background:#2a2210;color:#f3c76b}:root[data-theme=midnight] .stockb.in{background:#0f2a22;color:#7fe0bc}
+:root[data-theme=luxe] .matchbox{background:#2a2210}:root[data-theme=luxe] .stockb.coming{background:#2a2210;color:#f3c76b}:root[data-theme=luxe] .stockb.in{background:#0f2a22;color:#7fe0bc}
+:root[data-theme=blush] body,:root[data-theme=mint] body,:root[data-theme=ocean] body,:root[data-theme=midnight] body,:root[data-theme=luxe] body{background:var(--bg)}
+:root[data-theme=blush] body::before,:root[data-theme=mint] body::before,:root[data-theme=ocean] body::before,:root[data-theme=midnight] body::before,:root[data-theme=luxe] body::before{display:none}
+:root[data-theme=blush] .stat.accent,:root[data-theme=mint] .stat.accent,:root[data-theme=ocean] .stat.accent,:root[data-theme=midnight] .stat.accent,:root[data-theme=luxe] .stat.accent{background:linear-gradient(140deg,var(--acc),var(--acc-d));color:#fff}
+:root[data-theme=luxe] .stat.accent,:root[data-theme=luxe] .btn,:root[data-theme=luxe] .nav.on{color:#17140E}
+:root[data-theme=blush] .side,:root[data-theme=mint] .side,:root[data-theme=ocean] .side,:root[data-theme=midnight] .side,:root[data-theme=luxe] .side{background:var(--card);border-color:var(--line)}
+:root[data-theme=blush] .card,:root[data-theme=mint] .card,:root[data-theme=ocean] .card,:root[data-theme=midnight] .card,:root[data-theme=luxe] .card,:root[data-theme=blush] .stat,:root[data-theme=mint] .stat,:root[data-theme=ocean] .stat,:root[data-theme=midnight] .stat,:root[data-theme=luxe] .stat{background:var(--card);border-color:var(--line)}
+/* হিরো: শুভেচ্ছা + টার্গেট + চ্যানেল */
+.hero{display:grid;grid-template-columns:1.1fr .9fr;gap:12px}@media(max-width:860px){.hero{grid-template-columns:1fr}}
+.hero h3{margin:0;font-size:clamp(20px,3.2vw,27px)}.hero p{margin:4px 0 0}
+.tbar{height:12px;background:var(--line);border-radius:99px;overflow:hidden;margin:8px 0 4px}.tbar i{display:block;height:100%;background:var(--acc);border-radius:99px;transition:width .4s}
+.chan{display:grid;grid-template-columns:76px 1fr 38px;gap:10px;align-items:center;margin:8px 0;font-weight:600;font-size:14px}.chan .bar{height:11px;background:var(--line);border-radius:99px;overflow:hidden}.chan .bar i{display:block;height:100%}
+.themesel{border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--fg);padding:5px 8px;font-size:13px}
