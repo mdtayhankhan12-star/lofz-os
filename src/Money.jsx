@@ -79,32 +79,11 @@ export default function Money({ onChange }) {
   return (
     <div className="stack">
       <div className="sumtiles">
-        <div className="stile"><small>💵 হাতে ক্যাশ</small><b>{open ? tk(Math.round(bk.cash_now)) : "—"}</b></div>
-        <div className="stile"><small>🏦 ব্যাংকে</small><b>{open ? tk(Math.round(bk.bank_now)) : "—"}</b></div>
-        <div className="stile"><small>🚚 এই মাসে Steadfast থেকে পেয়েছি</small><b>{tk(got)}</b></div>
-        <div className="stile"><small>🧾 এই মাসে খরচ</small><b>{cur?.spend_days ? tk(spent) : "—"}</b></div>
-        <div className={"stile " + (cur?.spend_days ? (got - spent >= 0 ? "pos" : "neg") : "")}><small>📊 এই মাসের {cur?.spend_days && got - spent < 0 ? "ক্ষতি" : "লাভ"}</small><b>{cur?.spend_days ? tk(Math.abs(got - spent)) : "খরচ বাকি"}</b></div>
+        <div className="stile"><small>💵 আমার হাতে এখন আছে</small><b>{open ? tk(Math.round(Number(bk.cash_now) + Number(bk.bank_now))) : "—"}</b><small>ক্যাশ + ব্যাংক মিলিয়ে</small></div>
+        <div className="stile pos"><small>⬇️ এ মাসে Steadfast থেকে এসেছে</small><b>{tk(got)}</b></div>
+        <div className="stile neg"><small>⬆️ এ মাসে খরচ হয়েছে</small><b>{cur?.spend_days ? tk(spent) : "০ (এখনো বসানো হয়নি)"}</b></div>
       </div>
-      {!open && <div className="card"><b>💰 ব্যালেন্স এখনো বসানো হয়নি।</b> <span className="muted small">নিচের "পুরনো বিস্তারিত খাতা" খুলে "শুরুর ব্যালান্স" বসান — তারপর হাতে কত টাকা থাকল সেটা এখানে নিজে থেকে আসবে।</span></div>}
-      {open && <div className="card"><div className="xhead"><h3 style={{ margin: 0 }}>গত ১৪ দিন — <span style={{ color: "var(--good)" }}>■ টাকা এসেছে</span> · <span style={{ color: "var(--bad)" }}>■ খরচ</span></h3></div><InOutChart days={days14} /></div>}
-      <div className="card plcard">
-        <div className="xhead"><h2>📊 মাসের লাভ-ক্ষতি</h2><button type="button" className="chip" onClick={sync}>🔄 Steadfast পেমেন্ট আনুন</button></div>
-        {busy && <p className="small" style={{ fontWeight: 700 }}>{busy}</p>}
-        {!pl ? <p className="muted">লোড হচ্ছে...</p> : (
-          <div className="sptable pltable">
-            <div className="sh"><span>মাস</span><span>Steadfast থেকে পেয়েছি</span><span>মোট খরচ</span><span>লাভ / ক্ষতি</span></div>
-            {pl.map((m) => (
-              <div key={m.month} className="sr">
-                <span><b>{mBN(m.month)}</b><small className="muted"> · {BN(m.n_pay)}টা পেমেন্ট{m.spend_days ? `, ${BN(m.spend_days)} দিনের খরচ` : ""}</small></span>
-                <span>{tk(m.received)}</span><span>{m.spend_days ? tk(m.spend) : "—"}</span>
-                <span><b className={m.profit >= 0 ? "good" : "err"}>{m.spend_days ? (m.profit >= 0 ? "লাভ " : "ক্ষতি ") + tk(Math.abs(m.profit)) : "খরচ বাকি"}</b></span>
-              </div>
-            ))}
-          </div>
-        )}
-        <p className="muted small" style={{ margin: "8px 0 0" }}>লাভ = ওই মাসে Steadfast থেকে যত টাকা Paid হয়ে এসেছে − ওই মাসের দৈনিক মোট খরচের যোগফল। (নগদ হিসাব: যে টাকা তুলেছেন সেটাই ধরা হয়; Steadfast-এ জমে থাকা বা পথে থাকা টাকা পরের মাসে ধরা পড়বে।){cur && !cur.spend_days ? " এই মাসের খরচ এখনো বসানো হয়নি।" : ""}</p>
-      </div>
-
+      {!open && <div className="card"><b>💰 শুরুতে একবার বলুন আজ আপনার হাতে মোট কত টাকা আছে।</b> <span className="muted small">সংখ্যাটা আমাকে বললেই আমি বসিয়ে দেব। এরপর টাকা আসা-যাওয়া নিজে থেকে হিসাব হবে।</span></div>}
       <div className="card">
         <h2>📷 খরচের ছবি / লেখা থেকে ভরুন</h2>
         <p className="muted small">খাতার ছবি দিন, অথবা খরচের লেখা পেস্ট করুন। আমি পড়ে তালিকা বানাব — আপনি দেখে ঠিক করে সেভ করবেন। তারিখ: <input type="date" value={f.day} max={t} onChange={(e) => setF({ ...f, day: e.target.value })} /></p>
@@ -128,6 +107,26 @@ export default function Money({ onChange }) {
           {rd.unclear.length > 0 && <p className="err small">পড়তে পারিনি: {rd.unclear.join(" · ")}</p>}
           <div className="row"><b>মোট {tk(rdSum)}</b><button type="button" className="btn" onClick={saveRead}>✓ {dBN(f.day)}-এর খরচ সেভ</button></div>
         </>}
+      </div>
+
+      <details className="old"><summary>📈 আরও দেখুন — গ্রাফ, মাসের হিসাব, আগের তালিকা</summary><div className="stack">
+      {open && <div className="card"><div className="xhead"><h3 style={{ margin: 0 }}>গত ১৪ দিন — <span style={{ color: "var(--good)" }}>■ টাকা এসেছে</span> · <span style={{ color: "var(--bad)" }}>■ খরচ</span></h3></div><InOutChart days={days14} /></div>}
+      <div className="card plcard">
+        <div className="xhead"><h2>📊 মাসের লাভ-ক্ষতি</h2><button type="button" className="chip" onClick={sync}>🔄 Steadfast পেমেন্ট আনুন</button></div>
+        {busy && <p className="small" style={{ fontWeight: 700 }}>{busy}</p>}
+        {!pl ? <p className="muted">লোড হচ্ছে...</p> : (
+          <div className="sptable pltable">
+            <div className="sh"><span>মাস</span><span>Steadfast থেকে পেয়েছি</span><span>মোট খরচ</span><span>লাভ / ক্ষতি</span></div>
+            {pl.map((m) => (
+              <div key={m.month} className="sr">
+                <span><b>{mBN(m.month)}</b><small className="muted"> · {BN(m.n_pay)}টা পেমেন্ট{m.spend_days ? `, ${BN(m.spend_days)} দিনের খরচ` : ""}</small></span>
+                <span>{tk(m.received)}</span><span>{m.spend_days ? tk(m.spend) : "—"}</span>
+                <span><b className={m.profit >= 0 ? "good" : "err"}>{m.spend_days ? (m.profit >= 0 ? "লাভ " : "ক্ষতি ") + tk(Math.abs(m.profit)) : "খরচ বাকি"}</b></span>
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="muted small" style={{ margin: "8px 0 0" }}>লাভ = ওই মাসে Steadfast থেকে যত টাকা Paid হয়ে এসেছে − ওই মাসের দৈনিক মোট খরচের যোগফল। (নগদ হিসাব: যে টাকা তুলেছেন সেটাই ধরা হয়; Steadfast-এ জমে থাকা বা পথে থাকা টাকা পরের মাসে ধরা পড়বে।){cur && !cur.spend_days ? " এই মাসের খরচ এখনো বসানো হয়নি।" : ""}</p>
       </div>
 
       <div className="grid2">
@@ -162,6 +161,7 @@ export default function Money({ onChange }) {
           </div>
         </div>
       </div>
+      </div></details>
     </div>
   );
 }
