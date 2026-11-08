@@ -1,3 +1,4 @@
+import { fetchScore, summarize } from "./SfScore.jsx";
 import React, { useEffect, useState } from "react";
 import { sb, tk, SUPABASE_URL, fnCall } from "./lib.js";
 import { bnTime, trackUrl } from "./Orders.jsx";
@@ -264,57 +265,49 @@ export function ParcelView({ o, onClose }) {
 }
 
 function Risk({ initial }) {
-  const [ph, setPh] = useState(initial ?? ""); const [s, setS] = useState(null); const [busy, setBusy] = useState(false);
-  const [reps, setReps] = useState([]); const [orders, setOrders] = useState([]); const [note, setNote] = useState(""); const [msg, setMsg] = useState("");
-  const [view, setView] = useState(null);
-  const run = async (p = ph) => {
-    const d = p.replace(/\D/g, ""); if (d.length < 10) return setMsg("পুরো ফোন নম্বর দিন");
-    setBusy(true); setMsg("");
-    const st = await statsFor([p]); setS(st[p] ?? null);
-    const k = d.slice(-10);
-    const { data: r } = await sb.from("fraud_reports").select("id,phone,note,created_at").order("created_at", { ascending: false }).limit(300);
-    setReps((r ?? []).filter((x) => x.phone.replace(/\D/g, "").slice(-10) === k));
-    const { data: o } = await sb.rpc("customer_orders", { p_phone: p });
-    setOrders(o ?? []); setBusy(false);
+  const [ph, setPh] = useState(initial ?? ""); const [d, setD] = useState(null); const [busy, setBusy] = useState(false);
+  const [orders, setOrders] = useState([]); const [msg, setMsg] = useState(""); const [view, setView] = useState(null); const [ran, setRan] = useState("");
+  const run = async (p = ph, force = false) => {
+    const k = p.replace(/\D/g, ""); if (k.length < 10) return setMsg("পুরো ফোন নম্বর দিন");
+    setBusy(true); setMsg(""); setD(null);
+    const v = await fetchScore(p, force); setD(v); setRan(p);
+    const { data: o } = await sb.rpc("customer_orders", { p_phone: p }); setOrders(o ?? []); setBusy(false);
   };
   useEffect(() => { if (initial) run(initial); }, []);
-  const report = async () => {
-    if (!note.trim()) return setMsg("কী সমস্যা হয়েছে লিখুন");
-    const { error } = await sb.from("fraud_reports").insert({ phone: ph.replace(/\D/g, ""), note: note.trim() });
-    if (error) return setMsg(error.message); setNote(""); run();
-  };
-  const risk = !s ? null : s.fraud > 0 ? ["bad", "⚠️ ঝুঁকি বেশি — আগে Fraud রিপোর্ট আছে"] : s.delivered + s.returned === 0 ? ["warn", "নতুন কাস্টমার — আগের কোনো পার্সেলের হিসাব নেই"]
-    : s.returned / (s.delivered + s.returned) > 0.3 ? ["bad", "⚠️ ঝুঁকি বেশি — অনেক Return"] : s.returned > 0 ? ["warn", "মাঝারি ঝুঁকি — কিছু Return আছে"] : ["good", "✅ ভালো কাস্টমার — সব পার্সেল নিয়েছেন"];
+  const s = d && !d.__error ? summarize(d) : null;
+  const V = { good: ["good", "✅ ভালো কাস্টমার — বেশিরভাগ পার্সেল নিয়েছেন"], warn: ["warn", "⚠️ মাঝারি ঝুঁকি — কিছু পার্সেল ফেরত গেছে"], bad: ["bad", "🚫 ঝুঁকি বেশি — সাবধান, অগ্রিম নিয়ে পাঠানো ভালো"], new: ["warn", "🆕 নতুন কাস্টমার — Steadfast-এ আগে কোনো পার্সেল নেই"] };
   const SB = { pending: "Confirm বাকি", confirmed: "Confirmed", delivered: "Delivered", received: "টাকা পেয়েছি", returned: "Return", cancelled: "Cancel" };
   return (
     <div className="stack">
       <form className="card filters" onSubmit={(e) => { e.preventDefault(); run(); }}>
         <input className="grow" inputMode="tel" placeholder="কাস্টমারের ফোন নম্বর, যেমন 01712345678" value={ph} onChange={(e) => setPh(e.target.value)} />
-        <button className="btn" disabled={busy}>{busy ? "দেখা হচ্ছে..." : "🛡️ চেক করুন"}</button>
+        <button className="btn" disabled={busy}>{busy ? "Steadfast-এ দেখা হচ্ছে..." : "🛡️ চেক করুন"}</button>
         {msg && <span className="err small">{msg}</span>}
       </form>
-      {s && <>
-        <div className={"card riskhead " + risk[0]}>
-          <Ring s={s} />
-          <div className="grow"><h2>{s.last_name ?? "অজানা কাস্টমার"} · {ph}</h2><b>{risk[1]}</b></div>
-          <a className="chip" href={`tel:${ph}`}>📞 কল</a>
-        </div>
-        <div className="card allc">
-          <div className="grow"><h2>🌐 সব কুরিয়ারের হিসাব (Steadfast, Pathao, RedX...)</h2>
-            <p className="muted small">অন্য দোকান মিলিয়ে এই নম্বর কোন কুরিয়ারে কয়টা পার্সেল নিয়েছে/ফেরত দিয়েছে দেখতে বাটনে চাপুন। নম্বর নিজে কপি হয়ে যাবে, সাইটের সার্চ বক্সে Paste করে সার্চ দিন।</p></div>
-          <button type="button" className="btn" onClick={(e) => { navigator.clipboard?.writeText(ph.replace(/\D/g, "").replace(/^88/, "")); e.currentTarget.textContent = "নম্বর কপি ✓ সাইট খুলছে..."; window.open("https://smsoft.net/fraud/", "_blank", "noopener"); }}>🔎 smsoft-এ চেক করুন</button>
+      {d?.__error && <div className="card"><b className="err">Steadfast থেকে স্কোর আনা যায়নি:</b> <span className="small">{d.__error}</span></div>}
+      {s && !s.ok && <div className="card"><b>Steadfast তথ্য দিয়েছে, কিন্তু ধরন চিনতে পারিনি।</b><p className="small muted">{JSON.stringify(d)}</p></div>}
+      {s?.ok && <>
+        <div className={"card riskhead " + V[s.level][0]}>
+          <div className="grow"><h2>{orders[0]?.customer_name ?? "কাস্টমার"} · {ran}</h2><b>{V[s.level][1]}</b><p className="muted small" style={{ margin: "4px 0 0" }}>Steadfast-এর সব মার্চেন্টের মিলিয়ে হিসাব (অফিশিয়াল)</p></div>
+          <button type="button" className="chip" disabled={busy} onClick={() => run(ran, true)}>🔄 নতুন করে আনুন</button>
+          <a className="chip" href={`tel:${ran}`}>📞 কল</a>
         </div>
         <div className="grid">
-          <div className="stat"><small>মোট অর্ডার</small><b>{s.total}</b></div>
-          <div className="stat"><small>পার্সেল নিয়েছেন</small><b style={{ color: "#178a5c" }}>{s.delivered}</b></div>
-          <div className="stat"><small>Return করেছেন</small><b style={{ color: "#d0284f" }}>{s.returned}</b></div>
-          <div className="stat"><small>Cancel</small><b>{s.cancelled}</b></div>
-          <div className="stat"><small>চলমান অর্ডার</small><b>{s.active}</b></div>
-          <div className="stat"><small>Fraud রিপোর্ট</small><b style={{ color: s.fraud ? "#d0284f" : undefined }}>{s.fraud}</b></div>
+          <div className="stat"><small>মোট পার্সেল (Steadfast)</small><b>{s.total ?? "-"}</b></div>
+          <div className="stat"><small>পৌঁছেছে</small><b style={{ color: "#178a5c" }}>{s.del ?? "-"}</b></div>
+          <div className="stat"><small>ফেরত / Cancel</small><b style={{ color: "#d0284f" }}>{s.can ?? "-"}</b></div>
+          <div className="stat"><small>সফলতার হার</small><b style={{ color: s.level === "bad" ? "#d0284f" : s.level === "good" ? "#178a5c" : "#B7791F" }}>{s.ratio != null ? s.ratio + "%" : "-"}</b></div>
+          <div className="stat"><small>মার্চেন্ট রিপোর্ট</small><b style={{ color: s.rep ? "#d0284f" : undefined }}>{s.rep}</b></div>
+          {s.band && <div className="stat"><small>পার্সেল সংখ্যা (রেঞ্জ)</small><b>{s.band}</b></div>}
         </div>
-        <div className="card"><h2>এই কাস্টমারের সব অর্ডার ({orders.length})</h2>
+        {(s.cats.length > 0 || s.reasons.length > 0 || s.doubtful) && <div className="card">
+          {s.cats.length > 0 && <p><b>⚠️ রিপোর্টের ধরন:</b> {s.cats.join(", ")}</p>}
+          {s.reasons.length > 0 && <p><b>কারণ:</b> {s.reasons.join(", ")}</p>}
+          {s.doubtful && <p className="muted small">কিছু রিপোর্ট সন্দেহজনক হিসেবে চিহ্নিত।</p>}
+        </div>}
+        <div className="card"><h2>এই কাস্টমারের আপনার দোকানের অর্ডার ({orders.length})</h2>
           <p className="muted small">যেকোনো অর্ডারে চাপলে পার্সেল কোথায় আছে তার পুরো তথ্য খুলবে।</p>
-          {!orders.length ? <p className="muted">কোনো অর্ডার নেই।</p> : <div className="olist">{orders.map((o) => (
+          {!orders.length ? <p className="muted">আপনার দোকানে এই নম্বরের কোনো অর্ডার নেই।</p> : <div className="olist">{orders.map((o) => (
             <div key={o.id} className="orow card clicky" onClick={() => setView(o)}>
               <div className="thumbs">{(o.items ?? []).slice(0, 2).map((i, k) => i.image_url ? <img key={k} src={i.image_url} alt="" /> : <div key={k} className="ph" />)}</div>
               <div className="grow"><div className="row"><b>{o.order_no}</b><span className={"badge " + (o.source === "facebook" ? "fb" : "web")}>{o.source === "facebook" ? "Facebook" : "Website"}</span></div>
@@ -323,12 +316,6 @@ function Risk({ initial }) {
                 {o.parcel ? <span className={"badge " + stCls(o.parcel.delivery_status)}>🚚 {ST_BN[o.parcel.delivery_status] ?? o.parcel.delivery_status}</span> : <small className="muted">Steadfast-এ পাঠানো হয়নি</small>}</div>
             </div>))}</div>}
         </div>
-        <div className="card">
-          <h2>Fraud রিপোর্ট</h2>
-          {!reps.length ? <p className="muted">এই নম্বরে কোনো Fraud রিপোর্ট নেই।</p> : reps.map((r) => <div key={r.id} className="trow"><span>⚠️ {r.note}</span><small className="muted">{bnTime(r.created_at)}</small></div>)}
-          <div className="row" style={{ marginTop: 10 }}><input className="grow" placeholder="সমস্যা লিখুন (যেমন: পার্সেল নেয়নি, ফোন বন্ধ)" value={note} onChange={(e) => setNote(e.target.value)} /><button className="btn dark" type="button" onClick={report}>⚠️ Fraud রিপোর্ট করুন</button></div>
-        </div>
-        <p className="note"><i>i</i><span>এই হিসাব আপনার দোকানের সব অর্ডার (পুরনোগুলোসহ) আর আপনাদের দেওয়া Fraud রিপোর্ট থেকে।</span></p>
       </>}
       {view && <ParcelView o={view} onClose={() => setView(null)} />}
     </div>

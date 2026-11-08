@@ -8,15 +8,17 @@ const key10 = (p) => { let d = String(p ?? "").replace(/\D/g, ""); if (d.startsW
 const flat = (o, out = {}, pre = "") => { if (o && typeof o === "object") for (const [k, v] of Object.entries(o)) { if (v && typeof v === "object") flat(v, out, pre + k + "."); else out[(pre + k).toLowerCase()] = v; } return out; };
 const num = (v) => { const n = Number(String(v ?? "").replace(/[^\d.]/g, "")); return v === null || v === "" || Number.isNaN(n) ? null : n; };
 export function summarize(data) {
-  const f = flat(data); const ks = Object.keys(f); const pick = (re, not) => { const k = ks.find((x) => re.test(x.split(".").pop()) && !(not && not.test(x))); return k ? num(f[k]) : null; };
-  const total = pick(/^(total_parcels?|total_orders?|total|parcels?|orders?)$/);
-  let del = pick(/deliver/, /ratio|rate|percent|cancel/);
-  let can = pick(/cancel|return/, /ratio|rate|percent/);
-  let ratio = pick(/(success|deliver).*(ratio|rate|percent)|^(ratio|score)$/);
-  if (ratio != null && ratio <= 1 && ks.some((x) => /ratio/.test(x))) ratio = Math.round(ratio * 100);
-  if (ratio == null && total && del != null) ratio = Math.round((del / total) * 100);
-  const rep = pick(/report/);
-  return { total, del, can, ratio, rep, ok: ratio != null || total != null };
+  const d = data?.data && typeof data.data === "object" && data.delivery_ratio == null ? data.data : (data ?? {});
+  const n = (v) => (v == null || v === "" || Number.isNaN(Number(v)) ? null : Number(v));
+  const del = n(d.delivered_count), can = n(d.cancelled_count);
+  const total = del != null || can != null ? (del ?? 0) + (can ?? 0) : null;
+  const cats = Array.isArray(d.fraud_categories) ? d.fraud_categories : [];
+  const reasons = Array.isArray(d.reasons) ? d.reasons : [];
+  const ratio = n(d.delivery_ratio) ?? (total ? Math.round(((del ?? 0) / total) * 100) : null);
+  const rep = n(d.total_reports) ?? 0;
+  const fresh = total === 0;
+  const level = fresh ? "new" : rep > 0 || cats.length || (ratio != null && ratio < 60) ? "bad" : d.doubtful_reports || (ratio != null && ratio < 80) ? "warn" : "good";
+  return { total, del, can, ratio, rep, cats, reasons, band: d.volume_range ?? null, doubtful: !!d.doubtful_reports, level, fresh, ok: total != null || ratio != null };
 }
 export function fetchScore(phone, force) {
   const k = key10(phone); if (!k) return Promise.resolve(null);
@@ -40,11 +42,9 @@ export default function SfScore({ phone, block }) {
   if (!d || d.__error) return <span className="muted small" style={st} title={d?.__error}>🛡️ Steadfast স্কোর আনা যায়নি</span>;
   const s = summarize(d);
   if (!s.ok) return <span className="badge warn" style={st} title={JSON.stringify(d).slice(0, 400)}>🛡️ Steadfast: তথ্য আছে (ধরন চিনতে পারিনি)</span>;
-  const cls = s.ratio == null ? "warn" : s.ratio >= 80 ? "good" : s.ratio >= 60 ? "warn" : "bad";
-  const parts = [];
-  if (s.total != null) parts.push(`${s.total}টা পার্সেল`);
-  if (s.del != null) parts.push(`${s.del}টা পৌঁছেছে`);
-  if (s.can != null) parts.push(`${s.can}টা ফেরত`);
-  if (s.rep) parts.push(`${s.rep}টা রিপোর্ট`);
-  return <span className={"badge " + cls} style={st} title={JSON.stringify(d).slice(0, 400)}>🛡️ Steadfast: {s.ratio != null ? `${s.ratio}% সফল` : "স্কোর"}{parts.length ? " · " + parts.join(" · ") : ""}</span>;
+  if (s.fresh) return <span className="badge warn" style={st}>🛡️ Steadfast: নতুন কাস্টমার — আগে কোনো পার্সেল নেই</span>;
+  const cls = s.level === "bad" ? "bad" : s.level === "warn" ? "warn" : "good";
+  const parts = [`${s.total}টা পার্সেল`, `${s.del ?? 0}টা পৌঁছেছে`, `${s.can ?? 0}টা ফেরত`];
+  if (s.rep) parts.push(`⚠️ ${s.rep}টা রিপোর্ট`);
+  return <span className={"badge " + cls} style={st} title={JSON.stringify(d).slice(0, 400)}>🛡️ Steadfast: {s.ratio != null ? `${s.ratio}% সফল` : "স্কোর"} · {parts.join(" · ")}</span>;
 }
