@@ -17,8 +17,10 @@ export function summarize(data) {
   const ratio = n(d.delivery_ratio) ?? (total ? Math.round(((del ?? 0) / total) * 100) : null);
   const rep = n(d.total_reports) ?? 0;
   const fresh = total === 0;
-  const level = fresh ? "new" : rep > 0 || cats.length || (ratio != null && ratio < 60) ? "bad" : d.doubtful_reports || (ratio != null && ratio < 80) ? "warn" : "good";
-  return { total, del, can, ratio, rep, cats, reasons, band: d.volume_range ?? null, doubtful: !!d.doubtful_reports, level, fresh, ok: total != null || ratio != null };
+  // ফেরত/Cancel শতকরা: ২০%+ মাঝারি ঝুঁকি (হলুদ), ৪০%+ বেশি ঝুঁকি (লাল); মার্চেন্ট রিপোর্ট থাকলেও লাল
+  const cp = n(d.cancellation_ratio) ?? (total ? Math.round(((can ?? 0) / total) * 100) : null);
+  const level = fresh ? "new" : rep > 0 || cats.length || (cp != null && cp >= 40) ? "bad" : d.doubtful_reports || (cp != null && cp >= 20) ? "warn" : "good";
+  return { cp, total, del, can, ratio, rep, cats, reasons, band: d.volume_range ?? null, doubtful: !!d.doubtful_reports, level, fresh, ok: total != null || ratio != null };
 }
 export function fetchScore(phone, force) {
   const k = key10(phone); if (!k) return Promise.resolve(null);
@@ -33,6 +35,15 @@ export function fetchScore(phone, force) {
   }));
   mem.set(k, p); p.then((v) => { if (v?.__error) mem.delete(k); }); return p;
 }
+export function SfBar({ s, h = 9 }) {
+  if (!s || s.total == null || !s.total) return null;
+  const g = Math.max(0, Math.min(100, s.ratio ?? Math.round(((s.del ?? 0) / s.total) * 100))), r = 100 - g;
+  return (
+    <span style={{ display: "flex", height: h, borderRadius: 99, overflow: "hidden", background: "#eee", margin: "4px 0", maxWidth: 360 }} title={`পৌঁছেছে ${g}% · ফেরত ${r}%`}>
+      <span style={{ width: g + "%", background: "#2E9E6B" }} /><span style={{ width: r + "%", background: "#D0284F" }} />
+    </span>
+  );
+}
 export default function SfScore({ phone, block }) {
   const [d, setD] = useState(undefined);
   useEffect(() => { let live = true; setD(undefined); fetchScore(phone).then((v) => live && setD(v)); return () => { live = false; }; }, [phone]);
@@ -44,7 +55,13 @@ export default function SfScore({ phone, block }) {
   if (!s.ok) return <span className="badge warn" style={st} title={JSON.stringify(d).slice(0, 400)}>🛡️ Steadfast: তথ্য আছে (ধরন চিনতে পারিনি)</span>;
   if (s.fresh) return <span className="badge warn" style={st}>🛡️ Steadfast: নতুন কাস্টমার — আগে কোনো পার্সেল নেই</span>;
   const cls = s.level === "bad" ? "bad" : s.level === "warn" ? "warn" : "good";
-  const parts = [`${s.total}টা পার্সেল`, `${s.del ?? 0}টা পৌঁছেছে`, `${s.can ?? 0}টা ফেরত`];
+  const tag = s.level === "bad" ? "🔴 বেশি ঝুঁকি" : s.level === "warn" ? "🟡 মাঝারি ঝুঁকি" : "🟢 ভালো";
+  const parts = [`🟢 ${s.del ?? 0} পৌঁছেছে`, `🔴 ${s.can ?? 0} ফেরত`];
   if (s.rep) parts.push(`⚠️ ${s.rep}টা রিপোর্ট`);
-  return <span className={"badge " + cls} style={st} title={JSON.stringify(d).slice(0, 400)}>🛡️ Steadfast: {s.ratio != null ? `${s.ratio}% সফল` : "স্কোর"} · {parts.join(" · ")}</span>;
+  return (
+    <span style={{ display: block ? "block" : "inline-block", margin: "2px 0" }} title={JSON.stringify(d).slice(0, 400)}>
+      <span className={"badge " + cls} style={{ fontSize: 13, fontWeight: 700 }}>🛡️ Steadfast: {tag} · {s.ratio != null ? `${s.ratio}% সফল` : ""} · {s.total}টা পার্সেল · {parts.join(" · ")}</span>
+      <SfBar s={s} />
+    </span>
+  );
 }

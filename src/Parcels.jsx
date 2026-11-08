@@ -1,4 +1,4 @@
-import { fetchScore, summarize } from "./SfScore.jsx";
+import { fetchScore, summarize, SfBar } from "./SfScore.jsx";
 import React, { useEffect, useState } from "react";
 import { sb, tk, SUPABASE_URL, fnCall } from "./lib.js";
 import { bnTime, trackUrl } from "./Orders.jsx";
@@ -275,7 +275,7 @@ function Risk({ initial }) {
   };
   useEffect(() => { if (initial) run(initial); }, []);
   const s = d && !d.__error ? summarize(d) : null;
-  const V = { good: ["good", "✅ ভালো কাস্টমার — বেশিরভাগ পার্সেল নিয়েছেন"], warn: ["warn", "⚠️ মাঝারি ঝুঁকি — কিছু পার্সেল ফেরত গেছে"], bad: ["bad", "🚫 ঝুঁকি বেশি — সাবধান, অগ্রিম নিয়ে পাঠানো ভালো"], new: ["warn", "🆕 নতুন কাস্টমার — Steadfast-এ আগে কোনো পার্সেল নেই"] };
+  const V = { good: ["good", "🟢 ভালো কাস্টমার — বেশিরভাগ পার্সেল নিয়েছেন"], warn: ["warn", "🟡 মাঝারি ঝুঁকি — ২০%-এর বেশি পার্সেল ফেরত গেছে"], bad: ["bad", "🔴 বেশি ঝুঁকি — সাবধান, অগ্রিম নিয়ে পাঠানো ভালো"], new: ["warn", "🆕 নতুন কাস্টমার — Steadfast-এ আগে কোনো পার্সেল নেই"] };
   const SB = { pending: "Confirm বাকি", confirmed: "Confirmed", delivered: "Delivered", received: "টাকা পেয়েছি", returned: "Return", cancelled: "Cancel" };
   return (
     <div className="stack">
@@ -288,7 +288,7 @@ function Risk({ initial }) {
       {s && !s.ok && <div className="card"><b>Steadfast তথ্য দিয়েছে, কিন্তু ধরন চিনতে পারিনি।</b><p className="small muted">{JSON.stringify(d)}</p></div>}
       {s?.ok && <>
         <div className={"card riskhead " + V[s.level][0]}>
-          <div className="grow"><h2>{orders[0]?.customer_name ?? "কাস্টমার"} · {ran}</h2><b>{V[s.level][1]}</b><p className="muted small" style={{ margin: "4px 0 0" }}>Steadfast-এর সব মার্চেন্টের মিলিয়ে হিসাব (অফিশিয়াল)</p></div>
+          <div className="grow"><h2>{orders[0]?.customer_name ?? "কাস্টমার"} · {ran}</h2><b>{V[s.level][1]}</b><SfBar s={s} h={14} /><p className="muted small" style={{ margin: "4px 0 0" }}>🟢 পৌঁছেছে · 🔴 ফেরত/Cancel — Steadfast-এর সব মার্চেন্ট মিলিয়ে (অফিশিয়াল)। ২০%+ ফেরত = 🟡 মাঝারি, ৪০%+ = 🔴 বেশি ঝুঁকি।</p></div>
           <button type="button" className="chip" disabled={busy} onClick={() => run(ran, true)}>🔄 নতুন করে আনুন</button>
           <a className="chip" href={`tel:${ran}`}>📞 কল</a>
         </div>
