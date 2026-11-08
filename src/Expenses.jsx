@@ -170,6 +170,7 @@ export default function Expenses({ isOwner }) {
   const dueOf = (n) => { const x = led?.find((l) => key(l.name) === key(n)); return x ? x.bought - x.paid : null; };
   const ledDays = (book?.days ?? []).filter((d) => d.d >= cr.from && d.d <= cr.to);
 
+  if (isOwner) return <Money />;
   return (
     <div className="stack">
       {isOwner && <Money onChange={loadBook} />}

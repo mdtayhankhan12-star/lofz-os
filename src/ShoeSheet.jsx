@@ -17,7 +17,7 @@ export default function ShoeSheet({ ids, onClose, png = false }) {
   const skipped = list.filter((o) => o.status !== "confirmed").length;
   for (const o of list.filter((o) => o.status === "confirmed")) for (const i of o.order_items ?? [])
     for (let q = 0; q < (i.quantity || 1); q++)
-      cells[o.source].push({ stock: (() => { const L = mm[o.id] ?? []; const k = L.findIndex((x) => !taken.has(x.item_key) && x.product_name === i.product_name && (x.size ?? "") === (i.size ?? "")); if (k < 0) return null; taken.add(L[k].item_key); return L[k].arrived ? "in" : "coming"; })(), id: o.id, src: o.source, img: i.image_url, name: i.product_name, size: i.size, no: o.order_no, phone: o.phone });
+      cells[o.source].push({ stock: (() => { const L = mm[o.id] ?? []; const k = L.findIndex((x) => !taken.has(x.item_key) && x.product_name === i.product_name && (x.size ?? "") === (i.size ?? "")); if (k < 0) return null; taken.add(L[k].item_key); return { s: L[k].arrived ? "in" : "coming", from: L[k].from_order_no }; })(), id: o.id, src: o.source, img: i.image_url, name: i.product_name, size: i.size, no: o.order_no, phone: o.phone });
 
   const pages = [];
   // Website আর Facebook একসাথে, পাতা ভরে ভরে (আগে Website, তারপর Facebook) — কাগজ বাঁচে
@@ -50,7 +50,7 @@ export default function ShoeSheet({ ids, onClose, png = false }) {
             {pg.items.map((c, j) => (
               <div className="scell" key={j}>
                 {c.img ? <img src={c.img} alt="" /> : <div className="sph">ছবি নেই</div>}
-                {c.stock && <div className={"sstock " + c.stock}>{c.stock === "in" ? "STOCK আছে — বানাবেন না" : "RETURN আসছে"}</div>}
+                {c.stock && <div className={"sstock " + c.stock.s}>{c.stock.s === "in" ? "STOCK আছে — বানাবেন না" : "RETURN আসছে"}{c.stock.from ? " — " + c.stock.from : ""}</div>}
                 <div className="sname">{c.name}</div>
                 <div className="ssize">Size: {c.size}</div>
                 {/* Website = অর্ডার নম্বর, Facebook = ফোন নম্বর */}
