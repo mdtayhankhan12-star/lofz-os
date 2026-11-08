@@ -34,7 +34,7 @@ const T = {
     website: "Website", facebook: "Facebook", confirmed: "Confirmed", delivered: "আজ Delivered", inv_left: "ইনভয়েস প্রিন্ট বাকি", sheet_left: "কারিগর শিট বাকি",
     returned: "আজ Return", cancelled: "Cancel", pending: "Confirm বাকি (সব)", profit_month: "এই মাসের লাভ",
     expense_month: "এই মাসের খরচ", sf_balance: "Steadfast ব্যালান্স (তোলা যাবে)", overdue: "কারিগরের দেরি (৫+ দিন)",
-    addparcel: "Add parcel", parcels_pending: "Steadfast Pending", consignments: "সব পার্সেল (Consignments)", risk: "Delivery Risk Check", returns: "Return শিপমেন্ট", trash: "মুছে ফেলা / ট্র্যাশ", printq: "PRINT SHOE STAFF DTLS", spins: "Lucky Spin এন্ট্রি", customers: "কাস্টমার", ai: "AI সহকারী",
+    addparcel: "Add parcel", parcels_pending: "Steadfast Pending", consignments: "সব পার্সেল (Consignments)", risk: "Delivery Risk Check", returns: "Return শিপমেন্ট", retmatch: "♻️ Return মিল", trash: "মুছে ফেলা / ট্র্যাশ", printq: "PRINT SHOE STAFF DTLS", spins: "Lucky Spin এন্ট্রি", customers: "কাস্টমার", ai: "AI সহকারী",
   },
   en: {
     dashboard: "Dashboard", orders: "Orders", invoice: "Invoice", production: "Production", expenses: "Expenses",
@@ -43,7 +43,7 @@ const T = {
     website: "Website", facebook: "Facebook", confirmed: "Confirmed", delivered: "Delivered", inv_left: "Invoices to print", sheet_left: "Shoe sheets to print",
     returned: "Returned", cancelled: "Cancelled", pending: "Pending", profit_month: "Profit this month",
     expense_month: "Expenses this month", sf_balance: "Steadfast balance", overdue: "Artisan overdue (5+ days)",
-    addparcel: "Add parcel", parcels_pending: "Steadfast Pending", consignments: "Consignments", risk: "Delivery Risk Check", returns: "Return shipments", trash: "Trash", printq: "PRINT SHOE STAFF DTLS", spins: "Lucky Spin entries", customers: "Customers", ai: "AI Assistant",
+    addparcel: "Add parcel", parcels_pending: "Steadfast Pending", consignments: "Consignments", risk: "Delivery Risk Check", returns: "Return shipments", retmatch: "Return match", trash: "Trash", printq: "PRINT SHOE STAFF DTLS", spins: "Lucky Spin entries", customers: "Customers", ai: "AI Assistant",
   },
 };
 export const tr = (lang, k) => T[lang]?.[k] ?? T.bn[k] ?? k;

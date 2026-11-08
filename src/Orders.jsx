@@ -173,9 +173,8 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
     if (!quiet && !confirm(`${r.order_no} — ${r.customer_name}-এর পার্সেল Steadfast-এ বুক করবেন? COD ${tk(r.total)}`)) return false;
     setBk((x) => ({ ...x, [r.id]: true }));
     try { const j = await fnCall("steadfast", { action: "book", order_id: r.id });
-      // হাতে পাওয়া Return স্টক দিয়ে পাঠানো হলো — সেই স্টক আর অন্য অর্ডারে মিলবে না
-      const used = (mm[r.id] ?? []).filter((x) => x.arrived);
-      if (used.length) await sb.from("return_use").insert(used.map((x) => ({ parcel_id: x.parcel_id, item_key: x.item_key, order_id: r.id }))); if (!quiet) { setMsg(`${r.order_no} বুক হয়েছে ✓`); mode === "all" ? load() : loadInbox(); } return j.ok !== false; }
+      // Return স্টক এখান থেকে আর নিজে নিজে কাটে না — "♻️ Return মিল" পাতায় আপনি "হ্যাঁ" দিলে তবেই কাটে
+      if (!quiet) { setMsg(`${r.order_no} বুক হয়েছে ✓`); mode === "all" ? load() : loadInbox(); } return j.ok !== false; }
     catch (x) { setMsg(`${r.order_no} — Steadfast: ` + x.message); return false; }
     finally { setBk((x) => ({ ...x, [r.id]: false })); }
   };

@@ -5,7 +5,7 @@ import { downloadPng } from "./sheetImage.js";
 // আপনার অনুমোদিত ডিজাইন: এক A4-এ ২টা ইনভয়েস, M ID লাল, নিচে Thank you
 export async function loadOrders(ids) {
   const { data } = await sb.from("orders")
-    .select("id,order_no,source,status,order_date,customer_name,phone,address,delivery_charge,discount,total,order_items(product_name,image_url,size,quantity,price),parcels(consignment_id,tracking_code)")
+    .select("id,order_no,source,status,invoice_printed_at,invoice_png_at,order_date,customer_name,phone,address,delivery_charge,discount,total,order_items(product_name,image_url,size,quantity,price),parcels(consignment_id,tracking_code)")
     .in("id", ids);
   const byId = Object.fromEntries((data ?? []).map((o) => [o.id, o]));
   return ids.map((i) => byId[i]).filter(Boolean);
@@ -86,8 +86,29 @@ export function InvoiceSheet({ o }) {
 export function PrintView({ ids, onClose }) {
   const [list, setList] = useState(null);
   const refs = React.useRef([]); const [busy, setBusy] = useState(""); const [ask, setAsk] = useState(false);
-  useEffect(() => { loadOrders(ids).then(setList); }, [ids]);
+  const [dup, setDup] = useState(null); // null = এখনো জিজ্ঞেস করা হয়নি, "skip" = আগের ছাপা বাদ, "again" = তবুও আবার
+  useEffect(() => { setDup(null); loadOrders(ids).then(setList); }, [ids]);
   if (!list) return <div className="card">লোড হচ্ছে...</div>;
+  // একই ইনভয়েস দ্বিতীয়বার বের হওয়া ঠেকাতে: আগেই ছাপা/PNG হয়ে থাকলে আগে জিজ্ঞেস করি
+  const doneBefore = list.filter((o) => o.invoice_printed_at || o.invoice_png_at);
+  if (doneBefore.length && dup === null) {
+    const fresh = list.length - doneBefore.length;
+    return (
+      <div className="askmodal">
+        <div className="askbox">
+          <div className="askic">⚠️</div>
+          <h2>{doneBefore.length}টা ইনভয়েস আগেই বের হয়ে গেছে!</h2>
+          <p style={{ textAlign: "left" }}>{doneBefore.map((o) => `${o.order_no} — ${o.customer_name}`).join(" · ")}</p>
+          <p>একই ইনভয়েস দুইবার বের হলে কারিগর বা কুরিয়ারের কাছে দুইটা কপি যেতে পারে।</p>
+          <div className="row" style={{ justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
+            {fresh > 0 && <button className="btn ok2 big" onClick={() => { setList(list.filter((o) => !(o.invoice_printed_at || o.invoice_png_at))); setDup("skip"); }}>✅ বাদ দিন, বাকি {fresh}টা বের করুন</button>}
+            <button className="btn alt big" onClick={() => setDup("again")}>🔁 তবুও আবার বের করব</button>
+            <button className="btn alt big" onClick={onClose}>← ফিরে যান</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
   // সবসময় এক পাতায় ২টা; শুধু ৬টার বেশি জুতা হলে আলাদা পাতা
   const pages = []; let cur = [];
   for (const o of list) {
