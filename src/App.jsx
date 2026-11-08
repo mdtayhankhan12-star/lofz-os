@@ -141,7 +141,7 @@ function Login({ prefs }) {
 }
 
 const NAV = [
-  ["dashboard", "📊"], ["orders", "🧾"], ["invoice", "➕"], ["expenses", "💸"],
+  ["dashboard", "📊"], ["orders", "🧾"], ["invoice", "➕"], ["expenses", "💸", "owner"],
   ["finance", "💰", "owner"], ["ai", "🤖", "owner"], ["team", "👥", "owner"],
   ["addparcel", "📦", null, "parcel"], ["parcels_pending", "⏳", null, "parcel"], ["consignments", "🗂️", null, "parcel"], ["risk", "🛡️", null, "parcel"], ["returns", "↩️", null, "parcel"],
   ["printq", "🖨️", null, "print"],
@@ -155,7 +155,7 @@ const HELP = {
   orders: "Website অর্ডার কল করে Confirm/Cancel করুন, Confirmed অর্ডারের কারিগর শিট ও ইনভয়েস প্রিন্ট করুন, Steadfast-এ পাঠান।",
   invoice: "Facebook/Messenger-এর অর্ডার এখানে লিখুন। সেভ করলে ইনভয়েস তৈরি হবে।",
   addparcel: "নতুন অর্ডার লিখে সাথে সাথে Steadfast-এ পার্সেল বুক করুন।",
-  expenses: "কারখানার দৈনিক খরচ লিখুন। রাত ১২টায় দিনের মোট লাভ-ক্ষতিতে যোগ হয়।",
+  expenses: "১ · ক্যাশ — এখন হাতে কত টাকা, দিনে দিনে। ২ · খরচ — খাতার ছবি দিন, তালিকা হয়ে ক্যাশ থেকে বাদ যাবে।",
   finance: "লাভ-ক্ষতি, Facebook Ads খরচ আর Website বনাম Facebook তুলনা।",
   team: "পুরো ব্যাকআপ নামানো, স্টাফের অ্যাকাউন্ট খোলা, বন্ধ করা আর পাসওয়ার্ড বদলানো।",
   parcels_pending: "Steadfast-এ যে পার্সেলগুলো এখনো ডেলিভারি হয়নি (পথে / Hold / Review)।",
@@ -293,14 +293,14 @@ function Dashboard({ isOwner, t, go, pc }) {
       const start = new Date(); start.setHours(0, 0, 0, 0);
       const m0 = new Date(start.getFullYear(), start.getMonth(), 1);
       const { data: today } = await sb.from("orders").select("source,status,total").gte("order_date", rg.from + "T00:00:00+06:00").lte("order_date", rg.to + "T23:59:59+06:00");
-      let exp = null, profit = null;
+      // ৪ · হিসাব — খরচ পেজের একই নিয়ম: Steadfast থেকে পাওয়া টাকা − খাতার খরচ, আর হাতে ক্যাশ
+      let exp = null, profit = null, recv = null, cashNow = null, spendDays = 0;
       if (isOwner) {
-        const m0s = `${m0.getFullYear()}-${String(m0.getMonth() + 1).padStart(2, "0")}-01`;
-        const { data: e } = await sb.from("expenses").select("amount_bdt").gte("expense_date", m0s);
-        exp = (e ?? []).reduce((a, r) => a + Number(r.amount_bdt), 0);
-        const todayD = new Date(Date.now() + 6 * 3600e3).toISOString().slice(0, 10);
-        const { data: pl } = await sb.rpc("pnl", { p_from: m0s, p_to: todayD });
-        profit = pl ? Math.round(pl.profit) : null; exp = pl ? Math.round(pl.costs) : exp;
+        const mk = rg.to.slice(0, 7);
+        const [{ data: mp }, { data: cb }] = await Promise.all([sb.rpc("month_pl", { p_months: 12 }), sb.rpc("cash_book", { p_from: dhaka(), p_to: dhaka() })]);
+        const m = (mp ?? []).find((x) => String(x.month).slice(0, 7) === mk);
+        recv = Math.round(Number(m?.received ?? 0)); exp = Math.round(Number(m?.spend ?? 0)); profit = recv - exp; spendDays = m?.spend_days ?? 0;
+        cashNow = cb?.opening ? Math.round(Number(cb.cash_now)) : null;
       }
       let sf = null;
       if (isOwner) { try { sf = (await fnCall("steadfast", { action: "balance" })).balance ?? null; } catch {} }
@@ -318,7 +318,7 @@ function Dashboard({ isOwner, t, go, pc }) {
         web: c((x) => x.source === "website"), fb: c((x) => x.source === "facebook"),
         confirmed: c((x) => ["confirmed", "delivered", "received", "returned"].includes(x.status)), invLeft: conf.filter((x) => !(x.invoice_printed_at || x.invoice_png_at)).length, sheetLeft: conf.filter((x) => !(x.sheet_printed_at || x.sheet_png_at)).length, delivered: mv?.delivered ?? 0,
         returned: mv?.returned ?? 0, cancelled: c((x) => x.status === "cancelled"),
-        pending: op.filter((x) => x.status === "pending").length, exp, profit, sf, sfPending,
+        pending: op.filter((x) => x.status === "pending").length, exp, profit, recv, cashNow, spendDays, sf, sfPending,
       });
       // ৫ দিনের বেশি পুরনো, এখনো Cancel বা Steadfast-এ পাঠানো হয়নি
       const lim = new Date(Date.now() - 5 * 864e5).toISOString();
@@ -327,11 +327,16 @@ function Dashboard({ isOwner, t, go, pc }) {
       setLate((ld ?? []).filter((r) => !r.parcels?.length));
       // গ্রাফ: একদিন বাছলে শেষ ১৪ দিন, নইলে বাছাই করা সময় (সর্বোচ্চ ৬২ দিন)
       const cf = one ? addD(rg.to, -13) : (rg.from < addD(rg.to, -61) ? addD(rg.to, -61) : rg.from);
-      const { data: sr } = await sb.rpc("dash_series", { p_from: cf, p_to: rg.to }); setSer(sr ?? []);
+      const [{ data: sr }, { data: bk }] = await Promise.all([
+        sb.rpc("dash_series", { p_from: cf, p_to: rg.to }),
+        sb.from("parcels").select("booking_date").gte("booking_date", cf + "T00:00:00+06:00").lte("booking_date", rg.to + "T23:59:59+06:00").limit(20000),
+      ]);
+      const bc = {}; for (const r of bk ?? []) { if (!r.booking_date) continue; const k = new Date(new Date(r.booking_date).getTime() + 6 * 3600e3).toISOString().slice(0, 10); bc[k] = (bc[k] ?? 0) + 1; }
+      setSer((sr ?? []).map((r) => ({ ...r, booked: bc[r.d] ?? 0 })));
       if (isOwner) {
         const ms = rg.to.slice(0, 8) + "01";
-        const { data: ex } = await sb.from("expenses").select("note,amount_bdt").eq("category", "production").gte("expense_date", ms).lte("expense_date", rg.to).limit(5000);
-        const g = {}; for (const r of ex ?? []) { const k = (r.note ?? "").trim() || "(নাম নেই)"; const kk = k.toLowerCase(); g[kk] ??= { name: k, v: 0 }; g[kk].v += Number(r.amount_bdt); }
+        const { data: ex } = await sb.from("daily_spend").select("amount,note,items").gte("day", ms).lte("day", rg.to).limit(500);
+        const g = {}; for (const s of ex ?? []) for (const r of (Array.isArray(s.items) && s.items.length ? s.items : [{ name: s.note, amount: s.amount }])) { const k = String(r.name ?? "").trim() || "(নাম নেই)"; const kk = k.toLowerCase(); g[kk] ??= { name: k, v: 0 }; g[kk].v += Number(r.amount) || 0; }
         const all = Object.values(g).sort((a, b) => b.v - a.v);
         const top = all.slice(0, 8), rest = all.slice(8).reduce((a, r) => a + r.v, 0);
         setSpend(rest ? [...top, { name: "অন্যান্য", v: rest }] : top);
@@ -357,7 +362,7 @@ function Dashboard({ isOwner, t, go, pc }) {
   if (!d) return <>{dateBar}<div className="grid">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="stat skel" />)}</div></>;
   const IC = { today_orders: ["🛍️", "#fde7ec"], today_sales: ["৳", "#fde7ec"], website: ["🌐", "#fde7ec", "#9B1B3F"], facebook: ["f", "#e3eeff", "#1877f2"],
     pending: ["⏰", "#fde7ec"], inv_left: ["🖨️", "#fff3d6", "#e8a93b"], sheet_left: ["👟", "#fff3d6", "#e8a93b"], confirmed: ["✓", "#dff6e9", "#16a34a"], delivered: ["🚚", "#e3eeff"], returned: ["↻", "#efe9ff", "#6d4bd8"],
-    cancelled: ["✕", "#fde7ec", "#d0284f"], sf_pending: ["⏳", "#fff3d6", "#b7791f"], expense_month: ["👜", "#fde7ec"], profit_month: ["📈", "#fde7ec", "#d0284f"], sf_balance: ["★", "#fff3d6", "#e8a93b"] };
+    cancelled: ["✕", "#fde7ec", "#d0284f"], sf_pending: ["⏳", "#fff3d6", "#b7791f"], expense_month: ["👜", "#fde7ec"], profit_month: ["📈", "#fde7ec", "#d0284f"], sf_balance: ["★", "#fff3d6", "#e8a93b"], cash_now: ["💵", "#dff6e9", "#16a34a"], sf_recv: ["🚚", "#e3eeff", "#2F6FD0"] };
   const today = { mode: "all", from: rg.from, to: rg.to };
   const S = ({ k, v, accent, w2, to, secret, l }) => { const [i, bg, c] = IC[k] ?? ["•", "#eee"]; return <button type="button" className={"stat click" + (accent ? " accent" : "") + (w2 ? " w2" : "")} onClick={to}><span className="si" style={{ background: bg, color: c }}>{i}</span><small>{l ?? t(k)}</small>
     <b>{secret && !eye ? "৳ ••••" : v}{secret && <span className="eye" role="button" title={eye ? "লুকান" : "দেখুন"} onClick={(e) => { e.stopPropagation(); setEye(!eye); }}>{eye ? "🙈" : "👁️"}</span>}</b><em>দেখুন →</em></button>; };
@@ -383,18 +388,22 @@ function Dashboard({ isOwner, t, go, pc }) {
         <S k="sf_pending" l="কাস্টমারের কাছে যাচ্ছে (Pending)" v={d.sfPending ?? 0} to={() => go("parcels_pending", "pending")} />
         <S k="cancelled" l={isToday ? "আজ Cancel" : "Cancel"} v={d.cancelled} to={O({ status: "cancelled" })} />
       </div>
+      {ser && <DeliveryTable rows={ser} title={one ? "শেষ ১৪ দিন — প্রতিদিনের হিসাব" : "প্রতিদিনের হিসাব"} />}
       {ser && <DayBars data={ser} title={one ? "শেষ ১৪ দিনের ডেলিভারি" : "দিনে দিনে ডেলিভারি"} empty="এই সময়ে কোনো Delivered / Return / Cancel হয়নি" series={[{ key: "delivered", label: "Delivered", color: "#1E9E6E" }, { key: "returned", label: "Return", color: "#7A4FD6" }, { key: "cancelled", label: "Cancel", color: "#C9661A" }]} />}
 
       {isOwner && <>
         <div className="dsec big gap"><span>৪ · খরচ ও হিসাব</span><small>{bn(rg.to, { month: "long" })} মাস</small></div>
         <div className="grid gbig">
-          <S k="expense_month" secret v={tk(d.exp)} to={() => go("expenses")} />
-          <S k="profit_month" secret v={tk(d.profit)} to={() => go("finance")} />
+          <S k="cash_now" l="এখন হাতে ক্যাশ" secret v={d.cashNow == null ? "শুরুর ক্যাশ বসান" : tk(d.cashNow)} to={() => go("expenses")} />
+          <S k="sf_recv" l={`${bn(rg.to, { month: "long" })} মাসে Steadfast থেকে এসেছে`} secret v={tk(d.recv)} to={() => go("expenses")} />
+          <S k="expense_month" l={`${bn(rg.to, { month: "long" })} মাসের খরচ`} secret v={tk(d.exp)} to={() => go("expenses")} />
+          <S k="profit_month" l={`${bn(rg.to, { month: "long" })} মাসের ${d.profit >= 0 ? "লাভ" : "ক্ষতি"}`} secret v={tk(Math.abs(d.profit ?? 0))} to={() => go("expenses")} />
           <S k="sf_balance" secret w2 v={d.sf == null ? "..." : tk(d.sf)} to={() => go("parcels_pending")} />
         </div>
+        <p className="note"><i>i</i><span>লাভ = এই মাসে Steadfast থেকে যত টাকা Paid হয়ে এসেছে (চার্জ বাদে) − এই মাসে খরচের ঘরে সেভ করা খরচ ({d.spendDays}দিনের)। যে দিনের খরচ সেভ করা হয়নি সেদিনের খরচ এখানে নেই — তাই প্রতিদিন খাতার ছবি দেবেন। Steadfast-এ জমে থাকা টাকা (উপরের ★) তোলার পরে হিসাবে ঢুকবে।</span></p>
         {spend && <SpendBars rows={spend} fmt={tk} title={`কোন খাতে খরচ বেশি — ${bn(rg.to, { month: "long" })}`} />}
       </>}
-      <p className="note"><i>i</i><span>Delivered = আজ কাস্টমার পার্সেল নিয়েছে · Return = আজ পার্সেল ফেরত এসেছে (আংশিক ডেলিভারিও Return) · Cancel = কল করে আপনারা বাতিল করেছেন। এই মাসের লাভ = Delivered জুতার দাম + Partial-এ রাখা জুতা − Cancel/Return-এর গড় চার্জ − COD চার্জ − কারখানা − Ads। পুরো হিসাব লাভ-ক্ষতি পেজে।</span></p>
+      <p className="note"><i>i</i><span>Delivered = আজ কাস্টমার পার্সেল নিয়েছে · Return = আজ পার্সেল ফেরত এসেছে (আংশিক ডেলিভারিও Return) · Cancel = কল করে আপনারা বাতিল করেছেন। কুরিয়ারে গেছে = সেদিন Steadfast-এ বুক হয়েছে।</span></p>
       {late && <div className="card pconly late">
         <div className="row" style={{ justifyContent: "space-between" }}><h2>⏰ ৫ দিনের বেশি পড়ে আছে ({late.length})</h2><span className="muted small">Cancel বা Steadfast-এ না পাঠানো পর্যন্ত এখানে থাকবে</span></div>
         {!late.length ? <p className="muted">🎉 কোনো অর্ডার ৫ দিনের বেশি আটকে নেই।</p> : <div className="ltab">
@@ -409,6 +418,24 @@ function Dashboard({ isOwner, t, go, pc }) {
         </div>}
       </div>}
     </>
+  );
+}
+
+const BNn = (n) => String(n ?? 0).replace(/\d/g, (x) => "০১২৩৪৫৬৭৮৯"[x]);
+function DeliveryTable({ rows, title }) {
+  const r = [...rows].sort((a, b) => b.d.localeCompare(a.d));
+  const sum = (k) => r.reduce((a, x) => a + (Number(x[k]) || 0), 0);
+  const dl = (x) => new Date(x + "T12:00:00Z").toLocaleDateString("bn-BD", { day: "numeric", month: "short", weekday: "short" });
+  return (
+    <div className="card">
+      <h2>📋 {title}</h2>
+      <div className="ctable dtable">
+        <div className="ch"><span>তারিখ</span><span>🚚 কুরিয়ারে গেছে</span><span>✅ Delivered</span><span>↩️ Return</span><span>✕ Cancel</span></div>
+        {r.map((x) => <div key={x.d} className="cr"><span><b>{dl(x.d)}</b></span><span><b>{BNn(x.booked)}</b></span><span className="in">{BNn(x.delivered)}</span><span className="out">{BNn(x.returned)}</span><span>{BNn(x.cancelled)}</span></div>)}
+        <div className="cr sum"><span>মোট</span><span>{BNn(sum("booked"))}</span><span className="in">{BNn(sum("delivered"))}</span><span className="out">{BNn(sum("returned"))}</span><span>{BNn(sum("cancelled"))}</span></div>
+      </div>
+      <p className="muted small" style={{ margin: "6px 0 0" }}>Return = সেদিন Steadfast থেকে ফেরত এসেছে (আংশিক ডেলিভারিও) · Cancel = কল করে আপনারা বাতিল করেছেন।</p>
+    </div>
   );
 }
 

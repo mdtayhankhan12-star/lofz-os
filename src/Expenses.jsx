@@ -1,285 +1,278 @@
 import React, { useEffect, useState } from "react";
-import { sb, tk } from "./lib.js";
-import DateRange, { rangeLabel } from "./DateRange.jsx";
-import { SpendBars } from "./DashCharts.jsx";
-import Money from "./Money.jsx";
+import { sb, tk, fnCall } from "./lib.js";
 
-// খরচ পেজ — উপরে ক্যাশ/ব্যাংক, তারপর কোন খাতে খরচ বেশি, তারপর দৈনিক খরচ লেখা, নিচে বাকির খাতা আর ক্যাশ খাতা
+// খরচ পেজ — শুধু দুইটা ঘর: ১) ক্যাশ  ২) খরচ (খাতার ছবি দিলে তালিকা হয়, ক্যাশ থেকে বাদ যায়)
 const dhakaToday = () => new Date(Date.now() + 6 * 3600e3).toISOString().slice(0, 10);
-const SUPPLIERS = ["Cha", "Raju Vai heel", "Rubel Vai material"];
-const key = (s) => (s ?? "").trim().toLowerCase();
+const addD = (d0, n) => { const x = new Date(d0 + "T12:00:00Z"); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
 const BN = (n) => String(n).replace(/\d/g, (d) => "০১২৩৪৫৬৭৮৯"[d]);
-const dBN = (d) => new Date(d + "T12:00:00Z").toLocaleDateString("bn-BD", { day: "numeric", month: "long" });
-const tm = (s) => { const d = new Date(new Date(s).getTime() + 6 * 3600e3), h = d.getUTCHours();
-  const part = h < 4 ? "রাত" : h < 12 ? "সকাল" : h < 15 ? "দুপুর" : h < 18 ? "বিকাল" : h < 20 ? "সন্ধ্যা" : "রাত";
-  return `${part} ${BN(h % 12 || 12)}:${BN(String(d.getUTCMinutes()).padStart(2, "0"))}`; };
-const MOVES = {
-  to_bank: ["🏦", "ব্যাংকে জমা দিলাম", "ক্যাশ কমবে, ব্যাংক বাড়বে"],
-  from_bank: ["🏧", "ব্যাংক থেকে তুললাম", "ব্যাংক কমবে, ক্যাশ বাড়বে"],
-  cash_in: ["➕", "ক্যাশ যোগ (অন্য আয়)", "যেমন নিজের পকেট থেকে দিলাম, দোকানে নগদ বিক্রি"],
-  cash_out: ["➖", "ক্যাশ খরচ (অন্য)", "কারখানার খরচ না — যেমন বাসার খরচ, নিজে নিলাম"],
-  bank_out: ["💳", "ব্যাংক থেকে খরচ", "যেমন Facebook Ads কার্ডে দিলাম"],
-};
+const dBN = (d) => new Date(d + "T12:00:00Z").toLocaleDateString("bn-BD", { day: "numeric", month: "long", weekday: "short" });
+const mBN = (d) => new Date(d + "T12:00:00Z").toLocaleDateString("bn-BD", { month: "long", year: "numeric" });
+const num = (v) => Math.round(Number(String(v ?? "").replace(/[,\s৳]/g, "").replace(/[০-৯]/g, (c) => "০১২৩৪৫৬৭৮৯".indexOf(c))) || 0);
+const R = (v) => Math.round(Number(v) || 0);
+const toB64 = (file) => new Promise((res, rej) => { const img = new Image(), u = URL.createObjectURL(file); img.onload = () => { const m = 1600, k = Math.min(1, m / Math.max(img.width, img.height)); const c = document.createElement("canvas"); c.width = img.width * k; c.height = img.height * k; c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(u); res(c.toDataURL("image/jpeg", 0.8).split(",")[1]); }; img.onerror = () => rej(new Error("ছবি খুলতে পারিনি")); img.src = u; });
+const ls = { get: (k, d) => { try { return localStorage.getItem(k) ?? d; } catch { return d; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
 
-// ---------- ক্যাশ আর ব্যাংক (শুধু Owner)
-function CashCard({ book, reload }) {
+// একদিনে ক্যাশ থেকে কত খরচ বাদ গেছে (দৈনিক খরচ থাকলে সেটাই, না থাকলে পুরনো নিয়মের নগদ খরচ + পরিশোধ)
+const spendOf = (d) => (d.daily_spend != null ? Number(d.daily_spend) : Number(d.exp_cash || 0) + Number(d.paid || 0));
+const otherOf = (d) => Number(d.cash_in || 0) - Number(d.cash_out || 0) + Number(d.from_bank || 0) - Number(d.to_bank || 0);
+
+export default function Expenses({ isOwner }) {
+  const [tab, setTab] = useState(ls.get("lofz_exp_tab", "khoroch"));
+  const pick = (t) => { setTab(t); ls.set("lofz_exp_tab", t); };
+  const [book, setBook] = useState(null); const [spends, setSpends] = useState(null);
+  const today = dhakaToday();
+  const load = async () => {
+    const [{ data: b }, { data: s }] = await Promise.all([
+      sb.rpc("cash_book", { p_from: addD(today, -60), p_to: today }),
+      sb.from("daily_spend").select("day,amount,note,items").gte("day", addD(today, -100)).order("day", { ascending: false }),
+    ]);
+    setBook(b ?? { opening: null }); setSpends(s ?? []);
+  };
+  useEffect(() => { if (isOwner) load(); }, [isOwner]);
+  if (!isOwner) return <div className="card"><h2>🔒 শুধু Owner</h2><p className="muted">ক্যাশ আর খরচের হিসাব শুধু মালিক দেখতে পারবেন।</p></div>;
+  return (
+    <div className="stack">
+      <div className="exptabs">
+        <button type="button" className={tab === "cash" ? "on" : ""} onClick={() => pick("cash")}><span>💵</span><b>১ · ক্যাশ</b><small>{book?.opening ? tk(R(book.cash_now)) : "..."}</small></button>
+        <button type="button" className={tab === "khoroch" ? "on" : ""} onClick={() => pick("khoroch")}><span>🧾</span><b>২ · খরচ</b><small>খাতার ছবি দিন</small></button>
+      </div>
+      {tab === "cash" ? <CashTab book={book} reload={load} /> : <KhorochTab book={book} spends={spends} reload={load} />}
+    </div>
+  );
+}
+
+// ---------------- ১ · ক্যাশ
+function CashTab({ book, reload }) {
+  const today = dhakaToday();
   const [act, setAct] = useState(null); const [f, setF] = useState({ amt: "", note: "" }); const [err, setErr] = useState("");
-  const [op, setOp] = useState(null);
-  const today = book?.days?.find((d) => d.d === dhakaToday());
+  const [op, setOp] = useState(null); const [moves, setMoves] = useState([]);
+  const loadMoves = () => sb.from("cash_moves").select("*").gte("move_date", addD(today, -60)).order("created_at", { ascending: false }).limit(60).then(({ data }) => setMoves(data ?? []));
+  useEffect(() => { loadMoves(); }, []);
+  if (!book) return <div className="card">ক্যাশ হিসাব লোড হচ্ছে...</div>;
+  const opening = book.opening;
   const saveOpening = async (e) => {
     e.preventDefault(); setErr("");
-    const v = { cash: Number(op.cash) || 0, bank: Number(op.bank) || 0, date: op.date || dhakaToday() };
+    const v = { cash: num(op.cash), bank: num(op.bank), date: op.date || today };
     const { error } = await sb.from("app_settings").upsert({ key: "cash_opening", value: v, updated_at: new Date().toISOString() });
     if (error) return setErr(error.message);
     setOp(null); reload();
   };
   const saveMove = async (e) => {
     e.preventDefault(); setErr("");
-    const a = Math.abs(Number(String(f.amt).replace(/[,\s]/g, "")));
+    const a = Math.abs(num(f.amt));
     if (!(a > 0)) return setErr("টাকার পরিমাণ দিন");
     const { error } = await sb.from("cash_moves").insert({ kind: act, amount_bdt: a, note: f.note.trim() || null });
     if (error) return setErr(error.message);
-    setAct(null); setF({ amt: "", note: "" }); reload();
+    setAct(null); setF({ amt: "", note: "" }); reload(); loadMoves();
   };
-  if (!book) return <div className="card">ক্যাশ হিসাব লোড হচ্ছে...</div>;
-  const opening = book.opening;
+  const delMove = async (id) => { if (confirm("এই লেনদেনটা মুছবেন? (ট্র্যাশে থাকবে)")) { await sb.from("cash_moves").delete().eq("id", id); reload(); loadMoves(); } };
+
   if (!opening || op) {
-    const o = op ?? { cash: "", bank: "", date: dhakaToday() };
+    const o = op ?? { cash: "", bank: "", date: today };
     return (
       <form className="card cashset" onSubmit={saveOpening}>
-        <h2>💰 শুরুর ব্যালান্স বসান</h2>
-        <p className="muted small">আজ (বা যেদিন থেকে হিসাব শুরু করবেন) আপনার হাতে কত নগদ টাকা আর ব্যাংকে কত আছে লিখুন। এরপর থেকে Steadfast-এ Paid হওয়া পেমেন্ট নিজে থেকে ক্যাশে যোগ হবে, আর খরচ / পরিশোধ / ব্যাংকে জমা ক্যাশ থেকে বাদ যাবে।</p>
+        <h2>💰 শুরুর ক্যাশ বসান</h2>
+        <p className="muted small">যেদিন থেকে হিসাব শুরু করবেন, সেদিন হাতে কত নগদ টাকা ছিল লিখুন। এরপর Steadfast-এ Paid হওয়া টাকা নিজে থেকে যোগ হবে, আর খরচের ঘরে দেওয়া খরচ বাদ যাবে।</p>
         <div className="form3">
           <label>হাতে নগদ (ক্যাশ)<input inputMode="decimal" required value={o.cash} onChange={(e) => setOp({ ...o, cash: e.target.value })} placeholder="যেমন 25000" /></label>
-          <label>ব্যাংকে<input inputMode="decimal" value={o.bank} onChange={(e) => setOp({ ...o, bank: e.target.value })} placeholder="যেমন 50000" /></label>
-          <label>কোন তারিখ থেকে<input type="date" required value={o.date} max={dhakaToday()} onChange={(e) => setOp({ ...o, date: e.target.value })} /></label>
+          <label>কোন তারিখ থেকে<input type="date" required value={o.date} max={today} onChange={(e) => setOp({ ...o, date: e.target.value })} /></label>
         </div>
         {err && <p className="err">{err}</p>}
         <div className="row"><button className="btn">✓ সেভ করুন</button>{opening && <button type="button" className="chip" onClick={() => setOp(null)}>বাতিল</button>}</div>
       </form>
     );
   }
-  const flow = today ? [
-    ["Steadfast Paid", today.sf_in, `${BN(today.sf_n)}টা পেমেন্ট`],
-    ["দৈনিক মোট খরচ", today.daily_spend != null ? -today.daily_spend : 0], ["নগদ খরচ", today.daily_spend != null ? 0 : -today.exp_cash], ["ব্যাংকে জমা", -today.to_bank], ["ব্যাংক থেকে তোলা", today.from_bank],
-    ["অন্য আয়", today.cash_in], ["অন্য খরচ", -today.cash_out],
-  ].filter((x) => Number(x[1])) : [];
+  const days = (book.days ?? []).filter((d) => d.d >= opening.date).sort((a, b) => a.d.localeCompare(b.d));
+  // প্রতিদিনের হিসাব মিলিয়ে দেখি: আগের দিনের শেষ + আজ এসেছে − আজ গেছে = আজকের শেষ
+  const checked = days.map((d, i) => {
+    const prev = i ? Number(days[i - 1].cash_end) : null;
+    const calc = prev == null ? null : prev + Number(d.sf_in || 0) + otherOf(d) - spendOf(d);
+    return { ...d, start: prev, bad: calc != null && Math.abs(calc - Number(d.cash_end)) > 1 };
+  }).reverse();
+  const td = checked.find((d) => d.d === today);
+  const MV = { cash_in: ["➕", "ক্যাশ যোগ করলাম", "যেমন নিজের পকেট থেকে দিলাম, নগদ বিক্রি"], cash_out: ["➖", "ক্যাশ থেকে নিলাম", "খরচের খাতার বাইরে — যেমন বাসার খরচ, নিজে নিলাম"] };
   return (
-    <div className="card cashcard">
-      <div className="cashtop">
-        <div className="cbal cash"><small>💵 হাতে ক্যাশ</small><b>{tk(Math.round(book.cash_now))}</b><em>এখন পর্যন্ত</em></div>
-        <div className="cbal bank"><small>🏦 ব্যাংকে</small><b>{tk(Math.round(book.bank_now))}</b><em>এখন পর্যন্ত</em></div>
+    <div className="stack">
+      <div className="card cashcard">
+        <div className="cashtop">
+          <div className="cbal cash"><small>💵 এখন হাতে ক্যাশ</small><b>{tk(R(book.cash_now))}</b><em>শুরু {dBN(opening.date)} · {tk(opening.cash)}</em></div>
+        </div>
+        <div className="cflow">
+          <b>আজ</b>
+          {!td ? <span className="muted small">আজ এখনো কোনো আসা-যাওয়া নেই।</span> : <>
+            {td.start != null && <span className="cf"><small>দিনের শুরুতে</small> {tk(R(td.start))}</span>}
+            {Number(td.sf_in) !== 0 && <span className="cf in">+ {tk(R(td.sf_in))} <small>Steadfast Paid · {BN(td.sf_n ?? 0)}টা</small></span>}
+            {otherOf(td) !== 0 && <span className={"cf " + (otherOf(td) > 0 ? "in" : "out")}>{otherOf(td) > 0 ? "+" : "−"} {tk(Math.abs(R(otherOf(td))))} <small>যোগ / নেওয়া</small></span>}
+            {spendOf(td) !== 0 && <span className="cf out">− {tk(R(spendOf(td)))} <small>খরচ</small></span>}
+          </>}
+        </div>
+        <div className="row cacts">
+          {Object.entries(MV).map(([k, [ic, l]]) => <button key={k} type="button" className={"chip" + (act === k ? " sel" : "")} onClick={() => setAct(act === k ? null : k)}>{ic} {l}</button>)}
+          <button type="button" className="chip" onClick={() => setOp({ cash: opening.cash, bank: opening.bank ?? 0, date: opening.date })}>⚙️ শুরুর ক্যাশ</button>
+        </div>
+        {act && (
+          <form className="row cmove" onSubmit={saveMove}>
+            <b>{MV[act][0]} {MV[act][1]}</b><small className="muted">{MV[act][2]}</small>
+            <input inputMode="decimal" required autoFocus placeholder="টাকা" style={{ width: 120 }} value={f.amt} onChange={(e) => setF({ ...f, amt: e.target.value })} />
+            <input className="grow" placeholder="নোট (ইচ্ছা হলে)" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} />
+            <button className="btn">সেভ</button>
+          </form>
+        )}
+        {err && <p className="err">{err}</p>}
+        <p className="muted small" style={{ margin: "8px 0 0" }}>হিসাব: আগের দিনের ক্যাশ + Steadfast Paid (চার্জ বাদে) + নিজে যোগ − খরচ − নিজে নেওয়া = দিন শেষের ক্যাশ। Steadfast-এর টাকা "Paid" হওয়ার দিনেই ধরা হয়।</p>
       </div>
-      <div className="cflow">
-        <b>আজকের ক্যাশ</b>
-        {!flow.length ? <span className="muted small">আজ এখনো ক্যাশে কোনো আসা-যাওয়া নেই।</span> : flow.map(([l, v, s]) => (
-          <span key={l} className={"cf " + (v > 0 ? "in" : "out")}>{v > 0 ? "+" : "−"} {tk(Math.abs(Math.round(v)))} <small>{l}{s ? ` · ${s}` : ""}</small></span>
-        ))}
+
+      <div className="card">
+        <h2>📗 ক্যাশ খাতা — দিনে দিনে</h2>
+        <div className="ctable c6">
+          <div className="ch"><span>তারিখ</span><span>দিনের শুরু</span><span>Steadfast +</span><span>যোগ / নেওয়া</span><span>খরচ −</span><span>দিন শেষে</span></div>
+          {checked.map((d) => (
+            <div key={d.d} className="cr">
+              <span><b>{dBN(d.d)}</b>{d.bad && <small className="err"> ⚠️ মিলছে না</small>}</span>
+              <span>{d.start == null ? "—" : tk(R(d.start))}</span>
+              <span className="in">{Number(d.sf_in) ? "+" + tk(R(d.sf_in)) : "—"}</span>
+              <span>{otherOf(d) ? (otherOf(d) > 0 ? "+" : "−") + tk(Math.abs(R(otherOf(d)))) : "—"}</span>
+              <span className="out">{spendOf(d) ? "−" + tk(R(spendOf(d))) : "—"}</span>
+              <span><b>{tk(R(d.cash_end))}</b></span>
+            </div>))}
+        </div>
+        {checked.some((d) => d.bad) && <p className="err small">⚠️ কোনো দিনের হিসাব মিলছে না। আমাকে জানান, ঠিক করে দেব।</p>}
       </div>
-      <div className="row cacts">
-        {Object.entries(MOVES).map(([k, [ic, l]]) => <button key={k} type="button" className={"chip" + (act === k ? " sel" : "")} onClick={() => setAct(act === k ? null : k)}>{ic} {l}</button>)}
-        <button type="button" className="chip" onClick={() => setOp({ cash: opening.cash, bank: opening.bank, date: opening.date })}>⚙️ শুরুর ব্যালান্স</button>
-      </div>
-      {act && (
-        <form className="row cmove" onSubmit={saveMove}>
-          <b>{MOVES[act][0]} {MOVES[act][1]}</b><small className="muted">{MOVES[act][2]}</small>
-          <input inputMode="decimal" required autoFocus placeholder="টাকা" style={{ width: 120 }} value={f.amt} onChange={(e) => setF({ ...f, amt: e.target.value })} />
-          <input className="grow" placeholder="নোট (ইচ্ছা হলে)" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} />
-          <button className="btn">সেভ</button>
-        </form>
-      )}
-      {err && <p className="err">{err}</p>}
-      <p className="muted small" style={{ margin: "8px 0 0" }}>শুরু: {dBN(opening.date)} · ক্যাশ {tk(opening.cash)} · ব্যাংক {tk(opening.bank)}। Steadfast-এর টাকা "Paid" হওয়ার দিনেই ক্যাশে ধরা হয় (চার্জ বাদে)। দৈনিক মোট খরচ দেওয়া দিনে সেটাই বাদ যায়।</p>
+
+      {moves.length > 0 && <div className="card">
+        <h2>➕➖ নিজে যোগ / নেওয়া</h2>
+        <div className="xlist">{moves.map((m) => (
+          <div key={m.id} className="xrow">
+            <span className="xno">{m.kind === "cash_in" || m.kind === "from_bank" ? "➕" : "➖"}</span>
+            <div className="xname"><b>{m.kind === "cash_in" ? "ক্যাশ যোগ" : m.kind === "cash_out" ? "ক্যাশ থেকে নেওয়া" : m.kind === "to_bank" ? "ব্যাংকে জমা" : m.kind === "from_bank" ? "ব্যাংক থেকে তোলা" : m.kind}</b><small>{dBN(m.move_date)}{m.note ? " · " + m.note : ""}</small></div>
+            <span className="xamt">{tk(m.amount_bdt)}</span>
+            <button className="xdel" title="মুছুন" onClick={() => delMove(m.id)}>✕</button>
+          </div>))}</div>
+      </div>}
     </div>
   );
 }
 
-export default function Expenses({ isOwner }) {
-  const day = dhakaToday();
-  const [vr, setVr] = useState({ from: day, to: day });
-  const vIsToday = vr.from === day && vr.to === day;
-  const [items, setItems] = useState(null); const [pays, setPays] = useState([]);
-  const [names, setNames] = useState([]); const [led, setLed] = useState(null);
-  const [spend, setSpend] = useState(null); const [book, setBook] = useState(null);
-  const [cr, setCr] = useState({ from: day.slice(0, 8) + "01", to: day }); // ক্যাশ খাতার সময়
-  const [moves, setMoves] = useState([]);
-  const [f, setF] = useState({ note: "", amount_bdt: "" });
-  const [err, setErr] = useState(""); const [busy, setBusy] = useState(false);
+// ---------------- ২ · খরচ
+function KhorochTab({ book, spends, reload }) {
+  const today = dhakaToday();
+  const [day, setDay] = useState(today);
+  const [rd, setRd] = useState({ text: "", img: null, prev: "", items: null, written: null, unclear: [], msg: "", busy: false, replace: false });
+  const [open, setOpen] = useState(null);
+  const setImg = (file) => { if (file && file.type.startsWith("image/")) setRd((x) => ({ ...x, img: file, prev: URL.createObjectURL(file), msg: "" })); };
+  const readIt = async () => {
+    setRd((x) => ({ ...x, busy: true, msg: "পড়ছি... একটু অপেক্ষা করুন" }));
+    try {
+      const r = await fnCall("expense-reader", { text: rd.text, image: rd.img ? await toB64(rd.img) : "", mime: "image/jpeg" });
+      setRd((x) => ({ ...x, busy: false, replace: false, items: r.items.map((i) => ({ name: i.name, amount: String(i.amount) })), written: r.written_total, unclear: r.unclear ?? [], msg: r.items.length ? "নিচের তালিকা খাতার সাথে মিলিয়ে নিন, ভুল থাকলে ঠিক করুন, তারপর সেভ করুন।" : "কোনো খরচ পাইনি। ছবিটা আরো পরিষ্কার করে তুলুন।" }));
+    } catch (e) { setRd((x) => ({ ...x, busy: false, msg: "সমস্যা: " + e.message })); }
+  };
+  const items = rd.items ?? [];
+  const sum = items.reduce((a, i) => a + num(i.amount), 0);
+  const setItem = (k, p) => setRd({ ...rd, items: items.map((x, j) => (j === k ? { ...x, ...p } : x)) });
+  const existing = (spends ?? []).find((s) => s.day === day);
+  const save = async () => {
+    const clean = items.map((i) => ({ name: i.name.trim(), amount: num(i.amount) })).filter((i) => i.amount > 0 && i.name);
+    if (!clean.length) return setRd({ ...rd, msg: "সেভ করার মতো কিছু নেই — নাম আর টাকা দিন।" });
+    if (clean.length !== items.filter((i) => i.name.trim() || i.amount).length) return setRd({ ...rd, msg: "কোনো লাইনে নাম বা টাকা নেই — ঠিক করুন অথবা ✕ দিয়ে বাদ দিন।" });
+    let all = clean;
+    if (existing && !rd.replace) {
+      const ok = confirm(`${dBN(day)}-এ আগে থেকেই ${tk(existing.amount)} খরচ সেভ আছে।\n\nOK = নতুন ${tk(sum)} তার সাথে যোগ হবে (মোট ${tk(Number(existing.amount) + sum)})\nCancel = কিছুই সেভ হবে না`);
+      if (!ok) return;
+      const old = Array.isArray(existing.items) && existing.items.length ? existing.items : [{ name: existing.note || "আগের খরচ", amount: Number(existing.amount) }];
+      all = [...old, ...clean];
+    }
+    const total = all.reduce((a, i) => a + num(i.amount), 0);
+    const note = all.map((i) => `${i.name} ${i.amount}`).join(", ").slice(0, 900);
+    const { error } = await sb.from("daily_spend").upsert({ day, amount: total, note, items: all });
+    if (error) return setRd({ ...rd, msg: error.message });
+    setRd({ text: "", img: null, prev: "", items: null, written: null, unclear: [], msg: `✓ ${dBN(day)} — মোট খরচ ${tk(total)} সেভ হয়েছে, ক্যাশ থেকে বাদ গেছে।`, busy: false, replace: false });
+    setOpen(day); reload();
+  };
+  const edit = (s) => { setDay(s.day); setRd({ text: "", img: null, prev: "", items: (Array.isArray(s.items) && s.items.length ? s.items : [{ name: s.note || "খরচ", amount: s.amount }]).map((i) => ({ name: i.name, amount: String(i.amount) })), written: null, unclear: [], msg: `✏️ ${dBN(s.day)}-এর খরচ ঠিক করছেন। সেভ দিলে আগেরটা বদলে যাবে।`, busy: false, replace: true }); window.scrollTo(0, 0); };
+  const del = async (s) => { if (confirm(`${dBN(s.day)}-এর পুরো খরচ (${tk(s.amount)}) মুছবেন? ক্যাশে টাকা ফেরত যোগ হবে।`)) { await sb.from("daily_spend").delete().eq("day", s.day); reload(); } };
 
-  const load = async () => {
-    const { data } = await sb.from("expenses").select("id,note,amount_bdt,created_at,on_credit").eq("category", "production").gte("expense_date", vr.from).lte("expense_date", vr.to).order("created_at", { ascending: false });
-    setItems(data ?? []);
-    const { data: pd } = await sb.from("supplier_payments").select("id,party,amount_bdt,created_at").gte("paid_date", vr.from).lte("paid_date", vr.to).order("created_at", { ascending: false });
-    setPays(pd ?? []);
-    if (isOwner) { loadLedger(); loadSpend(); loadBook(); }
-  };
-  const loadBook = async () => {
-    const { data } = await sb.rpc("cash_book", { p_from: cr.from, p_to: dhakaToday() });
-    setBook(data ?? { opening: null });
-    const { data: mv } = await sb.from("cash_moves").select("*").gte("move_date", cr.from).lte("move_date", cr.to).order("created_at", { ascending: false });
-    setMoves(mv ?? []);
-  };
-  const loadSpend = async () => {
-    const ms = day.slice(0, 8) + "01";
-    const { data } = await sb.from("expenses").select("note,amount_bdt").eq("category", "production").gte("expense_date", ms).lte("expense_date", day).limit(5000);
-    const g = {}; for (const r of data ?? []) { const k = key(r.note) || "(নাম নেই)"; g[k] ??= { name: (r.note ?? "").trim() || "(নাম নেই)", v: 0 }; g[k].v += Number(r.amount_bdt); }
-    const all = Object.values(g).sort((a, b) => b.v - a.v), rest = all.slice(8).reduce((a, r) => a + r.v, 0);
-    setSpend(rest ? [...all.slice(0, 8), { name: "অন্যান্য", v: rest }] : all.slice(0, 8));
-  };
-  // বাকির খাতা: "বাকিতে আনলাম" − "পরিশোধ", নাম ধরে
-  const loadLedger = async () => {
-    const [{ data: ex }, { data: py }] = await Promise.all([
-      sb.from("expenses").select("note,amount_bdt,expense_date").eq("category", "production").eq("on_credit", true).limit(10000),
-      sb.from("supplier_payments").select("party,amount_bdt,paid_date").order("paid_date", { ascending: false }).limit(5000),
-    ]);
-    const g = {};
-    const get = (name) => (g[key(name)] ??= { name: name.trim(), bought: 0, paid: 0, hist: [] });
-    for (const p of py ?? []) { const x = get(p.party); x.paid += Number(p.amount_bdt); x.hist.push({ d: p.paid_date, a: -Number(p.amount_bdt) }); }
-    for (const e of ex ?? []) { const x = get(e.note || "(নাম নেই)"); x.bought += Number(e.amount_bdt); x.hist.push({ d: e.expense_date, a: Number(e.amount_bdt) }); }
-    for (const x of Object.values(g)) x.hist.sort((a, b) => b.d.localeCompare(a.d));
-    setLed(Object.values(g).sort((a, b) => (b.bought - b.paid) - (a.bought - a.paid)));
-  };
-  useEffect(() => { load(); }, [vr.from, vr.to]);
-  useEffect(() => { if (isOwner) loadBook(); }, [cr.from, cr.to]);
-  useEffect(() => { if (isOwner) sb.from("expenses").select("note").eq("category", "production").limit(2000).then(({ data }) => setNames([...new Set((data ?? []).map((r) => (r.note ?? "").trim()).filter(Boolean))])); }, []);
-
-  const add = async (e, how = "cash") => {
-    e.preventDefault(); setErr("");
-    const raw = String(f.amount_bdt).replace(/[,\s]/g, "");
-    const isPay = how === "pay" || raw.startsWith("-") || f.note.trim().startsWith("-");
-    const amt = Math.abs(Number(raw)), note = f.note.trim().replace(/^-\s*/, "");
-    if (!(amt > 0)) return setErr("টাকার পরিমাণ দিন");
-    if (!note) return setErr("কী বাবদ / কাকে দিলেন লিখুন");
-    setBusy(true);
-    const { error } = isPay
-      ? await sb.from("supplier_payments").insert({ party: note, amount_bdt: amt, paid_date: day })
-      : await sb.from("expenses").insert({ category: "production", platform: "both", note, amount_bdt: amt, expense_date: day, on_credit: how === "credit" });
-    setBusy(false);
-    if (error) return setErr(error.message);
-    setF({ note: "", amount_bdt: "" }); load();
-  };
-  const del = async (id) => { if (confirm("এই খরচটা মুছবেন? (ট্র্যাশে থাকবে)")) { await sb.from("expenses").delete().eq("id", id); load(); } };
-  const delPay = async (id) => { if (confirm("এই পরিশোধটা মুছবেন? (ট্র্যাশে থাকবে)")) { await sb.from("supplier_payments").delete().eq("id", id); load(); } };
-  const delMove = async (id) => { if (confirm("এই লেনদেনটা মুছবেন? (ট্র্যাশে থাকবে)")) { await sb.from("cash_moves").delete().eq("id", id); loadBook(); } };
-
-  // খরচ আর পরিশোধ একসাথে, সময় ধরে
-  const rows = [...(items ?? []).map((r) => ({ ...r, t: "exp" })), ...pays.map((r) => ({ ...r, t: "pay", note: r.party }))].sort((a, b) => b.created_at.localeCompare(a.created_at));
-  const cashExp = (items ?? []).filter((r) => !r.on_credit).reduce((a, r) => a + Number(r.amount_bdt), 0);
-  const credit = (items ?? []).filter((r) => r.on_credit).reduce((a, r) => a + Number(r.amount_bdt), 0);
-  const paid = pays.reduce((a, r) => a + Number(r.amount_bdt), 0);
-  const dueOf = (n) => { const x = led?.find((l) => key(l.name) === key(n)); return x ? x.bought - x.paid : null; };
-  const ledDays = (book?.days ?? []).filter((d) => d.d >= cr.from && d.d <= cr.to);
+  // সেই দিনের ক্যাশ: শুরু → এসেছে → খরচ → বাকি
+  const days = [...(book?.days ?? [])].sort((a, b) => a.d.localeCompare(b.d));
+  const di = days.findIndex((d) => d.d === day);
+  const dd = di >= 0 ? days[di] : null, start = di > 0 ? Number(days[di - 1].cash_end) : null;
+  const month = day.slice(0, 7);
+  const mList = (spends ?? []).filter((s) => s.day.slice(0, 7) === month);
+  const mTotal = mList.reduce((a, s) => a + Number(s.amount), 0);
 
   return (
     <div className="stack">
-      {isOwner && <Money onChange={loadBook} />}
-      {isOwner && <CashCard book={book} reload={loadBook} />}
-      {isOwner && spend && <SpendBars rows={spend} fmt={tk} title="এই মাসে কোন খাতে খরচ বেশি" />}
-
-      <form className="card" onSubmit={add}>
-        <h2>✍️ খরচ লিখুন</h2>
-        <div className="row exp-add">
-          <input className="grow" list="exp-names" placeholder="কী বাবদ? (যেমন: Cha, Samana, Rubel Vai material)" required value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} />
-          <input type="text" inputMode="decimal" placeholder="টাকা" required style={{ width: 110 }} value={f.amount_bdt} onChange={(e) => setF({ ...f, amount_bdt: e.target.value })} />
-        </div>
-        <div className="row exp-btns">
-          <button className="btn" disabled={busy}>💵 নগদ খরচ</button>
-          <button type="button" className="btn dark" disabled={busy} onClick={(e) => { if (e.currentTarget.form.reportValidity()) add(e, "credit"); }}>📝 বাকিতে আনলাম</button>
-          <button type="button" className="btn minus" disabled={busy} onClick={(e) => { if (e.currentTarget.form.reportValidity()) add(e, "pay"); }}>− বাকি পরিশোধ</button>
-        </div>
-        <datalist id="exp-names">{[...new Set([...SUPPLIERS, ...names])].map((n) => <option key={n} value={n} />)}</datalist>
-        <div className="exp-help">
-          <span><b>💵 নগদ খরচ</b> — সাথে সাথে টাকা দিলেন (কারিগরের মজুরি, রিকশা)। খরচে যোগ হবে, ক্যাশ কমবে।</span>
-          <span><b>📝 বাকিতে আনলাম</b> — জিনিস আনলেন, টাকা পরে দেবেন (Cha, Rubel Vai, Raju Vai)। খরচে যোগ হবে, ক্যাশ কমবে না, ওই নামে বাকি জমবে।</span>
-          <span><b>− বাকি পরিশোধ</b> — বাকির টাকা দিলেন। <u>একই নাম</u> লিখবেন। খরচে আর যোগ হবে না, ওই নামের বাকি কমবে, ক্যাশ কমবে।</span>
-        </div>
-        {err && <p className="err">{err}</p>}
-      </form>
-
       <div className="card">
-        <div className="xhead"><h2>{vIsToday ? "আজকের খরচ · " + dBN(day) : rangeLabel(vr) + "-এর খরচ"}</h2>{isOwner && <DateRange value={vr} onChange={setVr} compact />}</div>
-        {!items ? "লোড হচ্ছে..." : !rows.length ? <p className="muted">{vIsToday ? "আজ এখনো কিছু লেখা হয়নি।" : "এই সময়ে কিছু লেখা নেই।"}</p> : <>
-          <div className="xlist">
-            {rows.map((r, i) => {
-              const pay = r.t === "pay", due = r.on_credit ? dueOf(r.note) : null;
-              return (
-                <div key={r.t + r.id} className={"xrow" + (pay ? " xpay" : "")}>
-                  <span className="xno">{pay ? "↩" : BN(rows.length - i)}</span>
-                  <div className="xname"><b>{r.note || "—"}</b>
-                    <small>{tm(r.created_at)} · {pay ? <span className="tg pay">পরিশোধ — এই নামের বাকি থেকে কাটা</span> : r.on_credit ? (due != null && due <= 0 ? <span className="tg ok">বাকিতে · পরিশোধ ✓</span> : <span className="tg due">বাকিতে আনা</span>) : <span className="tg">নগদ</span>}</small></div>
-                  <span className="xamt" style={pay ? { color: "#178a5c" } : undefined}>{pay ? "− " : ""}{tk(r.amount_bdt)}</span>
-                  <button className="xdel" title="মুছুন" onClick={() => (pay ? delPay(r.id) : del(r.id))}>✕</button>
-                </div>
-              );
-            })}
+        <h2>📷 খরচের খাতার ছবি দিন</h2>
+        <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
+          <label className="small">তারিখ <input type="date" value={day} max={today} onChange={(e) => { setDay(e.target.value); if (rd.replace) setRd({ ...rd, replace: false, items: null, msg: "" }); }} /></label>
+          {existing && <span className="badge warn">এই দিনে আগে থেকে {tk(existing.amount)} আছে</span>}
+        </div>
+        <label className="upbox">
+          <input type="file" accept="image/*" hidden onChange={(e) => setImg(e.target.files?.[0])} />
+          {rd.prev ? <img src={rd.prev} alt="খাতার ছবি" /> : <><span>📷</span><b>এখানে চাপ দিয়ে ছবি তুলুন / বাছুন</b><small>খাতার পাতা সোজা করে, আলোতে তুলবেন</small></>}
+        </label>
+        <textarea className="pastebox" rows={2} placeholder="অথবা খরচের লেখা এখানে পেস্ট করুন (যেমন: Cha 120, Rubel Vai 2500)" value={rd.text} onChange={(e) => setRd({ ...rd, text: e.target.value })}
+          onPaste={(e) => { const fl = [...(e.clipboardData?.files ?? [])].find((x) => x.type.startsWith("image/")); if (fl) { e.preventDefault(); setImg(fl); } }} />
+        <div className="row" style={{ flexWrap: "wrap" }}>
+          <button type="button" className="btn" disabled={rd.busy || (!rd.text.trim() && !rd.img)} onClick={readIt}>🔍 পড়ে তালিকা বানাও</button>
+          <button type="button" className="chip" onClick={() => setRd({ ...rd, items: [...items, { name: "", amount: "" }], msg: rd.msg })}>✍️ হাতে লিখব</button>
+          {(rd.img || rd.text || rd.items) && <button type="button" className="chip" onClick={() => setRd({ text: "", img: null, prev: "", items: null, written: null, unclear: [], msg: "", busy: false, replace: false })}>মুছে নতুন করে</button>}
+        </div>
+        {rd.msg && <p className="small" style={{ fontWeight: 700 }}>{rd.msg}</p>}
+
+        {rd.items && <>
+          <div className="xlist" style={{ marginTop: 8 }}>
+            {items.map((i, k) => (
+              <div key={k} className="xrow">
+                <span className="xno">{BN(k + 1)}</span>
+                <input className="grow" placeholder="কী বাবদ" value={i.name} onChange={(e) => setItem(k, { name: e.target.value })} />
+                <input inputMode="decimal" placeholder="টাকা" style={{ width: 100 }} value={i.amount} onChange={(e) => setItem(k, { amount: e.target.value })} />
+                <button type="button" className="xdel" onClick={() => setRd({ ...rd, items: items.filter((_, j) => j !== k) })}>✕</button>
+              </div>))}
           </div>
-          <div className="xtot2">
-            <div className="xbig">
-              <small>{vIsToday ? "আজকের মোট খরচ" : "মোট খরচ"}</small>
-              <b>{tk(cashExp + credit)}</b>
-              <em>নগদ + বাকিতে আনা · লাভ-ক্ষতিতে এটাই যাবে</em>
-            </div>
-            <div className="xminis">
-              <div className="xmini"><span>💵</span><small>নগদ খরচ</small><b>{tk(cashExp)}</b></div>
-              <div className="xmini due"><span>📝</span><small>বাকিতে আনা</small><b>{tk(credit)}</b></div>
-              <div className="xmini pay"><span>↩</span><small>বাকি পরিশোধ</small><b>− {tk(paid)}</b></div>
-              <div className="xmini cash"><span>👛</span><small>ক্যাশ থেকে গেছে</small><b>{tk(cashExp + paid)}</b></div>
-            </div>
+          <button type="button" className="chip" style={{ marginTop: 6 }} onClick={() => setRd({ ...rd, items: [...items, { name: "", amount: "" }] })}>➕ আরেকটা লাইন</button>
+          {rd.unclear.length > 0 && <p className="err small">⚠️ এগুলো পড়তে পারিনি, হাতে লিখে দিন: {rd.unclear.join(" · ")}</p>}
+          {rd.written != null && Math.abs(rd.written - sum) > 0 && <p className="err small">⚠️ খাতায় লেখা মোট {tk(rd.written)}, কিন্তু তালিকার যোগফল {tk(sum)} — পার্থক্য {tk(Math.abs(rd.written - sum))}। কোন লাইন বাদ পড়েছে বা ভুল পড়েছে দেখে নিন।</p>}
+          {rd.written != null && rd.written === sum && <p className="ok small">✓ খাতার মোটের সাথে মিলেছে।</p>}
+          <div className="xtot2" style={{ marginTop: 10 }}>
+            <div className="xbig"><small>এই তালিকার মোট</small><b>{tk(sum)}</b><em>{dBN(day)}</em></div>
           </div>
+          <button type="button" className="btn" style={{ marginTop: 8, width: "100%" }} onClick={save}>✓ সেভ করুন — ক্যাশ থেকে {tk(sum)} বাদ যাবে</button>
         </>}
       </div>
 
-      {isOwner && (
-        <div className="card">
-          <h2>📒 বাকির খাতা</h2>
-          <p className="muted small">যাদের কাছ থেকে বাকিতে আনেন (Cha, Rubel Vai, Raju Vai ...)। নামে চাপলে তারিখসহ সব আনা আর দেওয়া দেখাবে।</p>
-          {!led ? "লোড হচ্ছে..." : !led.length ? <p className="muted">এখনো কোনো বাকি নেই। "📝 বাকিতে আনলাম" দিয়ে লিখলে এখানে আসবে।</p> : <div className="duegrid">
-            {led.map((x) => { const due = x.bought - x.paid; return (
-              <details key={x.name} className={"duecard" + (due > 0 ? " has" : "")}>
-                <summary>
-                  <b>{x.name}</b>
-                  <span className="dueamt">{due > 0 ? tk(due) : due < 0 ? "অগ্রিম " + tk(-due) : "পরিশোধ ✓"}</span>
-                  <small>{due > 0 ? "বাকি" : ""} · নেওয়া {tk(x.bought)} · দেওয়া {tk(x.paid)}</small>
-                </summary>
-                {x.hist.slice(0, 40).map((h, i) => (
-                  <div key={i} className="row small" style={{ justifyContent: "space-between", padding: "4px 0", borderTop: "1px dashed var(--line)" }}>
-                    <span>{dBN(h.d)} · {h.a > 0 ? "বাকিতে আনা" : "পরিশোধ"}</span>
-                    <b style={{ color: h.a > 0 ? "#d0284f" : "#178a5c" }}>{h.a > 0 ? "+" : "−"}{tk(Math.abs(h.a))}</b>
-                  </div>))}
-              </details>); })}
-          </div>}
+      {book?.opening && <div className="card">
+        <h2>🧮 {dBN(day)}-এর হিসাব</h2>
+        <div className="calc">
+          <div><span>দিনের শুরুতে হাতে ক্যাশ</span><b>{start == null ? "—" : tk(R(start))}</b></div>
+          <div className="in"><span>+ Steadfast থেকে এসেছে</span><b>{tk(R(dd?.sf_in))}</b></div>
+          {dd && otherOf(dd) !== 0 && <div className={otherOf(dd) > 0 ? "in" : "out"}><span>{otherOf(dd) > 0 ? "+ নিজে যোগ" : "− নিজে নেওয়া"}</span><b>{tk(Math.abs(R(otherOf(dd))))}</b></div>}
+          <div className="out"><span>− খরচ</span><b>{tk(R(dd ? spendOf(dd) : 0))}</b></div>
+          <div className="tot"><span>= দিন শেষে হাতে ক্যাশ</span><b>{dd ? tk(R(dd.cash_end)) : "—"}</b></div>
         </div>
-      )}
+        <p className="muted small">এখন মোট হাতে ক্যাশ: <b>{tk(R(book.cash_now))}</b></p>
+      </div>}
 
-      {isOwner && book?.opening && (
-        <div className="card">
-          <div className="xhead"><h2>📗 ক্যাশ খাতা — দিনে দিনে</h2><DateRange value={cr} onChange={setCr} compact /></div>
-          <div className="ctable">
-            <div className="ch"><span>তারিখ</span><span>Steadfast +</span><span>নগদ খরচ −</span><span>পরিশোধ −</span><span>ব্যাংক ↔</span><span>অন্যান্য</span><span>দিন শেষে ক্যাশ</span><span>ব্যাংকে</span></div>
-            {ledDays.map((d) => { const bank = d.from_bank - d.to_bank, oth = d.cash_in - d.cash_out; return (
-              <div key={d.d} className="cr">
-                <span><b>{dBN(d.d)}</b></span>
-                <span className="in">{d.sf_in ? (d.sf_in > 0 ? "+" : "−") + tk(Math.abs(Math.round(d.sf_in))) : "—"}</span>
-                <span className="out">{d.exp_cash ? "−" + tk(d.exp_cash) : "—"}</span>
-                <span className="out">{d.paid ? "−" + tk(d.paid) : "—"}</span>
-                <span>{bank ? (bank > 0 ? "+" : "−") + tk(Math.abs(bank)) : "—"}</span>
-                <span>{oth ? (oth > 0 ? "+" : "−") + tk(Math.abs(oth)) : "—"}</span>
-                <span><b>{tk(Math.round(d.cash_end))}</b></span>
-                <span>{tk(Math.round(d.bank_end))}</span>
-              </div>); })}
-          </div>
-          {moves.length > 0 && <>
-            <h3 style={{ marginTop: 14 }}>ক্যাশ / ব্যাংকের আলাদা লেনদেন</h3>
-            <div className="xlist">{moves.map((m) => (
-              <div key={m.id} className="xrow">
-                <span className="xno">{MOVES[m.kind]?.[0]}</span>
-                <div className="xname"><b>{MOVES[m.kind]?.[1]}</b><small>{dBN(m.move_date)}{m.note ? " · " + m.note : ""}</small></div>
-                <span className="xamt">{tk(m.amount_bdt)}</span>
-                <button className="xdel" title="মুছুন" onClick={() => delMove(m.id)}>✕</button>
-              </div>))}</div>
-          </>}
-        </div>
-      )}
+      <div className="card">
+        <div className="xhead"><h2>📒 {mBN(day)} — সেভ করা খরচ</h2><b>মোট {tk(mTotal)}</b></div>
+        {!spends ? "লোড হচ্ছে..." : !mList.length ? <p className="muted">এই মাসে এখনো কোনো খরচ সেভ হয়নি।</p> : <div className="xlist">
+          {mList.map((s) => (
+            <div key={s.day}>
+              <div className="xrow clicky" onClick={() => setOpen(open === s.day ? null : s.day)}>
+                <span className="xno">{open === s.day ? "▾" : "▸"}</span>
+                <div className="xname"><b>{dBN(s.day)}</b><small>{BN((s.items ?? []).length || 1)}টা খরচ</small></div>
+                <span className="xamt">{tk(s.amount)}</span>
+                <button type="button" className="chip" onClick={(e) => { e.stopPropagation(); edit(s); }}>✏️</button>
+                <button type="button" className="xdel" onClick={(e) => { e.stopPropagation(); del(s); }}>✕</button>
+              </div>
+              {open === s.day && <div className="subitems">
+                {(Array.isArray(s.items) && s.items.length ? s.items : [{ name: s.note || "খরচ", amount: s.amount }]).map((i, k) => (
+                  <div key={k} className="row small" style={{ justifyContent: "space-between", padding: "4px 0 4px 32px", borderTop: "1px dashed var(--line)" }}><span>{BN(k + 1)}. {i.name}</span><b>{tk(i.amount)}</b></div>))}
+              </div>}
+            </div>))}
+        </div>}
+      </div>
     </div>
   );
 }
