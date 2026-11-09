@@ -13,6 +13,7 @@ import Backup from "./Backup.jsx";
 import Spins from "./Spins.jsx";
 import Customers from "./Customers.jsx";
 import ReturnMatch from "./ReturnMatch.jsx";
+import DailyParcels from "./DailyParcels.jsx";
 function TodoCard({ go }) {
   const [c, setC] = useState(null);
   useEffect(() => { Promise.all([sb.rpc("todo_counts"), sb.rpc("return_matches")]).then(([a, b]) => setC({ ...(a.data ?? {}), rmatch: (b.data ?? []).length })); }, []);
@@ -237,6 +238,7 @@ function Shell({ profile, prefs }) {
         {cur === "trash" && isOwner && <Trash />}
         {cur === "customers" && <Customers go={go} />}
         {cur === "retmatch" && <ReturnMatch />}
+        {cur === "dailyparcels" && <DailyParcels />}
         {cur === "spins" && <Spins goRisk={(p) => go("risk", p)} />}
         {cur === "printq" && <PrintQueue key={pq} mode={pq} setMode={(m) => go("printq", m)} onPrint={setPrintIds} onShoes={openShoes} go={go} />}
         {["parcels_pending", "consignments", "risk", "returns"].includes(cur) && <Parcels key={cur + pst} tab={cur} phone={phone} st0={pst} isOwner={isOwner} go={go} />}

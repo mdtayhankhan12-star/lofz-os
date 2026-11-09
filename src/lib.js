@@ -43,7 +43,7 @@ const T = {
     website: "Website", facebook: "Facebook", confirmed: "Confirmed", delivered: "Delivered", inv_left: "Invoices to print", sheet_left: "Shoe sheets to print",
     returned: "Returned", cancelled: "Cancelled", pending: "Pending", profit_month: "Profit this month",
     expense_month: "Expenses this month", sf_balance: "Steadfast balance", overdue: "Artisan overdue (5+ days)",
-    addparcel: "Add parcel", parcels_pending: "Steadfast Pending", consignments: "Consignments", risk: "Delivery Risk Check", returns: "Return shipments", retmatch: "Return match", trash: "Trash", printq: "PRINT SHOE STAFF DTLS", spins: "Lucky Spin entries", customers: "Customers", ai: "AI Assistant",
+    addparcel: "Add parcel", parcels_pending: "Steadfast Pending", consignments: "Consignments", risk: "Delivery Risk Check", returns: "Return shipments", retmatch: "Return match", dailyparcels: "Daily parcels", trash: "Trash", printq: "PRINT SHOE STAFF DTLS", spins: "Lucky Spin entries", customers: "Customers", ai: "AI Assistant",
   },
 };
 export const tr = (lang, k) => T[lang]?.[k] ?? T.bn[k] ?? k;
