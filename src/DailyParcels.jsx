@@ -27,6 +27,7 @@ export default function DailyParcels() {
   const [err, setErr] = useState("");
   const [tick, setTick] = useState(0);
   const [pick, setPick] = useState("all");
+  const [sfPaid, setSfPaid] = useState([]);
 
   useEffect(() => { const id = setInterval(() => setTick((t) => t + 1), 60e3); return () => clearInterval(id); }, []);
 
@@ -37,7 +38,11 @@ export default function DailyParcels() {
       .gte("booking_date", r.from).lte("booking_date", r.to)
       .order("booking_date", { ascending: false })
       .then(({ data, error }) => { if (error) { setErr(error.message); setRows([]); return; } setErr(""); setRows(data ?? []); });
+    sb.from("sf_payments").select("id,total,paid_at,status_label").eq("status_label", "paid")
+      .gte("paid_at", r.from).lte("paid_at", r.to).order("paid_at", { ascending: false })
+      .then(({ data }) => setSfPaid(data ?? []));
   }, [day, tick]);
+  const sfTotal = sfPaid.reduce((a, p) => a + Number(p.total || 0), 0);
 
   const list = rows ?? [];
   const count = (k) => (k === "all" ? list.length : list.filter((p) => kind(p.delivery_status) === k).length);
@@ -67,6 +72,7 @@ export default function DailyParcels() {
           </button>
         ))}
         <div className="stat"><span className="si" style={{ background: "#e3f6ec", color: "#178a5c" }}>৳</span><small>COD (Delivered + Partial)</small><b>{tk(codDone)}</b></div>
+        <div className="stat"><span className="si" style={{ background: "#e3f6ec", color: "#178a5c" }}>🏦</span><small>Steadfast থেকে জমা (এই দিনে)</small><b>{tk(sfTotal)}</b></div>
       </div>
 
       {alerts > 0 && <div className="card err"><b>🚨 {alerts}টা পার্সেল ২ দিনের বেশি রাইডারের কাছে আটকে আছে, কাস্টমারের কাছে যায়নি</b></div>}
@@ -94,6 +100,7 @@ export default function DailyParcels() {
         );
       })}
 
+      {sfPaid.length > 0 && <div className="card"><b>🏦 Steadfast থেকে জমা হওয়া টাকা</b>{sfPaid.map((p) => <div key={p.id} className="row" style={{ justifyContent: "space-between" }}><small>{new Date(p.paid_at).toLocaleString("en-GB", { timeZone: "Asia/Dhaka", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</small><b>{tk(p.total)}</b></div>)}</div>}
       <small className="muted">COD কলাম বুকিংয়ের পার্সেলের মূল্য। Steadfast-এ আসল জমার হিসাব আলাদাভাবে দেখানো হবে।</small>
     </div>
   );
