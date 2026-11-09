@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { sb, tk, SUPABASE_URL, fnCall } from "./lib.js";
 import { bnTime, trackUrl } from "./Orders.jsx";
 import DateRange from "./DateRange.jsx";
+import EditOrder from "./EditOrder.jsx";
 import { loadMatches } from "./Orders.jsx";
 
 const FIN = ["delivered", "partial_delivered", "cancelled"];
@@ -216,6 +217,14 @@ const stepOf = (st) => ({ in_review: 1, pending: 2, hold: 2, unknown: 2 }[st] ??
 export function ParcelView({ o, onClose }) {
   const [p, setP] = useState(o.parcel ?? null); const [ups, setUps] = useState(null); const [msg, setMsg] = useState("");
   const inv = String(o.order_no ?? "").replace(/^#/, "");
+  const [edit, setEdit] = useState(false); const [owner, setOwner] = useState(false);
+  useEffect(() => { sb.auth.getUser().then(async ({ data }) => { if (!data?.user) return; const { data: pr } = await sb.from("profiles").select("role").eq("id", data.user.id).single(); setOwner(pr?.role === "owner"); }); }, []);
+  const delOrder = async () => {
+    if (!confirm(`${o.order_no} অর্ডার মুছে ফেলবেন?${p?.consignment_id ? "\n⚠️ এটা আগেই Steadfast-এ পাঠানো — এখানে মুছলে Steadfast থেকে মুছবে না।" : ""}\n(মুছলে \"মুছে ফেলা / ট্র্যাশ\" পাতায় থাকবে, চাইলে ফেরত আনা যাবে)`)) return;
+    const { error } = await sb.from("orders").delete().eq("id", o.id);
+    if (error) return setMsg(error.message);
+    onClose(); setTimeout(() => location.reload(), 150);
+  };
   const loadUps = async () => {
     const ors = [p?.consignment_id && `consignment_id.eq.${p.consignment_id}`, inv && `invoice.eq.${inv}`].filter(Boolean).join(",");
     if (!ors) return setUps([]);
@@ -238,6 +247,10 @@ export function ParcelView({ o, onClose }) {
         <div className="pvtop"><h1>{p?.consignment_id ? `Parcel #${p.consignment_id}` : o.order_no}</h1>
           <div className="row">{p?.tracking_code && <a className="chip" href={trackUrl(p.tracking_code)} target="_blank" rel="noopener">🌐 Steadfast-এ পুরো ট্র্যাকিং</a>}<button className="btn" onClick={onClose}>✕ বন্ধ</button></div></div>
         <div className="card">
+          <div className="row" style={{ gap: 8, margin: "0 0 10px", flexWrap: "wrap" }}>
+            {o.id && <button className="btn alt" onClick={() => setEdit(true)}>✏️ অর্ডার / বিল এডিট</button>}
+            {o.id && owner && <button className="btn" style={{ background: "#b3263e" }} onClick={delOrder}>🗑️ অর্ডার মুছুন</button>}
+          </div>
           <div className="pvhead">
             <div><span className={"badge " + stCls(st)}>● {st ? ST_BN[st] ?? st : "Steadfast-এ পাঠানো হয়নি"}</span>
               <h2 style={{ marginTop: 8 }}>{o.order_no} {p?.tracking_code && <button className="chip" onClick={(e) => copy(trackUrl(p.tracking_code), e)}>📋 Copy tracking link</button>}</h2></div>
@@ -260,6 +273,7 @@ export function ParcelView({ o, onClose }) {
               : <div className="tl">{ups.map((u, i) => <div key={u.id} className={"tli" + (i === 0 ? " now" : "")}><i /><div><b>{u.message || ST_BN[u.status] || u.status}</b><small className="muted">{bnTime(u.created_at)}</small></div></div>)}</div>}</div>
         </div>
       </div>
+      {edit && <EditOrder id={o.id} onClose={() => setEdit(false)} onSaved={() => { setEdit(false); onClose(); setTimeout(() => location.reload(), 150); }} />}
     </div>
   );
 }

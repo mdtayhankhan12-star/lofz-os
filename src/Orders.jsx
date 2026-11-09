@@ -280,6 +280,7 @@ export default function Orders({ isOwner, onPrint, onShoes, preset, goRisk }) {
                     <a className="chip" href={`https://wa.me/${wa}`} target="_blank" rel="noopener">WhatsApp</a>
                     <button className="chip" onClick={() => setView(r.id)}>👁️ দেখুন</button>
                     <button className="chip" onClick={() => setEdit(r.id)}>✏️ এডিট</button>
+                    {isOwner && <button className="chip" onClick={() => del(r.id)}>🗑️ মুছুন</button>}
                   </div>
                   {r.parcels?.[0] ? <ParcelInfo p={r.parcels[0]} big />
                     : r.status === "confirmed" && <button className="btn sfbook" disabled={bk[r.id]} onClick={() => book(r)}>{bk[r.id] ? "বুক হচ্ছে..." : "🚚 Steadfast-এ বুক করুন"}</button>}
