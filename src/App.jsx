@@ -205,7 +205,7 @@ function Shell({ profile, prefs }) {
   const openShoes = (ids, png) => { setShoePng(!!png); setShoeIds(ids); };
   const NavBtn = ([k, ic]) => <button key={k} className={"nav" + (cur === k ? " on" : "")} onClick={() => go(k)}><span>{ic}</span>{t(k)}
     {k === "spins" && spinN > 0 && <span className="navcnt"><i title="আজ স্পিন">আজ {spinN}</i></span>}{k === "printq" && pc && <span className="navcnt"><i title="ইনভয়েস প্রিন্ট বাকি">🧾{pc.inv}</i><i title="কারিগর শিট বাকি">👟{pc.sheet}</i><i title="PNG শিট বাকি">🖼️{pc.png}</i><i title="Steadfast বুক বাকি">🚚{pc.book}</i></span>}</button>;
-  const search = (e) => { e.preventDefault(); const v = q.trim(); if (!v) return; if (v.replace(/\D/g, "").length >= 10 && /^[\d\s+-]+$/.test(v)) go("risk", v); else go("orders", { mode: "all", q: v }); setQ(""); };
+  const search = (e) => { e.preventDefault(); const v = q.trim(); if (!v) return; go("orders", { mode: "all", q: v }); setQ(""); };
   return (
     <div className="shell">
       <aside className="side">
