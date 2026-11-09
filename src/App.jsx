@@ -4,10 +4,7 @@ import NewOrder from "./NewOrder.jsx";
 import Orders from "./Orders.jsx";
 import { PrintView } from "./Invoice.jsx";
 import ShoeSheet from "./ShoeSheet.jsx";
-import Expenses from "./Expenses.jsx";
-import Finance from "./Finance.jsx";
 import Parcels, { ST_BN } from "./Parcels.jsx";
-import AI from "./AI.jsx";
 import Trash from "./Trash.jsx";
 import Backup from "./Backup.jsx";
 import Spins from "./Spins.jsx";
@@ -144,8 +141,8 @@ function Login({ prefs }) {
 }
 
 const NAV = [
-  ["dashboard", "📊"], ["orders", "🧾"], ["invoice", "➕"], ["expenses", "💸"],
-  ["finance", "💰", "owner"], ["ai", "🤖", "owner"], ["team", "👥", "owner"],
+  ["dashboard", "📊"], ["orders", "🧾"], ["invoice", "➕"],
+  ["team", "👥", "owner"],
   ["addparcel", "📦", null, "parcel"], ["parcels_pending", "⏳", null, "parcel"], ["consignments", "🗂️", null, "parcel"], ["risk", "🛡️", null, "parcel"], ["returns", "↩️", null, "parcel"], ["retmatch", "♻️", null, "parcel"],
   ["printq", "🖨️", null, "print"],
   ["customers", "👥"],
@@ -232,9 +229,6 @@ function Shell({ profile, prefs }) {
         {cur === "invoice" && <NewOrder onCreated={(id) => setPrintIds([id])} />}
         {cur === "addparcel" && <NewOrder book onCreated={(id) => setPrintIds([id])} />}
         {cur === "orders" && <Orders key={JSON.stringify(preset)} preset={preset} isOwner={isOwner} onPrint={setPrintIds} onShoes={openShoes} goRisk={(p) => go("risk", p)} />}
-        {cur === "expenses" && <Expenses isOwner={isOwner} />}
-        {cur === "finance" && isOwner && <Finance />}
-        {cur === "ai" && isOwner && <AI />}
         {cur === "trash" && isOwner && <Trash />}
         {cur === "customers" && <Customers go={go} />}
         {cur === "retmatch" && <ReturnMatch />}
@@ -394,8 +388,6 @@ function Dashboard({ isOwner, t, go, pc }) {
       {isOwner && <>
         <div className="dsec big gap"><span>৪ · খরচ ও হিসাব</span><small>{bn(rg.to, { month: "long" })} মাস</small></div>
         <div className="grid gbig">
-          <S k="expense_month" secret v={tk(d.exp)} to={() => go("expenses")} />
-          <S k="profit_month" secret v={tk(d.profit)} to={() => go("finance")} />
           <S k="sf_balance" secret w2 v={d.sf == null ? "..." : tk(d.sf)} to={() => go("parcels_pending")} />
         </div>
         {spend && <SpendBars rows={spend} fmt={tk} title={`কোন খাতে খরচ বেশি — ${bn(rg.to, { month: "long" })}`} />}
