@@ -87,11 +87,23 @@ export function PrintView({ ids, onClose }) {
   const [list, setList] = useState(null);
   const refs = React.useRef([]); const [busy, setBusy] = useState(""); const [ask, setAsk] = useState(false);
   const [dup, setDup] = useState(null); // null = এখনো জিজ্ঞেস করা হয়নি, "skip" = আগের ছাপা বাদ, "again" = তবুও আবার
-  useEffect(() => { setDup(null); loadOrders(ids).then(setList); }, [ids]);
-  if (!list) return <div className="card">লোড হচ্ছে...</div>;
+  const [sim, setSim] = useState(null); // একই ফোন নম্বরের অন্য অর্ডার, যার ইনভয়েস সম্প্রতি বের হয়েছে
+  useEffect(() => { setDup(null); setSim(null); loadOrders(ids).then(setList); }, [ids]);
+  useEffect(() => {
+    if (!list) return;
+    const ph = [...new Set(list.map((o) => String(o.phone ?? "").replace(/\D/g, "").slice(-10)).filter((x) => x.length >= 10))];
+    if (!ph.length) { setSim({}); return; }
+    const since = new Date(Date.now() - 4 * 864e5).toISOString();
+    sb.from("orders").select("id,order_no,phone,customer_name,invoice_printed_at,invoice_png_at,invoice_opened_at").or(ph.map((x) => `phone.ilike.%${x}`).join(",")).not("id", "in", `(${ids.join(",")})`).neq("status", "cancelled")
+      .or(`invoice_printed_at.gte.${since},invoice_png_at.gte.${since},invoice_opened_at.gte.${since}`)
+      .then(({ data }) => { const m = {}; for (const r of data ?? []) { const k = String(r.phone ?? "").replace(/\D/g, "").slice(-10); (m[k] ??= []).push(r.order_no); } setSim(m); });
+  }, [list]);
+  if (!list || sim === null) return <div className="card">লোড হচ্ছে...</div>;
   // একই ইনভয়েস দ্বিতীয়বার বের হওয়া ঠেকাতে: আগেই ছাপা/PNG হয়ে থাকলে আগে জিজ্ঞেস করি
   const was = (o) => o.invoice_printed_at || o.invoice_png_at || o.invoice_opened_at;
-  const doneBefore = list.filter(was);
+  const k10 = (o) => String(o.phone ?? "").replace(/\D/g, "").slice(-10);
+  const simOf = (o) => sim[k10(o)] ?? [];
+  const doneBefore = list.filter((o) => was(o) || simOf(o).length);
   if (doneBefore.length && dup === null) {
     const fresh = list.length - doneBefore.length;
     return (
@@ -99,10 +111,10 @@ export function PrintView({ ids, onClose }) {
         <div className="askbox">
           <div className="askic">⚠️</div>
           <h2>{doneBefore.length}টা ইনভয়েস আগেই বের হয়ে গেছে!</h2>
-          <p style={{ textAlign: "left" }}>{doneBefore.map((o) => `${o.order_no} — ${o.customer_name}`).join(" · ")}</p>
+          <p style={{ textAlign: "left" }}>{doneBefore.map((o) => `${o.order_no} — ${o.customer_name}${was(o) ? "" : ` (এই ফোন নম্বরের ${simOf(o).join(", ")} অর্ডারের ইনভয়েস গত ৪ দিনে বের হয়েছে — একই কাস্টমার দুইবার ঢোকানো হয়নি তো?)`}`).join(" · ")}</p>
           <p>একই ইনভয়েস দুইবার বের হলে কারিগর বা কুরিয়ারের কাছে দুইটা কপি যেতে পারে।</p>
           <div className="row" style={{ justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
-            {fresh > 0 && <button className="btn ok2 big" onClick={() => { setList(list.filter((o) => !was(o))); setDup("skip"); }}>✅ বাদ দিন, বাকি {fresh}টা বের করুন</button>}
+            {fresh > 0 && <button className="btn ok2 big" onClick={() => { setList(list.filter((o) => !was(o) && !simOf(o).length)); setDup("skip"); }}>✅ বাদ দিন, বাকি {fresh}টা বের করুন</button>}
             <button className="btn alt big" onClick={() => setDup("again")}>🔁 তবুও আবার বের করব</button>
             <button className="btn alt big" onClick={onClose}>← ফিরে যান</button>
           </div>
