@@ -574,3 +574,4 @@ html:not([data-theme="dark"]) .xrow{background:#fff3f6;border-radius:10px;paddin
 html:not([data-theme="dark"]) .chip{background:#fff;border-color:#eab3c2}
 html:not([data-theme="dark"]) .chip.sel{background:var(--acc);color:#fff;border-color:var(--acc)}
 html:not([data-theme="dark"]) .top{background:transparent}
+.shd b{font-size:10.5pt}.shd span{font-size:9pt;font-weight:700;text-align:right}
