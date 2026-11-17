@@ -1,6 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { sb, tk } from "./lib.js";
 import { downloadPng } from "./sheetImage.js";
+import QRCode from "qrcode";
+
+// ইনভয়েসের QR: ভেতরে "LOFZ:<অর্ডার নম্বর>" — অ্যাপের স্ক্যানার এটা পড়ে বুক করে
+export function InvQr({ no }) {
+  const [u, setU] = useState("");
+  useEffect(() => { QRCode.toDataURL("LOFZ:" + no, { margin: 1, width: 240, errorCorrectionLevel: "M" }).then(setU).catch(() => {}); }, [no]);
+  return u ? <img className="iqr" src={u} alt="" /> : null;
+}
 
 // আপনার অনুমোদিত ডিজাইন: এক A4-এ ২টা ইনভয়েস, M ID লাল, নিচে Thank you
 export async function loadOrders(ids) {
@@ -44,6 +52,7 @@ export function InvoiceSheet({ o }) {
   return (
     <div className="inv">
       <div className="ihd">
+        <InvQr no={o.order_no} />
         <div className="imid">M ID : {o.source === "facebook" ? "307043" : "307473"}</div>
         <img src="/logo.png" alt="LOFZ" />
         <p>Kamrangir Char Dhaka Chad Mosjid 1211 Bangladesh</p>
