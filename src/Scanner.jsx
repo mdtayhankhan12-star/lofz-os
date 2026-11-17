@@ -11,6 +11,14 @@ export default function Scanner() {
   const [on, setOn] = useState(false); const [err, setErr] = useState("");
   const [o, setO] = useState(null); const [msg, setMsg] = useState(null); const [busy, setBusy] = useState(false);
   const [man, setMan] = useState("");
+  const [today, setToday] = useState(null); const [sess, setSess] = useState(0);
+  // আজকের (বাংলাদেশ সময়) বুক হওয়া পার্সেল: কয়টা আর COD মোট কত
+  const loadToday = async () => {
+    const d = new Date(Date.now() + 6 * 3600e3).toISOString().slice(0, 10);
+    const { data } = await sb.from("parcels").select("cod_amount").gte("booking_date", d + "T00:00:00+06:00");
+    setToday({ n: data?.length ?? 0, cod: (data ?? []).reduce((a, x) => a + Number(x.cod_amount || 0), 0) });
+  };
+  useEffect(() => { loadToday(); }, []);
 
   const stop = () => { stream.current?.getTracks().forEach((t) => t.stop()); stream.current = null; setOn(false); };
   useEffect(() => stop, []);
@@ -55,7 +63,7 @@ export default function Scanner() {
       const j = await fnCall("steadfast", { action: "book", order_id: o.id });
       if (j.ok === false) throw new Error(j.error || "বুক হয়নি");
       beep(true); setMsg({ t: "ok", s: `✅ ${o.order_no} Steadfast-এ বুক হয়েছে।` });
-      setO({ ...o, parcels: [{ delivery_status: "booked" }] });
+      setO({ ...o, parcels: [{ delivery_status: "booked" }] }); setSess((n) => n + 1); loadToday();
     } catch (e) { beep(false); setMsg({ t: "err", s: `${o.order_no} — Steadfast: ` + e.message }); }
     finally { setBusy(false); }
   };
@@ -67,6 +75,12 @@ export default function Scanner() {
       <div className="row">
         {!on ? <button className="btn" onClick={start}>📷 ক্যামেরা চালু করুন</button> : <button className="chip" onClick={stop}>⏹ বন্ধ করুন</button>}
         <span className="muted small">ইনভয়েসের উপরের বাম কোণার QR কোডে ক্যামেরা ধরুন।</span>
+      </div>
+      <div className="row" style={{ marginTop: 10, gap: 10, flexWrap: "wrap" }}>
+        <div className="mini"><small>📦 আজ মোট বুক হয়েছে</small><b>{today ? today.n + "টা" : "..."}</b></div>
+        <div className="mini"><small>💰 আজকের COD মোট</small><b>{today ? tk(today.cod) : "..."}</b></div>
+        <div className="mini"><small>📷 এই স্ক্যানে বুক করলাম</small><b>{sess}টা</b></div>
+        <button className="chip" onClick={loadToday}>🔄</button>
       </div>
       {err && <p className="err">{err}</p>}
       <video ref={vid} playsInline muted style={{ display: on ? "block" : "none", marginTop: 10 }} />
