@@ -579,3 +579,6 @@ html:not([data-theme="dark"]) .top{background:transparent}
 .iqr{position:absolute;left:0;top:6mm;width:26mm;height:26mm;image-rendering:pixelated}
 .scn video{width:100%;max-height:60vh;border-radius:14px;background:#000;object-fit:cover}
 .scn .res{margin-top:10px}
+.scres{position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);z-index:80;min-width:260px;max-width:90vw;text-align:center;padding:22px 26px;border-radius:22px;box-shadow:0 12px 40px #0006;color:#fff}
+.scres.ok{background:#12803a}.scres.warn{background:#b57a00}.scres.err{background:#b00020}
+.scres .scic{font-size:64px;line-height:1}.scres .scno{font-size:32px;font-weight:900;margin:4px 0}.scres .scs{font-weight:700;margin-top:4px}

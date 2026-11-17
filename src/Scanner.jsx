@@ -9,7 +9,6 @@ const phoneOk = (p) => /^01\d{9}$/.test(String(p ?? "").replace(/\D/g, "").repla
 export default function Scanner() {
   const vid = useRef(null); const cv = useRef(null); const stream = useRef(null); const lock = useRef(false);
   const [on, setOn] = useState(false); const [err, setErr] = useState("");
-  const [o, setO] = useState(null); const [msg, setMsg] = useState(null); const [busy, setBusy] = useState(false);
   const [man, setMan] = useState("");
   const [today, setToday] = useState(null); const [sess, setSess] = useState(0);
   // আজকের (বাংলাদেশ সময়) বুক হওয়া পার্সেল: কয়টা আর COD মোট কত
@@ -23,23 +22,45 @@ export default function Scanner() {
   const stop = () => { stream.current?.getTracks().forEach((t) => t.stop()); stream.current = null; setOn(false); };
   useEffect(() => stop, []);
 
+  const last = useRef({ no: "", t: 0 }); const hold = useRef(null);
+  const [res, setRes] = useState(null); const [log, setLog] = useState([]);
+  const show = (r, ms) => { setRes(r); setLog((l) => [{ ...r, at: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) }, ...l].slice(0, 15)); clearTimeout(hold.current); hold.current = setTimeout(() => { setRes(null); lock.current = false; }, ms); };
+
+  // স্ক্যান হলেই নিজে থেকে: অর্ডার খোঁজা → যাচাই → Steadfast-এ বুক → ফল দেখানো → পরের স্ক্যানের জন্য তৈরি
   const lookup = async (raw) => {
     const no = String(raw).replace(/^LOFZ:/i, "").trim();
     if (!no) return;
-    lock.current = true; setMsg(null); setO(null);
-    const { data } = await sb.from("orders").select("id,order_no,source,status,customer_name,phone,address,total,order_items(product_name,size,quantity),parcels(consignment_id,tracking_code,delivery_status)").ilike("order_no", no).limit(1);
+    if (last.current.no === no && Date.now() - last.current.t < 6000) return; // একই কোড বারবার পড়লে বাদ
+    last.current = { no, t: Date.now() };
+    lock.current = true; beep(true);
+    const { data } = await sb.from("orders").select("id,order_no,status,customer_name,phone,total,parcels(consignment_id)").ilike("order_no", no).limit(1);
     const r = data?.[0];
-    if (!r) { beep(false); setMsg({ t: "err", s: `"${no}" নামে কোনো অর্ডার পাওয়া যায়নি।` }); return; }
-    beep(true); setO(r);
-    if (r.parcels?.length) setMsg({ t: "warn", s: `⚠️ ${r.order_no} আগেই Steadfast-এ বুক করা হয়েছে${r.parcels[0].consignment_id ? " (Parcel #" + r.parcels[0].consignment_id + ")" : ""}। আবার বুক হবে না।` });
-    else if (r.status !== "confirmed") setMsg({ t: "warn", s: `⚠️ অর্ডারটা Confirmed না (এখন: ${r.status})। বুক করা যাবে না।` });
-    else if (!phoneOk(r.phone)) setMsg({ t: "warn", s: "⚠️ ফোন নম্বর ঠিক ফরম্যাটে নেই (০১XXXXXXXXX হতে হবে)। Steadfast নেবে না — আগে অর্ডার এডিটে নম্বর ঠিক করুন।" });
+    if (!r) { beep(false); return show({ t: "err", no, s: "অর্ডার পাওয়া যায়নি" }, 3500); }
+    const base = { no: r.order_no, name: r.customer_name };
+    if (r.parcels?.length) { beep(false); return show({ ...base, t: "warn", s: "আগেই বুক করা হয়েছে — আবার বুক হয়নি" }, 3500); }
+    if (r.status !== "confirmed") { beep(false); return show({ ...base, t: "warn", s: `Confirmed না (এখন: ${r.status}) — বুক হয়নি` }, 3500); }
+    if (!phoneOk(r.phone)) { beep(false); return show({ ...base, t: "err", s: `ফোন নম্বর ভুল (${r.phone}) — আগে ঠিক করুন, বুক হয়নি` }, 4500); }
+    try {
+      const j = await fnCall("steadfast", { action: "book", order_id: r.id });
+      if (j.ok === false) throw new Error(j.error || "বুক হয়নি");
+      beep(true); setSess((n) => n + 1); loadToday();
+      show({ ...base, t: "ok", s: "বুক সফল" }, 1800);
+    } catch (e) { beep(false); show({ ...base, t: "err", s: "Steadfast: " + e.message }, 4500); }
   };
 
   const start = async () => {
     setErr("");
     try {
-      const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+      let s;
+      try { s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: "environment" } }, audio: false }); }
+      catch {
+        // exact না পেলে: ক্যামেরার তালিকা থেকে পেছনেরটা বাছি
+        const t0 = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        const ds = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "videoinput");
+        t0.getTracks().forEach((t) => t.stop());
+        const back = ds.find((d) => /back|rear|environment|পেছন/i.test(d.label)) ?? ds[ds.length - 1];
+        s = await navigator.mediaDevices.getUserMedia({ video: back ? { deviceId: { exact: back.deviceId } } : true, audio: false });
+      }
       stream.current = s; vid.current.srcObject = s; await vid.current.play(); setOn(true); lock.current = false;
       const tick = () => {
         if (!stream.current) return;
@@ -57,24 +78,11 @@ export default function Scanner() {
     } catch (e) { setErr("ক্যামেরা চালু হয়নি: " + (e.message || e) + " — ব্রাউজারে ক্যামেরার অনুমতি দিন।"); }
   };
 
-  const book = async () => {
-    if (!o || busy) return; setBusy(true); setMsg(null);
-    try {
-      const j = await fnCall("steadfast", { action: "book", order_id: o.id });
-      if (j.ok === false) throw new Error(j.error || "বুক হয়নি");
-      beep(true); setMsg({ t: "ok", s: `✅ ${o.order_no} Steadfast-এ বুক হয়েছে।` });
-      setO({ ...o, parcels: [{ delivery_status: "booked" }] }); setSess((n) => n + 1); loadToday();
-    } catch (e) { beep(false); setMsg({ t: "err", s: `${o.order_no} — Steadfast: ` + e.message }); }
-    finally { setBusy(false); }
-  };
-  const next = () => { setO(null); setMsg(null); lock.current = false; };
-  const canBook = o && o.status === "confirmed" && !o.parcels?.length && phoneOk(o.phone);
-
   return (
     <div className="card scn">
       <div className="row">
         {!on ? <button className="btn" onClick={start}>📷 ক্যামেরা চালু করুন</button> : <button className="chip" onClick={stop}>⏹ বন্ধ করুন</button>}
-        <span className="muted small">ইনভয়েসের উপরের বাম কোণার QR কোডে ক্যামেরা ধরুন।</span>
+        <span className="muted small">ইনভয়েসের QR-এ ক্যামেরা ধরলেই নিজে থেকে বুক হবে — কিছু চাপতে হবে না।</span>
       </div>
       <div className="row" style={{ marginTop: 10, gap: 10, flexWrap: "wrap" }}>
         <div className="mini"><small>📦 আজ মোট বুক হয়েছে</small><b>{today ? today.n + "টা" : "..."}</b></div>
@@ -89,20 +97,18 @@ export default function Scanner() {
         <input placeholder="হাতে অর্ডার নম্বর লিখুন (যেমন #2558) বা USB স্ক্যানার ব্যবহার করুন" value={man} onChange={(e) => setMan(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { lookup(man); setMan(""); } }} style={{ flex: 1 }} />
         <button className="chip" onClick={() => { lookup(man); setMan(""); }}>খুঁজুন</button>
       </div>
-      {msg && <p className={msg.t === "ok" ? "" : "err"} style={msg.t === "ok" ? { color: "#0f6b4f", fontWeight: 800 } : { fontWeight: 700 }}>{msg.s}</p>}
-      {o && (
-        <div className="res card">
-          <h2>{o.order_no} <small className="muted">{o.source === "facebook" ? "Facebook" : "Website"}</small></h2>
-          <div><b>{o.customer_name}</b> · {o.phone}</div>
-          <div className="small">{o.address}</div>
-          <div className="small muted">{(o.order_items ?? []).map((i) => `${i.product_name} (${i.size}) ×${i.quantity}`).join(" · ")}</div>
-          <div style={{ fontWeight: 800, margin: "6px 0" }}>COD: {tk(o.total)}</div>
-          <div className="row">
-            {canBook && <button className="btn ok2 big" disabled={busy} onClick={book}>{busy ? "বুক হচ্ছে..." : "🚚 Steadfast-এ বুক করুন"}</button>}
-            <button className="btn alt big" onClick={next}>📷 পরের স্ক্যান</button>
-          </div>
+      {res && (
+        <div className={"scres " + res.t}>
+          <div className="scic">{res.t === "ok" ? "✅" : res.t === "warn" ? "⚠️" : "❌"}</div>
+          <div className="scno">{res.no}</div>
+          {res.name && <div>{res.name}</div>}
+          <div className="scs">{res.s}</div>
         </div>
       )}
+      {!!log.length && <div style={{ marginTop: 10 }}>
+        <b className="small">এই সেশনের তালিকা</b>
+        {log.map((l, k) => <div key={k} className="small" style={{ color: l.t === "ok" ? "#0f6b4f" : l.t === "warn" ? "#9a6b00" : "#b00020" }}>{l.at} · {l.t === "ok" ? "✅" : l.t === "warn" ? "⚠️" : "❌"} {l.no} — {l.s}</div>)}
+      </div>}
     </div>
   );
 }
