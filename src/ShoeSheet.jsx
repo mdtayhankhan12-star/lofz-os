@@ -77,8 +77,7 @@ export default function ShoeSheet({ ids, onClose, png = false }) {
           <div className="sgrid">
             {pg.items.map((c, j) => (
               <div className="scell" key={j}>
-                {c.color && <div className="scol">রং: {bnColor(c.color)}</div>}
-                {c.img ? <img src={c.img} alt="" /> : <div className="sph">ছবি নেই</div>}
+                {c.img ? <img src={String(c.img).replace(/_(\d+)x(\.\w+)(\?|$)/, "_1200x$2$3")} alt="" /> : <div className="sph">ছবি নেই</div>}
                 {c.stock && <div className={"sstock " + c.stock.s}>{c.stock.s === "in" ? "STOCK আছে — বানাবেন না" : "RETURN আসছে"}{c.stock.from ? " — " + c.stock.from : ""}</div>}
                 <div className="sname">{c.name}</div>
                 {/* Website = অর্ডার নম্বর, Facebook = ফোন নম্বর */}
