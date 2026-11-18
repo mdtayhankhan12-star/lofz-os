@@ -83,7 +83,7 @@ export default function Scanner() {
           if (txt) setSeen(txt.slice(0, 40));
           if (txt && /^LOFZ:/i.test(txt)) lookup(txt);
         }
-        setTimeout(tick, 120);
+        setTimeout(tick, 80);
       };
       tick();
     } catch (e) { setErr("ক্যামেরা চালু হয়নি: " + (e.message || e) + " — ব্রাউজারে ক্যামেরার অনুমতি দিন।"); }
@@ -102,7 +102,10 @@ export default function Scanner() {
         <button className="chip" onClick={loadToday}>🔄</button>
       </div>
       {err && <p className="err">{err}</p>}
+      <div className="scbox">
       <video ref={vid} playsInline muted style={on ? { marginTop: 10 } : { position: "absolute", width: 2, height: 2, opacity: 0, pointerEvents: "none" }} />
+      {on && <div className="scaim"><span>QR এই বক্সের ভেতরে আনুন</span></div>}
+      </div>
       {on && <div className="muted small">{seen ? "কোড পড়েছে: " + seen : "কোড খুঁজছে… ইনভয়েস ১৫–২০ সেমি দূরে, আলোতে, স্থির ধরুন"} · {dg}</div>}
       <canvas ref={cv} style={{ display: "none" }} />
       <div className="row" style={{ marginTop: 10 }}>
