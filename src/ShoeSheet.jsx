@@ -46,14 +46,16 @@ export default function ShoeSheet({ ids, onClose, png = false }) {
   const okIds = list.filter((o) => o.status === "confirmed").map((o) => o.id);
   // কোন অর্ডার কোন কোন পাতায় আছে — সব পাতা নামলে তবেই অর্ডার "হয়ে গেছে"
   const ordPages = new Map(); pages.forEach((pg, k) => pg.items.forEach((c) => { if (!ordPages.has(c.id)) ordPages.set(c.id, new Set()); ordPages.get(c.id).add(k); }));
-  const markDone = async (ids) => { const a = await markPrinted(ids, "sheet_png_at"); const b = await markPrinted(ids, "sheet_printed_at"); return a || b; };
+  // PNG SHEET (আপার মিস্ত্রি) থেকে নামালে শুধু PNG ঘর থেকে সরে; KARIGOR SHEET থেকে নামালে শুধু কারিগর ঘর থেকে
+  const markDone = (ids) => markPrinted(ids, png ? "sheet_png_at" : "sheet_printed_at");
+  const boxName = png ? "PNG SHEET" : "KARIGOR SHEET";
 
   return (
     <div className="printwrap">
       <div className="row noprint">
         {!png && <button className="btn" onClick={() => { window.print(); setAsk(true); }}>🖨️ Print / PDF</button>}
-        <button className="btn alt" disabled={!!busy && !busy.startsWith("✓")} onClick={async () => { try { const n = await downloadPng(refs.current.slice(0, pages.length), `LOFZ-karigor-sheet-${new Date().toISOString().slice(0, 10)}`, setBusy); const er = await markDone(okIds); setBusy(er ? "⚠️ ছবি নেমেছে কিন্তু চিহ্ন সেভ হয়নি: " + er.message : `✓ ${n}টা PNG ছবি নামানো হয়েছে — অর্ডারগুলো KARIGOR SHEET ও PNG SHEET দুই ঘর থেকেই সরে গেছে`); } catch (e) { setBusy("সমস্যা: " + e.message); } }}>🖼️ PNG ছবি ডাউনলোড</button>
-        {canShare() && <button className="btn dark" disabled={!!busy && !busy.startsWith("✓")} onClick={async () => { try { await sharePng(refs.current.slice(0, pages.length), "LOFZ কারিগর শিট", setBusy); const er = await markDone(okIds); setBusy(er ? "⚠️ শেয়ার হয়েছে কিন্তু চিহ্ন সেভ হয়নি: " + er.message : "✓ শেয়ার হয়েছে — অর্ডারগুলো দুই ঘর থেকেই সরে গেছে"); } catch (e) { setBusy(e.message); } }}>📤 WhatsApp-এ পাঠান</button>}
+        <button className="btn alt" disabled={!!busy && !busy.startsWith("✓")} onClick={async () => { try { const n = await downloadPng(refs.current.slice(0, pages.length), `LOFZ-karigor-sheet-${new Date().toISOString().slice(0, 10)}`, setBusy); const er = await markDone(okIds); setBusy(er ? "⚠️ ছবি নেমেছে কিন্তু চিহ্ন সেভ হয়নি: " + er.message : `✓ ${n}টা PNG ছবি নামানো হয়েছে — অর্ডারগুলো ${boxName} ঘর থেকে সরে গেছে`); } catch (e) { setBusy("সমস্যা: " + e.message); } }}>🖼️ PNG ছবি ডাউনলোড</button>
+        {canShare() && <button className="btn dark" disabled={!!busy && !busy.startsWith("✓")} onClick={async () => { try { await sharePng(refs.current.slice(0, pages.length), "LOFZ কারিগর শিট", setBusy); const er = await markDone(okIds); setBusy(er ? "⚠️ শেয়ার হয়েছে কিন্তু চিহ্ন সেভ হয়নি: " + er.message : `✓ শেয়ার হয়েছে — অর্ডারগুলো ${boxName} ঘর থেকে সরে গেছে`); } catch (e) { setBusy(e.message); } }}>📤 WhatsApp-এ পাঠান</button>}
         {busy && <span className="small" style={{ fontWeight: 700 }}>{busy}</span>}
         <button className="chip" onClick={onClose}>← ফিরে যান</button>
         {skipped > 0 && <span className="err small">{skipped}টা অর্ডার Confirmed না হওয়ায় বাদ গেছে · </span>}<span className="muted small">Website {cells.website.length} জোড়া · Facebook {cells.facebook.length} জোড়া · {pages.length} পাতা (গ্রুপ ১: {pages.filter((p) => p.grp === 1).length} · গ্রুপ ২: {pages.filter((p) => p.grp === 2).length})</span>
@@ -64,7 +66,7 @@ export default function ShoeSheet({ ids, onClose, png = false }) {
         <React.Fragment key={k}>
         <div className="row noprint" style={{ width: "210mm", maxWidth: "100%", justifyContent: "space-between" }}>
           <b className="small">পাতা {k + 1} · {GN[pg.grp]} · {pg.items.length} জোড়া</b>
-          <button className="chip" onClick={async () => { try { await downloadPng([refs.current[k]], `LOFZ-karigor-${new Date().toISOString().slice(0, 10)}-p${k + 1}`, setBusy); dl.current.add(k); const fin = [...ordPages].filter(([, ps]) => [...ps].every((x) => dl.current.has(x))).map(([id]) => id); const er = await markDone(fin); setBusy(er ? "⚠️ চিহ্ন সেভ হয়নি: " + er.message : `✓ পাতা ${k + 1} নামানো হয়েছে — পুরো নামানো হয়ে যাওয়া অর্ডারগুলো ঘর থেকে সরে গেছে`); } catch (e) { setBusy("সমস্যা: " + e.message); } }}>⬇️ এই পাতার PNG</button>
+          <button className="chip" onClick={async () => { try { await downloadPng([refs.current[k]], `LOFZ-karigor-${new Date().toISOString().slice(0, 10)}-p${k + 1}`, setBusy); dl.current.add(k); const fin = [...ordPages].filter(([, ps]) => [...ps].every((x) => dl.current.has(x))).map(([id]) => id); const er = await markDone(fin); setBusy(er ? "⚠️ চিহ্ন সেভ হয়নি: " + er.message : `✓ পাতা ${k + 1} নামানো হয়েছে — পুরো নামানো হয়ে যাওয়া অর্ডারগুলো ${boxName} ঘর থেকে সরে গেছে`); } catch (e) { setBusy("সমস্যা: " + e.message); } }}>⬇️ এই পাতার PNG</button>
         </div>
         <div className="sheet shoes" ref={(el) => (refs.current[k] = el)}>
           <div className="shd"><b>LOFZ · {GN[pg.grp]}</b><span>{dateLine(pg)}</span></div>
