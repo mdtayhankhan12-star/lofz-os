@@ -86,7 +86,7 @@ export default function ShoeSheet({ ids, onClose, png = false }) {
               </div>
             ))}
           </div>
-          <div className="skar"><b>কারিগরের নাম:</b><span /><b>তারিখ:</b><span className="sm" /></div>
+          <div className="skar" />
         </div>
         </React.Fragment>
       ))}

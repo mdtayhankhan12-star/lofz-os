@@ -598,3 +598,7 @@ html:not([data-theme="dark"]) .top{background:transparent}
 .sheet.shoes .sstock{top:9mm}
 .skar{display:flex;align-items:flex-end;gap:2mm;margin-top:3mm;height:11mm;font-size:12pt}
 .skar span{flex:1;border-bottom:1.5px solid #111;height:7mm}.skar span.sm{flex:0 0 38mm}
+/* v3: লেখা ছাড়া নিচে ফাঁকা জায়গা; ছবি ঘর ভরে বড় */
+.skar{height:12mm;margin-top:2mm}
+.sheet.shoes .scell img{object-fit:cover;object-position:center}
+.scol{font-size:11pt;padding:.4mm 0;margin-bottom:.6mm}
