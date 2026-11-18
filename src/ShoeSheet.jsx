@@ -5,6 +5,10 @@ import { loadMatches } from "./Orders.jsx";
 
 // কারিগরের A4 শিট: প্রতি পাতায় ১২টা জুতা (৩ কলাম × ৪ সারি)।
 // প্রতি জোড়া আলাদা ঘর; Website-এর ঘরে অর্ডার নম্বর, Facebook-এর ঘরে ফোন নম্বর।
+// রঙের নাম বাংলায় (কারিগর সহজে বুঝবে)
+const BN_COLOR = { black: "কালো", beige: "বেইজ (ঘিয়া)", maroon: "মেরুন", gold: "সোনালি", golden: "সোনালি", "rose gold": "রোজ গোল্ড", brown: "খয়েরি", white: "সাদা", "off white": "অফ হোয়াইট", pink: "গোলাপি", silver: "রুপালি", red: "লাল", "light violet": "হালকা বেগুনি", violet: "বেগুনি", purple: "বেগুনি", animal: "এনিমেল প্রিন্ট", green: "সবুজ", yellow: "হলুদ", gray: "ধূসর", grey: "ধূসর", orange: "কমলা", blue: "নীল", navy: "নেভি ব্লু", cream: "ক্রিম", nude: "নুড", tan: "ট্যান", skin: "স্কিন", copper: "তামাটে", multicolor: "মাল্টিকালার" };
+export const bnColor = (c) => { const k = String(c ?? "").trim().toLowerCase(); return k ? BN_COLOR[k] ?? c : ""; };
+
 export default function ShoeSheet({ ids, onClose, png = false }) {
   const [list, setList] = useState(null);
   const refs = useRef([]); const dl = useRef(new Set()); const [busy, setBusy] = useState(""); const [ask, setAsk] = useState(false);
@@ -22,7 +26,7 @@ export default function ShoeSheet({ ids, onClose, png = false }) {
     const mine = { 1: [], 2: [] };
     for (const i of o.order_items ?? [])
       for (let q = 0; q < (i.quantity || 1); q++)
-        mine[grpOf(i.product_name)].push({ stock: (() => { const L = mm[o.id] ?? []; const k = L.findIndex((x) => !taken.has(x.item_key) && x.product_name === i.product_name && (x.size ?? "") === (i.size ?? "")); if (k < 0) return null; taken.add(L[k].item_key); return { s: L[k].arrived ? "in" : "coming", from: L[k].from_order_no }; })(), id: o.id, src: o.source, img: i.image_url, name: i.product_name, size: i.size, no: o.order_no, phone: o.phone, dt: dOf(o) });
+        mine[grpOf(i.product_name)].push({ stock: (() => { const L = mm[o.id] ?? []; const k = L.findIndex((x) => !taken.has(x.item_key) && x.product_name === i.product_name && (x.size ?? "") === (i.size ?? "")); if (k < 0) return null; taken.add(L[k].item_key); return { s: L[k].arrived ? "in" : "coming", from: L[k].from_order_no }; })(), id: o.id, src: o.source, img: i.image_url, color: i.color, name: i.product_name, size: i.size, no: o.order_no, phone: o.phone, dt: dOf(o) });
     (chunks[o.source] ?? chunks.website).push(mine);
   }
   const cells = { website: chunks.website.flatMap((m) => [...m[1], ...m[2]]), facebook: chunks.facebook.flatMap((m) => [...m[1], ...m[2]]) };
@@ -73,15 +77,16 @@ export default function ShoeSheet({ ids, onClose, png = false }) {
           <div className="sgrid">
             {pg.items.map((c, j) => (
               <div className="scell" key={j}>
+                <div className="scol">{c.color ? "রং: " + bnColor(c.color) : "রং: —"}</div>
                 {c.img ? <img src={c.img} alt="" /> : <div className="sph">ছবি নেই</div>}
                 {c.stock && <div className={"sstock " + c.stock.s}>{c.stock.s === "in" ? "STOCK আছে — বানাবেন না" : "RETURN আসছে"}{c.stock.from ? " — " + c.stock.from : ""}</div>}
                 <div className="sname">{c.name}</div>
-                <div className="ssize">Size: {c.size}</div>
                 {/* Website = অর্ডার নম্বর, Facebook = ফোন নম্বর */}
-                {c.src === "facebook" ? <div className="sno">FB · {c.phone}</div> : <div className="sno">{c.no}</div>}
+                <div className="sline"><span className="ssize">Size {c.size}</span><span className="sno">{c.src === "facebook" ? "FB · " + c.phone : c.no}</span></div>
               </div>
             ))}
           </div>
+          <div className="skar"><b>কারিগরের নাম:</b><span /><b>তারিখ:</b><span className="sm" /></div>
         </div>
         </React.Fragment>
       ))}

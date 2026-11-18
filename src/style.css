@@ -584,3 +584,17 @@ html:not([data-theme="dark"]) .top{background:transparent}
 .scres .scic{font-size:64px;line-height:1}.scres .scno{font-size:32px;font-weight:900;margin:4px 0}.scres .scs{font-weight:700;margin-top:4px}
 .scbox{position:relative}.scaim{position:absolute;left:50%;top:50%;width:55%;aspect-ratio:1;transform:translate(-50%,-50%);border:3px solid #22c55e;border-radius:14px;box-shadow:0 0 0 2000px #0005;pointer-events:none;display:flex;align-items:flex-end;justify-content:center}.scaim span{background:#22c55e;color:#fff;font-weight:800;font-size:12px;padding:3px 8px;border-radius:8px;transform:translateY(130%)}
 .ihd img.iqr{position:absolute;left:0;top:0;width:29mm;height:29mm;border:0;padding:0;margin:0;display:block;image-rendering:pixelated}
+
+/* কারিগর শিট v2: বড় ছবি, বাংলায় রং, নিচে কারিগরের নাম */
+.sheet.shoes{padding:6mm 7mm}
+.sheet.shoes .shd{margin-bottom:2mm}
+.sheet.shoes .sgrid{gap:2mm}
+.sheet.shoes .scell{padding:1mm 1.2mm;border-width:1.4px}
+.sheet.shoes .scell img,.sheet.shoes .sph{object-fit:contain;background:#fff}
+.scol{width:100%;text-align:center;font-size:12pt;font-weight:900;background:#111;color:#fff;border-radius:1.5mm;padding:.6mm 0;margin-bottom:.8mm;line-height:1.2}
+.sheet.shoes .sname{font-size:7.5pt;margin-top:.6mm}
+.sline{display:flex;justify-content:space-between;align-items:baseline;width:100%;gap:2mm;line-height:1.15}
+.sheet.shoes .ssize{font-size:14pt;font-weight:900}.sheet.shoes .sno{font-size:11pt;font-weight:800}
+.sheet.shoes .sstock{top:9mm}
+.skar{display:flex;align-items:flex-end;gap:2mm;margin-top:3mm;height:11mm;font-size:12pt}
+.skar span{flex:1;border-bottom:1.5px solid #111;height:7mm}.skar span.sm{flex:0 0 38mm}
