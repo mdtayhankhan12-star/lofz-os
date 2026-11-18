@@ -22,7 +22,7 @@ export default function Scanner() {
   const stop = () => { stream.current?.getTracks().forEach((t) => t.stop()); stream.current = null; setOn(false); };
   useEffect(() => stop, []);
 
-  const last = useRef({ no: "", t: 0 }); const hold = useRef(null);
+  const last = useRef({ no: "", t: 0 }); const [seen, setSeen] = useState(""); const hold = useRef(null);
   const [res, setRes] = useState(null); const [log, setLog] = useState([]);
   const show = (r, ms) => { setRes(r); setLog((l) => [{ ...r, at: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) }, ...l].slice(0, 15)); clearTimeout(hold.current); hold.current = setTimeout(() => { setRes(null); lock.current = false; }, ms); };
 
@@ -52,7 +52,7 @@ export default function Scanner() {
     setErr("");
     try {
       let s;
-      try { s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: "environment" } }, audio: false }); }
+      try { s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false }); }
       catch {
         // exact না পেলে: ক্যামেরার তালিকা থেকে পেছনেরটা বাছি
         const t0 = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
@@ -61,18 +61,27 @@ export default function Scanner() {
         const back = ds.find((d) => /back|rear|environment|পেছন/i.test(d.label)) ?? ds[ds.length - 1];
         s = await navigator.mediaDevices.getUserMedia({ video: back ? { deviceId: { exact: back.deviceId } } : true, audio: false });
       }
+      try { const tr = s.getVideoTracks()[0]; const cp = tr.getCapabilities?.() ?? {}; if (cp.focusMode?.includes("continuous")) await tr.applyConstraints({ advanced: [{ focusMode: "continuous" }] }); } catch {}
+      const det = "BarcodeDetector" in window ? new window.BarcodeDetector({ formats: ["qr_code"] }) : null;
       stream.current = s; vid.current.srcObject = s; await vid.current.play(); setOn(true); lock.current = false;
-      const tick = () => {
+      const tick = async () => {
         if (!stream.current) return;
         const v = vid.current;
         if (!lock.current && v.videoWidth) {
-          const c = cv.current; c.width = v.videoWidth; c.height = v.videoHeight;
-          const x = c.getContext("2d", { willReadFrequently: true }); x.drawImage(v, 0, 0);
-          const img = x.getImageData(0, 0, c.width, c.height);
-          const k = jsQR(img.data, c.width, c.height, { inversionAttempts: "dontInvert" });
-          if (k?.data && /^LOFZ:/i.test(k.data)) lookup(k.data);
+          let txt = null;
+          try { if (det) { const r = await det.detect(v); txt = r[0]?.rawValue ?? null; } } catch {}
+          if (!txt) {
+            // jsQR: ছোট করে (৮০০ পিক্সেল) আর পুরো ছবিতে — দুইভাবেই চেষ্টা
+            const c = cv.current; const sc = Math.min(1, 800 / v.videoWidth);
+            c.width = Math.round(v.videoWidth * sc); c.height = Math.round(v.videoHeight * sc);
+            const x = c.getContext("2d", { willReadFrequently: true }); x.drawImage(v, 0, 0, c.width, c.height);
+            const img = x.getImageData(0, 0, c.width, c.height);
+            txt = jsQR(img.data, c.width, c.height, { inversionAttempts: "attemptBoth" })?.data ?? null;
+          }
+          if (txt) setSeen(txt.slice(0, 40));
+          if (txt && /^LOFZ:/i.test(txt)) lookup(txt);
         }
-        setTimeout(tick, 150);
+        setTimeout(tick, 120);
       };
       tick();
     } catch (e) { setErr("ক্যামেরা চালু হয়নি: " + (e.message || e) + " — ব্রাউজারে ক্যামেরার অনুমতি দিন।"); }
@@ -92,6 +101,7 @@ export default function Scanner() {
       </div>
       {err && <p className="err">{err}</p>}
       <video ref={vid} playsInline muted style={{ display: on ? "block" : "none", marginTop: 10 }} />
+      {on && <div className="muted small">{seen ? "কোড পড়েছে: " + seen : "কোড খুঁজছে… ইনভয়েস ১৫–২০ সেমি দূরে, আলোতে, স্থির ধরুন"}</div>}
       <canvas ref={cv} style={{ display: "none" }} />
       <div className="row" style={{ marginTop: 10 }}>
         <input placeholder="হাতে অর্ডার নম্বর লিখুন (যেমন #2558) বা USB স্ক্যানার ব্যবহার করুন" value={man} onChange={(e) => setMan(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { lookup(man); setMan(""); } }} style={{ flex: 1 }} />

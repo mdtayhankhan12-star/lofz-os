@@ -6,7 +6,7 @@ import QRCode from "qrcode";
 // ইনভয়েসের QR: ভেতরে "LOFZ:<অর্ডার নম্বর>" — অ্যাপের স্ক্যানার এটা পড়ে বুক করে
 export function InvQr({ no }) {
   const [u, setU] = useState("");
-  useEffect(() => { QRCode.toDataURL("LOFZ:" + no, { margin: 1, width: 240, errorCorrectionLevel: "M" }).then(setU).catch(() => {}); }, [no]);
+  useEffect(() => { QRCode.toDataURL("LOFZ:" + no, { margin: 2, width: 360, errorCorrectionLevel: "M" }).then(setU).catch(() => {}); }, [no]);
   return u ? <img className="iqr" src={u} alt="" /> : null;
 }
 
