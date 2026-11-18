@@ -7,12 +7,18 @@ async function inlineImages(nodes, onStep) {
   const urls = [...new Set(imgs.map((i) => i.src))];
   const map = new Map(); let done = 0;
   const one = async (u) => {
+    const ac = new AbortController(); const t = setTimeout(() => ac.abort(), 12000); // একটা ছবি আটকে গেলে ১২ সেকেন্ড পর বাদ
     try {
-      const r = await fetch(u, { mode: "cors", cache: "force-cache" });
+      const r = await fetch(u, { mode: "cors", cache: "force-cache", signal: ac.signal });
       if (!r.ok) throw 0;
-      const b = await r.blob();
-      map.set(u, await new Promise((res, rej) => { const f = new FileReader(); f.onload = () => res(f.result); f.onerror = rej; f.readAsDataURL(b); }));
-    } catch {}
+      const bmp = await createImageBitmap(await r.blob());
+      // বড় ছবি ছোট করি (সর্বোচ্চ ৮০০ পিক্সেল) — দ্রুত হয়, ফোন আটকে যায় না
+      const k = Math.min(1, 800 / Math.max(bmp.width, bmp.height));
+      const c = document.createElement("canvas"); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+      const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height); x.drawImage(bmp, 0, 0, c.width, c.height);
+      map.set(u, c.toDataURL("image/jpeg", 0.9));
+    } catch { map.set(u, PH); } // না এলে ধূসর ঘর — পুরো কাজ আটকাবে না
+    finally { clearTimeout(t); }
     done++; onStep?.(`ছবি লোড হচ্ছে ${done}/${urls.length}...`);
   };
   for (let i = 0; i < urls.length; i += 6) await Promise.all(urls.slice(i, i + 6).map(one));
@@ -35,7 +41,7 @@ async function render(nodes, base, onStep) {
       const z = n.style.zoom; n.style.zoom = "1";
       try {
         // A4 = 210×297mm; pixelRatio 2 ≈ ১৬০০×২২৫০ পিক্সেল — WhatsApp-এ পাঠানোর মতো ছোট, তবু পরিষ্কার
-        const blob = await toBlob(n, { pixelRatio: 2, cacheBust: false, backgroundColor: "#ffffff", imagePlaceholder: PH, fontEmbedCSS, skipFonts: !fontEmbedCSS });
+        const blob = await toBlob(n, { pixelRatio: 2.5, cacheBust: false, backgroundColor: "#ffffff", imagePlaceholder: PH, fontEmbedCSS, skipFonts: !fontEmbedCSS });
         if (!blob) throw new Error("ছবি বানানো যায়নি");
         out.push({ blob, name: nodes.length > 1 ? `${base}-${String(i + 1).padStart(2, "0")}.png` : `${base}.png` });
       } finally { n.style.zoom = z; }
