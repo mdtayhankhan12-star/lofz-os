@@ -22,12 +22,13 @@ export default function Scanner() {
   const stop = () => { stream.current?.getTracks().forEach((t) => t.stop()); stream.current = null; setOn(false); };
   useEffect(() => stop, []);
 
-  const last = useRef({ no: "", t: 0 }); const [seen, setSeen] = useState(""); const hold = useRef(null);
+  const frames = useRef(0); const last = useRef({ no: "", t: 0 }); const [seen, setSeen] = useState(""); const [dg, setDg] = useState(""); const hold = useRef(null);
   const [res, setRes] = useState(null); const [log, setLog] = useState([]);
   const show = (r, ms) => { setRes(r); setLog((l) => [{ ...r, at: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) }, ...l].slice(0, 15)); clearTimeout(hold.current); hold.current = setTimeout(() => { setRes(null); lock.current = false; }, ms); };
 
   // স্ক্যান হলেই নিজে থেকে: অর্ডার খোঁজা → যাচাই → Steadfast-এ বুক → ফল দেখানো → পরের স্ক্যানের জন্য তৈরি
-  const lookup = async (raw) => {
+  const lookup = async (raw) => { try { await lookup0(raw); } catch (e) { beep(false); show({ t: "err", no: String(raw).slice(0, 20), s: "সমস্যা: " + (e.message || e) }, 4500); } };
+  const lookup0 = async (raw) => {
     const no = String(raw).replace(/^LOFZ:/i, "").trim();
     if (!no) return;
     if (last.current.no === no && Date.now() - last.current.t < 6000) return; // একই কোড বারবার পড়লে বাদ
@@ -67,6 +68,7 @@ export default function Scanner() {
       const tick = async () => {
         if (!stream.current) return;
         const v = vid.current;
+        frames.current++; if (frames.current % 10 === 0) setDg(`ক্যামেরা ${v.videoWidth}×${v.videoHeight} · স্ক্যান ${frames.current}বার · ${det ? "native" : "jsQR"}`);
         if (!lock.current && v.videoWidth) {
           let txt = null;
           try { if (det) { const r = await det.detect(v); txt = r[0]?.rawValue ?? null; } } catch {}
@@ -100,8 +102,8 @@ export default function Scanner() {
         <button className="chip" onClick={loadToday}>🔄</button>
       </div>
       {err && <p className="err">{err}</p>}
-      <video ref={vid} playsInline muted style={{ display: on ? "block" : "none", marginTop: 10 }} />
-      {on && <div className="muted small">{seen ? "কোড পড়েছে: " + seen : "কোড খুঁজছে… ইনভয়েস ১৫–২০ সেমি দূরে, আলোতে, স্থির ধরুন"}</div>}
+      <video ref={vid} playsInline muted style={on ? { marginTop: 10 } : { position: "absolute", width: 2, height: 2, opacity: 0, pointerEvents: "none" }} />
+      {on && <div className="muted small">{seen ? "কোড পড়েছে: " + seen : "কোড খুঁজছে… ইনভয়েস ১৫–২০ সেমি দূরে, আলোতে, স্থির ধরুন"} · {dg}</div>}
       <canvas ref={cv} style={{ display: "none" }} />
       <div className="row" style={{ marginTop: 10 }}>
         <input placeholder="হাতে অর্ডার নম্বর লিখুন (যেমন #2558) বা USB স্ক্যানার ব্যবহার করুন" value={man} onChange={(e) => setMan(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { lookup(man); setMan(""); } }} style={{ flex: 1 }} />
