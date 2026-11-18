@@ -9,7 +9,6 @@ const phoneOk = (p) => /^01\d{9}$/.test(String(p ?? "").replace(/\D/g, "").repla
 export default function Scanner() {
   const vid = useRef(null); const cv = useRef(null); const stream = useRef(null); const lock = useRef(false);
   const [on, setOn] = useState(false); const [err, setErr] = useState("");
-  const [man, setMan] = useState("");
   const [today, setToday] = useState(null); const [sess, setSess] = useState(0);
   // আজকের (বাংলাদেশ সময়) বুক হওয়া পার্সেল: কয়টা আর COD মোট কত
   const loadToday = async () => {
@@ -20,7 +19,7 @@ export default function Scanner() {
   useEffect(() => { loadToday(); }, []);
 
   const stop = () => { stream.current?.getTracks().forEach((t) => t.stop()); stream.current = null; setOn(false); };
-  useEffect(() => stop, []);
+  useEffect(() => { start(); return stop; }, []); // পেজ খুললেই ক্যামেরা চালু
 
   const frames = useRef(0); const last = useRef({ no: "", t: 0 }); const [seen, setSeen] = useState(""); const [dg, setDg] = useState(""); const hold = useRef(null);
   const [res, setRes] = useState(null); const [log, setLog] = useState([]);
@@ -108,10 +107,6 @@ export default function Scanner() {
       </div>
       {on && <div className="muted small">{seen ? "কোড পড়েছে: " + seen : "কোড খুঁজছে… ইনভয়েস ১৫–২০ সেমি দূরে, আলোতে, স্থির ধরুন"} · {dg}</div>}
       <canvas ref={cv} style={{ display: "none" }} />
-      <div className="row" style={{ marginTop: 10 }}>
-        <input placeholder="হাতে অর্ডার নম্বর লিখুন (যেমন #2558) বা USB স্ক্যানার ব্যবহার করুন" value={man} onChange={(e) => setMan(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { lookup(man); setMan(""); } }} style={{ flex: 1 }} />
-        <button className="chip" onClick={() => { lookup(man); setMan(""); }}>খুঁজুন</button>
-      </div>
       {res && (
         <div className={"scres " + res.t}>
           <div className="scic">{res.t === "ok" ? "✅" : res.t === "warn" ? "⚠️" : "❌"}</div>
