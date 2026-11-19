@@ -53,7 +53,7 @@ export function InvoiceSheet({ o }) {
     <div className="inv">
       <div className="ihd">
         <InvQr no={o.order_no} />
-        <div className="imid">M ID : {o.source === "facebook" ? "307043" : "307473"}</div>
+        <div className="imid">M ID : 307473</div>
         <img src="/logo.png" alt="LOFZ" />
         <p>Kamrangir Char Dhaka Chad Mosjid 1211 Bangladesh</p>
         <p>🟢 +880 1898 444 786</p>
