@@ -37,7 +37,7 @@ export function QueueCards({ counts, open, active, onBook }) {
 }
 
 export default function PrintQueue({ mode = "inv", setMode, onPrint, onShoes, go }) {
-  const [rows, setRows] = useState(null); const [src, setSrc] = useState(""); const [mm, setMm] = useState({});
+  const [rows, setRows] = useState(null); const [src, setSrc] = useState(""); const [day, setDay] = useState(""); const [mm, setMm] = useState({});
   useEffect(() => { loadMatches().then(setMm); }, []);
   useEffect(() => {
     sb.from("orders").select("id,order_no,source,order_date,customer_name,phone,total,invoice_printed_at,invoice_png_at,sheet_printed_at,sheet_png_at,order_items(product_name,image_url,size,quantity)")
@@ -46,20 +46,32 @@ export default function PrintQueue({ mode = "inv", setMode, onPrint, onShoes, go
   }, []);
   const q = QUEUES[mode] ?? QUEUES.inv;
   const counts = rows && Object.fromEntries(Object.entries(QUEUES).map(([k, x]) => [k, rows.filter((r) => !x.done(r)).length]));
-  const list = (rows ?? []).filter((r) => !q.done(r) && (!src || r.source === src));
+  // অর্ডারের তারিখ (ঢাকা সময়) — নির্দিষ্ট দিনের অর্ডার বাছাই করতে
+  const dayOf = (r) => (r.order_date ? new Date(new Date(r.order_date).getTime() + 6 * 36e5).toISOString().slice(0, 10) : "");
+  const pending = (rows ?? []).filter((r) => !q.done(r) && (!src || r.source === src));
+  const days = [...new Set(pending.map(dayOf).filter(Boolean))].sort().reverse();
+  const list = pending.filter((r) => !day || dayOf(r) === day);
+  const dLabel = (d) => d.split("-").reverse().join("/");
   const pairs = list.reduce((a, r) => a + (r.order_items ?? []).reduce((b, i) => b + (i.quantity || 1), 0), 0);
   const run = (ids) => (mode === "inv" ? onPrint(ids) : onShoes(ids, mode === "png"));
   return (
     <div className="stack">
       <QueueCards counts={counts} open={setMode} active={mode} />
       <div className="qhead card">
-        <div><small className="muted">{q.sub}</small><h2 style={{ margin: "2px 0" }}>{q.ic} {q.title} — {rows ? list.length : "…"}টা অর্ডার{mode !== "inv" && ` · ${pairs} জোড়া`}</h2></div>
+        <div><small className="muted">{q.sub}</small><h2 style={{ margin: "2px 0" }}>{q.ic} {q.title}{day ? ` · ${dLabel(day)}` : ""} — {rows ? list.length : "…"}টা অর্ডার{mode !== "inv" && ` · ${pairs} জোড়া`}</h2></div>
         <button className="btn big" disabled={!list.length} onClick={() => run(list.map((r) => r.id))}>{list.length ? q.act + ` (${list.length})` : "সব হয়ে গেছে ✓"}</button>
       </div>
       <div className="card filters">
         {[["", "সব"], ["website", "Website"], ["facebook", "Facebook"]].map(([k, l]) => <button key={k} className={"chip" + (src === k ? " sel" : "")} onClick={() => setSrc(k)}>{l}</button>)}
         <span className="muted small">{mode === "png" ? "PNG নামানো শেষ হলে এই ঘর থেকে নিজে থেকে সরে যাবে।" : "প্রিন্টের পর \"হ্যাঁ, প্রিন্ট করেছি\" চাপলে এই ঘর থেকে সরে যাবে।"} অর্ডার Confirmed ট্যাবে সবসময় থাকবে।</span>
         <button className="chip" onClick={() => go("orders", { mode: "confirmed" })}>✅ সব Confirmed দেখুন</button>
+      </div>
+      <div className="card filters">
+        <b className="small">📅 তারিখ:</b>
+        <button className={"chip" + (!day ? " sel" : "")} onClick={() => setDay("")}>সব তারিখ ({pending.length})</button>
+        {days.slice(0, 10).map((d) => <button key={d} className={"chip" + (day === d ? " sel" : "")} onClick={() => setDay(d)}>{dLabel(d)} ({pending.filter((r) => dayOf(r) === d).length})</button>)}
+        <input type="date" id="pq-day" value={day} onChange={(e) => setDay(e.target.value)} style={{ maxWidth: 170 }} aria-label="তারিখ বাছাই" />
+        {day && <span className="muted small">শুধু {dLabel(day)} তারিখের অর্ডার দেখাচ্ছে — উপরের বড় বোতাম চাপলে শুধু এগুলোই প্রিন্ট/ডাউনলোড হবে।</span>}
       </div>
       {!rows ? <div className="card">লোড হচ্ছে...</div> : !list.length ? <div className="card muted">🎉 এই ঘরে কিছু বাকি নেই। নতুন অর্ডার Confirmed হলে এখানে আসবে।</div> : (
         <div className="olist">

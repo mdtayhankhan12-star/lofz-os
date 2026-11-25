@@ -606,3 +606,6 @@ html:not([data-theme="dark"]) .top{background:transparent}
 .sheet.shoes .scell{padding:.8mm 1mm}.skar{height:10mm;margin-top:1.5mm}.sheet.shoes .sname{font-size:7pt;margin-top:.4mm}
 .sheet.shoes .scell img{object-fit:contain;background:#fff}
 .sheet.shoes .ssize{font-size:11.5pt}.sheet.shoes .sno{font-size:9pt}
+/* A4-তে দুটো ইনভয়েস সবসময় সমান অর্ধেক মাপের */
+.sheet > .inv{height:135.5mm;overflow:hidden}
+.sheet > .inv .ity{margin-top:auto;padding-top:2mm}

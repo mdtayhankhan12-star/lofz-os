@@ -47,8 +47,8 @@ const d2 = (s) => { const d = new Date(s); return `${String(d.getDate()).padStar
 export function InvoiceSheet({ o }) {
   const items = o.order_items ?? [];
   // ২টা পর্যন্ত জুতা: বড় ছবি; বেশি হলে ছবি ছোট হয়ে এক পাতায় ২টা ইনভয়েসই থাকে
-  const rh = items.length <= 2 ? 22 : Math.max(7.5, 47 / items.length);
-  const fill = Math.max(3, 47 - items.length * rh);
+  const rh = items.length <= 2 ? 18 : Math.max(7.5, 38 / items.length);
+  const fill = Math.max(0, 38 - items.length * rh);
   return (
     <div className="inv">
       <div className="ihd">
