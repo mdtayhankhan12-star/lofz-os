@@ -51,8 +51,9 @@ export default function ShoeSheet({ ids, onClose, png = false }) {
   // কোন অর্ডার কোন কোন পাতায় আছে — সব পাতা নামলে তবেই অর্ডার "হয়ে গেছে"
   const ordPages = new Map(); pages.forEach((pg, k) => pg.items.forEach((c) => { if (!ordPages.has(c.id)) ordPages.set(c.id, new Set()); ordPages.get(c.id).add(k); }));
   // PNG SHEET (আপার মিস্ত্রি) থেকে নামালে শুধু PNG ঘর থেকে সরে; KARIGOR SHEET থেকে নামালে শুধু কারিগর ঘর থেকে
-  const markDone = (ids) => markPrinted(ids, png ? "sheet_png_at" : "sheet_printed_at");
-  const boxName = png ? "PNG SHEET" : "KARIGOR SHEET";
+  // PNG SHEET বা KARIGOR SHEET — যেকোনো জায়গা থেকে নামালে দুই ঘর থেকেই সরে যায় (দুটো ঘর সবসময় সমান থাকে)
+  const markDone = async (ids) => { const a = await markPrinted(ids, "sheet_png_at"); const b = await markPrinted(ids, "sheet_printed_at"); return a || b; };
+  const boxName = "KARIGOR SHEET ও PNG SHEET";
 
   return (
     <div className="printwrap">
