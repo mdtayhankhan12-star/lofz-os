@@ -609,3 +609,18 @@ html:not([data-theme="dark"]) .top{background:transparent}
 /* A4-তে দুটো ইনভয়েস সবসময় সমান অর্ধেক মাপের */
 .sheet > .inv{height:135.5mm;overflow:hidden}
 .sheet > .inv .ity{margin-top:auto;padding-top:2mm}
+
+/* তারিখ বাছাই কার্ড */
+.dpick{display:flex;flex-direction:column;gap:10px}
+.dp-top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
+.dp-pre{display:flex;flex-wrap:wrap;gap:6px}
+.dp-range{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px}
+.dp-range label{display:flex;flex-direction:column;font-size:12px;font-weight:700;opacity:.8;gap:3px}
+.dp-range input{min-width:0;max-width:170px}
+.dp-arrow{font-size:20px;padding-bottom:6px;opacity:.6}
+.dp-days{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
+.dday{flex:none;display:flex;flex-direction:column;align-items:center;min-width:64px;padding:8px 6px;border-radius:14px;border:1.5px solid rgba(142,44,63,.25);background:rgba(255,255,255,.6);cursor:pointer;font:inherit;line-height:1.25}
+.dday b{font-size:15px}.dday small{font-size:11px;opacity:.75}
+.dday.on{background:#8E2C3F;color:#fff;border-color:#8E2C3F}
+.dday.pick{outline:3px solid #C9972B;outline-offset:1px}
+.dp-note{opacity:.85}
