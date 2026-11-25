@@ -85,6 +85,7 @@ export default function PrintQueue({ mode = "inv", setMode, onPrint, onShoes, go
           <b>📅 তারিখ বাছাই</b>
           <div className="dp-pre">
             <button className={"chip" + (!filtered ? " sel" : "")} onClick={() => preset("", "")}>সব ({pending.length})</button>
+            <button className="chip" onClick={() => preset("", shift(1))}>আজকের আগের সব</button>
             <button className="chip" onClick={() => preset(today, today)}>আজ</button>
             <button className="chip" onClick={() => preset(shift(1), shift(1))}>গতকাল</button>
             <button className="chip" onClick={() => preset(shift(2), today)}>শেষ ৩ দিন</button>
